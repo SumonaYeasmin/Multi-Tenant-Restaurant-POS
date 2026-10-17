@@ -17,7 +17,7 @@ export async function seedAdmin(prisma: PrismaClient) {
         create: {
             email: adminEmail,
             password: hashedPassword,
-            role: UserRole.ADMIN,
+            role: UserRole.OWNER,
             status: UserStatus.ACTIVE
         },
     });

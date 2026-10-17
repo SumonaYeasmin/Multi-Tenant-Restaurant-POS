@@ -10,9 +10,11 @@
 */
 
 export const UserRole = {
-  ADMIN: 'ADMIN',
-  USER: 'USER',
-  ORGANIZER: 'ORGANIZER'
+  OWNER: 'OWNER',
+  MANAGER: 'MANAGER',
+  CASHIER: 'CASHIER',
+  KITCHEN: 'KITCHEN',
+  WAITER: 'WAITER'
 } as const
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole]
@@ -27,11 +29,3 @@ export const UserStatus = {
 } as const
 
 export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus]
-
-
-export const OtpType = {
-  ACCOUNT_VERIFY: 'ACCOUNT_VERIFY',
-  PASSWORD_RESET: 'PASSWORD_RESET'
-} as const
-
-export type OtpType = (typeof OtpType)[keyof typeof OtpType]

@@ -3,24 +3,14 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
-import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
-import {
-    UserRole,
-    UserStatus,
-    OtpType,
-} from '../../../../prisma/generated/client';
+import { UserStatus } from '../../../../prisma/generated/client';
 import { ResponseHelper } from '../../../common/helpers/response.helper';
-import { OtpService } from './otp.service';
 import {
-    ConflictException,
     InvalidCredentialsException,
-    NotFoundException,
-    OtpInvalidException,
     UnauthorizedException,
 } from '../../../common/exceptions/business.exception';
-
 import { ConfigService } from '@nestjs/config';
 import { generateTokens } from '../utils/token.util';
 import { RedisService } from '../../../shared/redis/redis.service';
@@ -31,60 +21,9 @@ export class AuthService {
         private readonly prisma: PrismaService,
         private readonly jwtService: JwtService,
         private readonly configService: ConfigService,
-        private readonly otpService: OtpService,
         private readonly eventEmitter: EventEmitter2,
         private readonly redisService: RedisService,
     ) { }
-
-    async register(dto: RegisterDto) {
-        if (dto.password !== dto.confirmPassword) {
-            throw new ConflictException('Passwords do not match');
-        }
-
-        const existingUser = await this.prisma.user.findUnique({
-            where: { email: dto.email },
-        });
-        if (existingUser) {
-            throw new ConflictException('User with this email already exists');
-        }
-
-        const saltRounds = this.configService.get<number>('app.bcryptSaltRounds') as number;
-        const hashedPassword = await bcrypt.hash(dto.password, saltRounds);
-
-        const user = await this.prisma.user.create({
-            data: {
-                email: dto.email,
-                password: hashedPassword,
-                role: UserRole.USER,
-                status: UserStatus.PENDING_VERIFICATION
-            },
-        });
-
-        try {
-            await this.otpService.sendOtp({
-                email: user.email!,
-                type: OtpType.ACCOUNT_VERIFY,
-            });
-        } catch (error) {
-            await this.prisma.user.delete({ where: { id: user.id } });
-            throw error;
-        }
-
-        this.eventEmitter.emit('activity.log', {
-            type: 'USER_REGISTERED',
-            message: `${user.email} joined the platform`,
-            metadata: { userId: user.id },
-        });
-
-        return ResponseHelper.created(
-            {
-                id: user.id,
-                email: user.email,
-                role: user.role
-            },
-            'Registration successful. Please check your email for the verification code.',
-        );
-    }
 
     async login(dto: LoginDto) {
         const user = await this.prisma.user.findUnique({
@@ -97,16 +36,6 @@ export class AuthService {
         const isPasswordValid = await bcrypt.compare(dto.password, user.password);
         if (!isPasswordValid) {
             throw new InvalidCredentialsException();
-        }
-
-        if (user.status === UserStatus.PENDING_VERIFICATION) {
-            await this.otpService.sendOtp({
-                email: user.email!,
-                type: OtpType.ACCOUNT_VERIFY,
-            });
-            throw new UnauthorizedException(
-                'Your account is not verified yet. We have sent a new OTP to your email. Please verify your account to continue.',
-            );
         }
 
         if (user.status !== UserStatus.ACTIVE) {
@@ -134,9 +63,10 @@ export class AuthService {
         );
 
         // Store refresh token in Redis (e.g., valid for 30 days => 30 * 24 * 60 * 60)
-        // Extract TTL from config or default to 30 days
         const refreshExpiresInStr = this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN') as string;
-        const ttlSeconds = refreshExpiresInStr.includes('d') ? parseInt(refreshExpiresInStr) * 24 * 60 * 60 : 30 * 24 * 60 * 60;
+        const ttlSeconds = refreshExpiresInStr && refreshExpiresInStr.includes('d')
+            ? parseInt(refreshExpiresInStr) * 24 * 60 * 60
+            : 30 * 24 * 60 * 60;
         await this.redisService.set(`refresh_token:${user.id}`, refreshToken, ttlSeconds);
 
         return ResponseHelper.success(
@@ -176,7 +106,7 @@ export class AuthService {
             const payload = {
                 sub: user.id,
                 email: user.email,
-                role: user.role
+                role: user.role,
             };
             const { accessToken, refreshToken } = generateTokens(
                 this.jwtService,
@@ -186,7 +116,9 @@ export class AuthService {
 
             // Update refresh token in Redis
             const refreshExpiresInStr = this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN') as string;
-            const ttlSeconds = refreshExpiresInStr.includes('d') ? parseInt(refreshExpiresInStr) * 24 * 60 * 60 : 30 * 24 * 60 * 60;
+            const ttlSeconds = refreshExpiresInStr && refreshExpiresInStr.includes('d')
+                ? parseInt(refreshExpiresInStr) * 24 * 60 * 60
+                : 30 * 24 * 60 * 60;
             await this.redisService.set(`refresh_token:${user.id}`, refreshToken, ttlSeconds);
 
             return ResponseHelper.success(
