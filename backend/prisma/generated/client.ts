@@ -55,6 +55,11 @@ export type TenantRole = Prisma.TenantRoleModel
  */
 export type StaffMember = Prisma.StaffMemberModel
 /**
+ * Model Branch
+ * 
+ */
+export type Branch = Prisma.BranchModel
+/**
  * Model User
  * 
  */
