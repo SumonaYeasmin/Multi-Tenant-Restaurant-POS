@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 import {
   NotFoundException,
   AlreadyExistsException,
@@ -102,5 +103,46 @@ export class CategoryService {
     }
 
     return category;
+  }
+
+  async updateCategory(
+    tenantSlug: string,
+    categoryId: string,
+    dto: UpdateCategoryDto,
+  ) {
+    // 1. Verify category exists for this tenant
+    const category = await this.getCategoryById(tenantSlug, categoryId);
+
+    // 2. If name is being changed, verify uniqueness
+    if (dto.name !== undefined) {
+      const trimmedName = dto.name.trim();
+      const existingCategory = await this.prisma.category.findFirst({
+        where: {
+          tenantId: category.tenantId,
+          name: {
+            equals: trimmedName,
+            mode: 'insensitive',
+          },
+          id: { not: categoryId },
+        },
+      });
+
+      if (existingCategory) {
+        throw new AlreadyExistsException('A category with this name');
+      }
+    }
+
+    // 3. Update category
+    const updatedCategory = await this.prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.description !== undefined && { description: dto.description.trim() }),
+        ...(dto.sort !== undefined && { sort: dto.sort }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      },
+    });
+
+    return updatedCategory;
   }
 }
