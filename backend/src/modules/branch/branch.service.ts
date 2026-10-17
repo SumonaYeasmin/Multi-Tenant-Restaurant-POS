@@ -50,4 +50,21 @@ export class BranchService {
 
     return branch;
   }
+
+  async getAllBranches(tenantSlug: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch all branches for this tenant
+    return this.prisma.branch.findMany({
+      where: { tenantId: tenant.id },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
 }

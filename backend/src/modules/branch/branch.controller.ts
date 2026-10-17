@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   Post,
   UseGuards,
@@ -52,5 +53,29 @@ export class BranchController {
   ) {
     const branch = await this.branchService.createBranch(tenantSlug, dto);
     return ResponseHelper.created(branch, 'Branch created successfully');
+  }
+
+  @Get(':tenantSlug/branches')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.BRANCHES_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all branches of the restaurant',
+    description: 'Retrieves all physical branches/locations for the specified restaurant tenant.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Branches retrieved successfully',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Restaurant not found' })
+  async getAllBranches(@Param('tenantSlug') tenantSlug: string) {
+    const branches = await this.branchService.getAllBranches(tenantSlug);
+    return ResponseHelper.success(branches, 'Branches retrieved successfully');
   }
 }
