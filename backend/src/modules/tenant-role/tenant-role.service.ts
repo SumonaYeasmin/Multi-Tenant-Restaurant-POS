@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DEFAULT_ROLE_PERMISSIONS } from '../../common/constants/permissions.constant';
 import { UserRole } from '../../../prisma/generated/client';
 import { NotFoundException } from '../../common/exceptions/business.exception';
+import { UpdateRolePermissionsDto } from './dto/update-role-permissions.dto';
 
 @Injectable()
 export class TenantRoleService {
@@ -52,5 +53,51 @@ export class TenantRoleService {
       permissions: r.permissions,
       updatedAt: r.updatedAt,
     }));
+  }
+
+  async updateRolePermissions(
+    tenantSlug: string,
+    roleParam: string,
+    dto: UpdateRolePermissionsDto,
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    const roleUpper = roleParam.toUpperCase() as UserRole;
+    if (!Object.values(UserRole).includes(roleUpper)) {
+      throw new BadRequestException(
+        `Invalid role: "${roleParam}". Allowed roles are: ${Object.values(UserRole).join(', ')}`,
+      );
+    }
+
+    // Upsert role permissions for this tenant
+    const updated = await this.prisma.tenantRole.upsert({
+      where: {
+        tenantId_role: {
+          tenantId: tenant.id,
+          role: roleUpper,
+        },
+      },
+      update: {
+        permissions: dto.permissions,
+      },
+      create: {
+        tenantId: tenant.id,
+        role: roleUpper,
+        permissions: dto.permissions,
+      },
+    });
+
+    return {
+      id: updated.id,
+      role: updated.role,
+      permissions: updated.permissions,
+      updatedAt: updated.updatedAt,
+    };
   }
 }
