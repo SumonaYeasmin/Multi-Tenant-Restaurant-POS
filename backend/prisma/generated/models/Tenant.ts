@@ -288,6 +288,7 @@ export type TenantWhereInput = {
   staff?: Prisma.StaffMemberListRelationFilter
   branches?: Prisma.BranchListRelationFilter
   categories?: Prisma.CategoryListRelationFilter
+  modifierGroups?: Prisma.ModifierGroupListRelationFilter
 }
 
 export type TenantOrderByWithRelationInput = {
@@ -308,6 +309,7 @@ export type TenantOrderByWithRelationInput = {
   staff?: Prisma.StaffMemberOrderByRelationAggregateInput
   branches?: Prisma.BranchOrderByRelationAggregateInput
   categories?: Prisma.CategoryOrderByRelationAggregateInput
+  modifierGroups?: Prisma.ModifierGroupOrderByRelationAggregateInput
 }
 
 export type TenantWhereUniqueInput = Prisma.AtLeast<{
@@ -331,6 +333,7 @@ export type TenantWhereUniqueInput = Prisma.AtLeast<{
   staff?: Prisma.StaffMemberListRelationFilter
   branches?: Prisma.BranchListRelationFilter
   categories?: Prisma.CategoryListRelationFilter
+  modifierGroups?: Prisma.ModifierGroupListRelationFilter
 }, "id" | "slug">
 
 export type TenantOrderByWithAggregationInput = {
@@ -391,6 +394,7 @@ export type TenantCreateInput = {
   staff?: Prisma.StaffMemberCreateNestedManyWithoutTenantInput
   branches?: Prisma.BranchCreateNestedManyWithoutTenantInput
   categories?: Prisma.CategoryCreateNestedManyWithoutTenantInput
+  modifierGroups?: Prisma.ModifierGroupCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateInput = {
@@ -411,6 +415,7 @@ export type TenantUncheckedCreateInput = {
   staff?: Prisma.StaffMemberUncheckedCreateNestedManyWithoutTenantInput
   branches?: Prisma.BranchUncheckedCreateNestedManyWithoutTenantInput
   categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutTenantInput
+  modifierGroups?: Prisma.ModifierGroupUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUpdateInput = {
@@ -431,6 +436,7 @@ export type TenantUpdateInput = {
   staff?: Prisma.StaffMemberUpdateManyWithoutTenantNestedInput
   branches?: Prisma.BranchUpdateManyWithoutTenantNestedInput
   categories?: Prisma.CategoryUpdateManyWithoutTenantNestedInput
+  modifierGroups?: Prisma.ModifierGroupUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateInput = {
@@ -451,6 +457,7 @@ export type TenantUncheckedUpdateInput = {
   staff?: Prisma.StaffMemberUncheckedUpdateManyWithoutTenantNestedInput
   branches?: Prisma.BranchUncheckedUpdateManyWithoutTenantNestedInput
   categories?: Prisma.CategoryUncheckedUpdateManyWithoutTenantNestedInput
+  modifierGroups?: Prisma.ModifierGroupUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateManyInput = {
@@ -640,6 +647,20 @@ export type TenantUpdateOneRequiredWithoutCategoriesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutCategoriesInput, Prisma.TenantUpdateWithoutCategoriesInput>, Prisma.TenantUncheckedUpdateWithoutCategoriesInput>
 }
 
+export type TenantCreateNestedOneWithoutModifierGroupsInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutModifierGroupsInput, Prisma.TenantUncheckedCreateWithoutModifierGroupsInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutModifierGroupsInput
+  connect?: Prisma.TenantWhereUniqueInput
+}
+
+export type TenantUpdateOneRequiredWithoutModifierGroupsNestedInput = {
+  create?: Prisma.XOR<Prisma.TenantCreateWithoutModifierGroupsInput, Prisma.TenantUncheckedCreateWithoutModifierGroupsInput>
+  connectOrCreate?: Prisma.TenantCreateOrConnectWithoutModifierGroupsInput
+  upsert?: Prisma.TenantUpsertWithoutModifierGroupsInput
+  connect?: Prisma.TenantWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.TenantUpdateToOneWithWhereWithoutModifierGroupsInput, Prisma.TenantUpdateWithoutModifierGroupsInput>, Prisma.TenantUncheckedUpdateWithoutModifierGroupsInput>
+}
+
 export type TenantCreateWithoutRolesInput = {
   id?: string
   slug: string
@@ -657,6 +678,7 @@ export type TenantCreateWithoutRolesInput = {
   staff?: Prisma.StaffMemberCreateNestedManyWithoutTenantInput
   branches?: Prisma.BranchCreateNestedManyWithoutTenantInput
   categories?: Prisma.CategoryCreateNestedManyWithoutTenantInput
+  modifierGroups?: Prisma.ModifierGroupCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutRolesInput = {
@@ -676,6 +698,7 @@ export type TenantUncheckedCreateWithoutRolesInput = {
   staff?: Prisma.StaffMemberUncheckedCreateNestedManyWithoutTenantInput
   branches?: Prisma.BranchUncheckedCreateNestedManyWithoutTenantInput
   categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutTenantInput
+  modifierGroups?: Prisma.ModifierGroupUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutRolesInput = {
@@ -711,6 +734,7 @@ export type TenantUpdateWithoutRolesInput = {
   staff?: Prisma.StaffMemberUpdateManyWithoutTenantNestedInput
   branches?: Prisma.BranchUpdateManyWithoutTenantNestedInput
   categories?: Prisma.CategoryUpdateManyWithoutTenantNestedInput
+  modifierGroups?: Prisma.ModifierGroupUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutRolesInput = {
@@ -730,6 +754,7 @@ export type TenantUncheckedUpdateWithoutRolesInput = {
   staff?: Prisma.StaffMemberUncheckedUpdateManyWithoutTenantNestedInput
   branches?: Prisma.BranchUncheckedUpdateManyWithoutTenantNestedInput
   categories?: Prisma.CategoryUncheckedUpdateManyWithoutTenantNestedInput
+  modifierGroups?: Prisma.ModifierGroupUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutStaffInput = {
@@ -749,6 +774,7 @@ export type TenantCreateWithoutStaffInput = {
   roles?: Prisma.TenantRoleCreateNestedManyWithoutTenantInput
   branches?: Prisma.BranchCreateNestedManyWithoutTenantInput
   categories?: Prisma.CategoryCreateNestedManyWithoutTenantInput
+  modifierGroups?: Prisma.ModifierGroupCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutStaffInput = {
@@ -768,6 +794,7 @@ export type TenantUncheckedCreateWithoutStaffInput = {
   roles?: Prisma.TenantRoleUncheckedCreateNestedManyWithoutTenantInput
   branches?: Prisma.BranchUncheckedCreateNestedManyWithoutTenantInput
   categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutTenantInput
+  modifierGroups?: Prisma.ModifierGroupUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutStaffInput = {
@@ -803,6 +830,7 @@ export type TenantUpdateWithoutStaffInput = {
   roles?: Prisma.TenantRoleUpdateManyWithoutTenantNestedInput
   branches?: Prisma.BranchUpdateManyWithoutTenantNestedInput
   categories?: Prisma.CategoryUpdateManyWithoutTenantNestedInput
+  modifierGroups?: Prisma.ModifierGroupUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutStaffInput = {
@@ -822,6 +850,7 @@ export type TenantUncheckedUpdateWithoutStaffInput = {
   roles?: Prisma.TenantRoleUncheckedUpdateManyWithoutTenantNestedInput
   branches?: Prisma.BranchUncheckedUpdateManyWithoutTenantNestedInput
   categories?: Prisma.CategoryUncheckedUpdateManyWithoutTenantNestedInput
+  modifierGroups?: Prisma.ModifierGroupUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutBranchesInput = {
@@ -841,6 +870,7 @@ export type TenantCreateWithoutBranchesInput = {
   roles?: Prisma.TenantRoleCreateNestedManyWithoutTenantInput
   staff?: Prisma.StaffMemberCreateNestedManyWithoutTenantInput
   categories?: Prisma.CategoryCreateNestedManyWithoutTenantInput
+  modifierGroups?: Prisma.ModifierGroupCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutBranchesInput = {
@@ -860,6 +890,7 @@ export type TenantUncheckedCreateWithoutBranchesInput = {
   roles?: Prisma.TenantRoleUncheckedCreateNestedManyWithoutTenantInput
   staff?: Prisma.StaffMemberUncheckedCreateNestedManyWithoutTenantInput
   categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutTenantInput
+  modifierGroups?: Prisma.ModifierGroupUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutBranchesInput = {
@@ -895,6 +926,7 @@ export type TenantUpdateWithoutBranchesInput = {
   roles?: Prisma.TenantRoleUpdateManyWithoutTenantNestedInput
   staff?: Prisma.StaffMemberUpdateManyWithoutTenantNestedInput
   categories?: Prisma.CategoryUpdateManyWithoutTenantNestedInput
+  modifierGroups?: Prisma.ModifierGroupUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutBranchesInput = {
@@ -914,6 +946,7 @@ export type TenantUncheckedUpdateWithoutBranchesInput = {
   roles?: Prisma.TenantRoleUncheckedUpdateManyWithoutTenantNestedInput
   staff?: Prisma.StaffMemberUncheckedUpdateManyWithoutTenantNestedInput
   categories?: Prisma.CategoryUncheckedUpdateManyWithoutTenantNestedInput
+  modifierGroups?: Prisma.ModifierGroupUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantCreateWithoutCategoriesInput = {
@@ -933,6 +966,7 @@ export type TenantCreateWithoutCategoriesInput = {
   roles?: Prisma.TenantRoleCreateNestedManyWithoutTenantInput
   staff?: Prisma.StaffMemberCreateNestedManyWithoutTenantInput
   branches?: Prisma.BranchCreateNestedManyWithoutTenantInput
+  modifierGroups?: Prisma.ModifierGroupCreateNestedManyWithoutTenantInput
 }
 
 export type TenantUncheckedCreateWithoutCategoriesInput = {
@@ -952,6 +986,7 @@ export type TenantUncheckedCreateWithoutCategoriesInput = {
   roles?: Prisma.TenantRoleUncheckedCreateNestedManyWithoutTenantInput
   staff?: Prisma.StaffMemberUncheckedCreateNestedManyWithoutTenantInput
   branches?: Prisma.BranchUncheckedCreateNestedManyWithoutTenantInput
+  modifierGroups?: Prisma.ModifierGroupUncheckedCreateNestedManyWithoutTenantInput
 }
 
 export type TenantCreateOrConnectWithoutCategoriesInput = {
@@ -987,6 +1022,7 @@ export type TenantUpdateWithoutCategoriesInput = {
   roles?: Prisma.TenantRoleUpdateManyWithoutTenantNestedInput
   staff?: Prisma.StaffMemberUpdateManyWithoutTenantNestedInput
   branches?: Prisma.BranchUpdateManyWithoutTenantNestedInput
+  modifierGroups?: Prisma.ModifierGroupUpdateManyWithoutTenantNestedInput
 }
 
 export type TenantUncheckedUpdateWithoutCategoriesInput = {
@@ -1006,6 +1042,103 @@ export type TenantUncheckedUpdateWithoutCategoriesInput = {
   roles?: Prisma.TenantRoleUncheckedUpdateManyWithoutTenantNestedInput
   staff?: Prisma.StaffMemberUncheckedUpdateManyWithoutTenantNestedInput
   branches?: Prisma.BranchUncheckedUpdateManyWithoutTenantNestedInput
+  modifierGroups?: Prisma.ModifierGroupUncheckedUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantCreateWithoutModifierGroupsInput = {
+  id?: string
+  slug: string
+  name: string
+  tagline?: string | null
+  initials?: string | null
+  accent?: string | null
+  currency?: string
+  locale?: string
+  taxRate?: number
+  serviceChargeRate?: number
+  receiptFooter?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  roles?: Prisma.TenantRoleCreateNestedManyWithoutTenantInput
+  staff?: Prisma.StaffMemberCreateNestedManyWithoutTenantInput
+  branches?: Prisma.BranchCreateNestedManyWithoutTenantInput
+  categories?: Prisma.CategoryCreateNestedManyWithoutTenantInput
+}
+
+export type TenantUncheckedCreateWithoutModifierGroupsInput = {
+  id?: string
+  slug: string
+  name: string
+  tagline?: string | null
+  initials?: string | null
+  accent?: string | null
+  currency?: string
+  locale?: string
+  taxRate?: number
+  serviceChargeRate?: number
+  receiptFooter?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  roles?: Prisma.TenantRoleUncheckedCreateNestedManyWithoutTenantInput
+  staff?: Prisma.StaffMemberUncheckedCreateNestedManyWithoutTenantInput
+  branches?: Prisma.BranchUncheckedCreateNestedManyWithoutTenantInput
+  categories?: Prisma.CategoryUncheckedCreateNestedManyWithoutTenantInput
+}
+
+export type TenantCreateOrConnectWithoutModifierGroupsInput = {
+  where: Prisma.TenantWhereUniqueInput
+  create: Prisma.XOR<Prisma.TenantCreateWithoutModifierGroupsInput, Prisma.TenantUncheckedCreateWithoutModifierGroupsInput>
+}
+
+export type TenantUpsertWithoutModifierGroupsInput = {
+  update: Prisma.XOR<Prisma.TenantUpdateWithoutModifierGroupsInput, Prisma.TenantUncheckedUpdateWithoutModifierGroupsInput>
+  create: Prisma.XOR<Prisma.TenantCreateWithoutModifierGroupsInput, Prisma.TenantUncheckedCreateWithoutModifierGroupsInput>
+  where?: Prisma.TenantWhereInput
+}
+
+export type TenantUpdateToOneWithWhereWithoutModifierGroupsInput = {
+  where?: Prisma.TenantWhereInput
+  data: Prisma.XOR<Prisma.TenantUpdateWithoutModifierGroupsInput, Prisma.TenantUncheckedUpdateWithoutModifierGroupsInput>
+}
+
+export type TenantUpdateWithoutModifierGroupsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  tagline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  initials?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currency?: Prisma.StringFieldUpdateOperationsInput | string
+  locale?: Prisma.StringFieldUpdateOperationsInput | string
+  taxRate?: Prisma.FloatFieldUpdateOperationsInput | number
+  serviceChargeRate?: Prisma.FloatFieldUpdateOperationsInput | number
+  receiptFooter?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  roles?: Prisma.TenantRoleUpdateManyWithoutTenantNestedInput
+  staff?: Prisma.StaffMemberUpdateManyWithoutTenantNestedInput
+  branches?: Prisma.BranchUpdateManyWithoutTenantNestedInput
+  categories?: Prisma.CategoryUpdateManyWithoutTenantNestedInput
+}
+
+export type TenantUncheckedUpdateWithoutModifierGroupsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  slug?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  tagline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  initials?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  accent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currency?: Prisma.StringFieldUpdateOperationsInput | string
+  locale?: Prisma.StringFieldUpdateOperationsInput | string
+  taxRate?: Prisma.FloatFieldUpdateOperationsInput | number
+  serviceChargeRate?: Prisma.FloatFieldUpdateOperationsInput | number
+  receiptFooter?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  roles?: Prisma.TenantRoleUncheckedUpdateManyWithoutTenantNestedInput
+  staff?: Prisma.StaffMemberUncheckedUpdateManyWithoutTenantNestedInput
+  branches?: Prisma.BranchUncheckedUpdateManyWithoutTenantNestedInput
+  categories?: Prisma.CategoryUncheckedUpdateManyWithoutTenantNestedInput
 }
 
 
@@ -1018,6 +1151,7 @@ export type TenantCountOutputType = {
   staff: number
   branches: number
   categories: number
+  modifierGroups: number
 }
 
 export type TenantCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1025,6 +1159,7 @@ export type TenantCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions
   staff?: boolean | TenantCountOutputTypeCountStaffArgs
   branches?: boolean | TenantCountOutputTypeCountBranchesArgs
   categories?: boolean | TenantCountOutputTypeCountCategoriesArgs
+  modifierGroups?: boolean | TenantCountOutputTypeCountModifierGroupsArgs
 }
 
 /**
@@ -1065,6 +1200,13 @@ export type TenantCountOutputTypeCountCategoriesArgs<ExtArgs extends runtime.Typ
   where?: Prisma.CategoryWhereInput
 }
 
+/**
+ * TenantCountOutputType without action
+ */
+export type TenantCountOutputTypeCountModifierGroupsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ModifierGroupWhereInput
+}
+
 
 export type TenantSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1084,6 +1226,7 @@ export type TenantSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   staff?: boolean | Prisma.Tenant$staffArgs<ExtArgs>
   branches?: boolean | Prisma.Tenant$branchesArgs<ExtArgs>
   categories?: boolean | Prisma.Tenant$categoriesArgs<ExtArgs>
+  modifierGroups?: boolean | Prisma.Tenant$modifierGroupsArgs<ExtArgs>
   _count?: boolean | Prisma.TenantCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tenant"]>
 
@@ -1141,6 +1284,7 @@ export type TenantInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   staff?: boolean | Prisma.Tenant$staffArgs<ExtArgs>
   branches?: boolean | Prisma.Tenant$branchesArgs<ExtArgs>
   categories?: boolean | Prisma.Tenant$categoriesArgs<ExtArgs>
+  modifierGroups?: boolean | Prisma.Tenant$modifierGroupsArgs<ExtArgs>
   _count?: boolean | Prisma.TenantCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type TenantIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1153,6 +1297,7 @@ export type $TenantPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     staff: Prisma.$StaffMemberPayload<ExtArgs>[]
     branches: Prisma.$BranchPayload<ExtArgs>[]
     categories: Prisma.$CategoryPayload<ExtArgs>[]
+    modifierGroups: Prisma.$ModifierGroupPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1566,6 +1711,7 @@ export interface Prisma__TenantClient<T, Null = never, ExtArgs extends runtime.T
   staff<T extends Prisma.Tenant$staffArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$staffArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$StaffMemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   branches<T extends Prisma.Tenant$branchesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$branchesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   categories<T extends Prisma.Tenant$categoriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$categoriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CategoryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  modifierGroups<T extends Prisma.Tenant$modifierGroupsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Tenant$modifierGroupsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ModifierGroupPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2089,6 +2235,30 @@ export type Tenant$categoriesArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.CategoryScalarFieldEnum | Prisma.CategoryScalarFieldEnum[]
+}
+
+/**
+ * Tenant.modifierGroups
+ */
+export type Tenant$modifierGroupsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ModifierGroup
+   */
+  select?: Prisma.ModifierGroupSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ModifierGroup
+   */
+  omit?: Prisma.ModifierGroupOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ModifierGroupInclude<ExtArgs> | null
+  where?: Prisma.ModifierGroupWhereInput
+  orderBy?: Prisma.ModifierGroupOrderByWithRelationInput | Prisma.ModifierGroupOrderByWithRelationInput[]
+  cursor?: Prisma.ModifierGroupWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ModifierGroupScalarFieldEnum | Prisma.ModifierGroupScalarFieldEnum[]
 }
 
 /**

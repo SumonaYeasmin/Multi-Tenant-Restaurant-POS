@@ -18,6 +18,7 @@ model Tenant {
     staff             StaffMember[]
     branches          Branch[]
     categories        Category[]
+    modifierGroups    ModifierGroup[]
 
     @@map("tenants")
 }
@@ -91,4 +92,34 @@ model Category {
 
     @@unique([tenantId, name])
     @@map("categories")
+}
+
+model ModifierGroup {
+    id          String           @id @default(uuid())
+    tenantId    String
+    name        String
+    min         Int              @default(0)
+    max         Int              @default(1)
+    isRequired  Boolean          @default(false)
+    createdAt   DateTime         @default(now())
+    updatedAt   DateTime         @updatedAt
+
+    tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    options     ModifierOption[]
+
+    @@unique([tenantId, name])
+    @@map("modifier_groups")
+}
+
+model ModifierOption {
+    id        String        @id @default(uuid())
+    groupId   String
+    name      String
+    price     Float         @default(0.0)
+    createdAt DateTime      @default(now())
+    updatedAt DateTime      @updatedAt
+
+    group     ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+    @@map("modifier_options")
 }
