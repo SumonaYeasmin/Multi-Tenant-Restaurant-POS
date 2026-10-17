@@ -55,6 +55,7 @@ export const ModelName = {
   TenantRole: 'TenantRole',
   StaffMember: 'StaffMember',
   Branch: 'Branch',
+  Category: 'Category',
   User: 'User'
 } as const
 
@@ -137,6 +138,20 @@ export const BranchScalarFieldEnum = {
 } as const
 
 export type BranchScalarFieldEnum = (typeof BranchScalarFieldEnum)[keyof typeof BranchScalarFieldEnum]
+
+
+export const CategoryScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  name: 'name',
+  sort: 'sort',
+  description: 'description',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CategoryScalarFieldEnum = (typeof CategoryScalarFieldEnum)[keyof typeof CategoryScalarFieldEnum]
 
 
 export const UserScalarFieldEnum = {

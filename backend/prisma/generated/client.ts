@@ -60,6 +60,11 @@ export type StaffMember = Prisma.StaffMemberModel
  */
 export type Branch = Prisma.BranchModel
 /**
+ * Model Category
+ * 
+ */
+export type Category = Prisma.CategoryModel
+/**
  * Model User
  * 
  */
