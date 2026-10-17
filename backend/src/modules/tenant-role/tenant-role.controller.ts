@@ -3,6 +3,9 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@ne
 import { TenantRoleService } from './tenant-role.service';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator';
+import { Permission } from '../../common/constants/permissions.constant';
 import { UpdateRolePermissionsDto } from './dto/update-role-permissions.dto';
 
 @ApiTags('(Tenant) Roles & Permissions')
@@ -11,13 +14,15 @@ export class TenantRoleController {
   constructor(private readonly tenantRoleService: TenantRoleService) {}
 
   @Get(':tenantSlug/roles')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.ROLES_VIEW)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get all roles and permissions for a tenant',
     description: 'Returns the full matrix of roles and their dynamic permissions for the specified restaurant tenant.',
   })
   @ApiResponse({ status: 200, description: 'Roles and permissions retrieved successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Restaurant not found' })
   async getTenantRoles(@Param('tenantSlug') tenantSlug: string) {
     const roles = await this.tenantRoleService.getTenantRoles(tenantSlug);
@@ -25,7 +30,8 @@ export class TenantRoleController {
   }
 
   @Put(':tenantSlug/roles/:role/permissions')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.STAFF_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Update permissions for a specific role in a tenant',
@@ -35,6 +41,7 @@ export class TenantRoleController {
   @ApiParam({ name: 'role', example: 'CASHIER', description: 'Role name (OWNER, MANAGER, CASHIER, KITCHEN, WAITER)' })
   @ApiResponse({ status: 200, description: 'Role permissions updated successfully' })
   @ApiResponse({ status: 400, description: 'Invalid role or invalid permissions array' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Restaurant not found' })
   async updateRolePermissions(
     @Param('tenantSlug') tenantSlug: string,
