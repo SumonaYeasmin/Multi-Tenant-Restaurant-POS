@@ -51,7 +51,9 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
-  OTP: 'OTP',
+  Tenant: 'Tenant',
+  TenantRole: 'TenantRole',
+  StaffMember: 'StaffMember',
   User: 'User'
 } as const
 
@@ -71,17 +73,55 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
-export const OTPScalarFieldEnum = {
+export const TenantScalarFieldEnum = {
   id: 'id',
-  userId: 'userId',
-  code: 'code',
-  type: 'type',
-  isUsed: 'isUsed',
-  expiresAt: 'expiresAt',
-  createdAt: 'createdAt'
+  slug: 'slug',
+  name: 'name',
+  tagline: 'tagline',
+  initials: 'initials',
+  accent: 'accent',
+  currency: 'currency',
+  locale: 'locale',
+  taxRate: 'taxRate',
+  serviceChargeRate: 'serviceChargeRate',
+  receiptFooter: 'receiptFooter',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 } as const
 
-export type OTPScalarFieldEnum = (typeof OTPScalarFieldEnum)[keyof typeof OTPScalarFieldEnum]
+export type TenantScalarFieldEnum = (typeof TenantScalarFieldEnum)[keyof typeof TenantScalarFieldEnum]
+
+
+export const TenantRoleScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  role: 'role',
+  permissions: 'permissions',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TenantRoleScalarFieldEnum = (typeof TenantRoleScalarFieldEnum)[keyof typeof TenantRoleScalarFieldEnum]
+
+
+export const StaffMemberScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  userId: 'userId',
+  roleId: 'roleId',
+  role: 'role',
+  name: 'name',
+  email: 'email',
+  phone: 'phone',
+  hourlyRate: 'hourlyRate',
+  branchIds: 'branchIds',
+  active: 'active',
+  customPermissions: 'customPermissions',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StaffMemberScalarFieldEnum = (typeof StaffMemberScalarFieldEnum)[keyof typeof StaffMemberScalarFieldEnum]
 
 
 export const UserScalarFieldEnum = {
