@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -11,6 +13,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -52,5 +55,72 @@ export class CategoryController {
   ) {
     const category = await this.categoryService.createCategory(tenantSlug, dto);
     return ResponseHelper.created(category, 'Category created successfully');
+  }
+
+  @Get(':tenantSlug/categories')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all categories of the restaurant',
+    description: 'Retrieves all menu categories for the restaurant, sorted in display order for POS/Menu tabs.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiQuery({
+    name: 'activeOnly',
+    required: false,
+    type: Boolean,
+    description: 'Filter only active categories (useful for POS screen)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Categories retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Restaurant not found' })
+  async getAllCategories(
+    @Param('tenantSlug') tenantSlug: string,
+    @Query('activeOnly') activeOnly?: boolean,
+  ) {
+    const categories = await this.categoryService.getAllCategories(
+      tenantSlug,
+      activeOnly,
+    );
+    return ResponseHelper.success(categories, 'Categories retrieved successfully');
+  }
+
+  @Get(':tenantSlug/categories/:categoryId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get details of a specific category',
+    description: 'Retrieves a single category by its ID.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'categoryId',
+    example: 'uuid',
+    description: 'Category ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Category retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Category or restaurant not found' })
+  async getCategoryById(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('categoryId') categoryId: string,
+  ) {
+    const category = await this.categoryService.getCategoryById(
+      tenantSlug,
+      categoryId,
+    );
+    return ResponseHelper.success(category, 'Category retrieved successfully');
   }
 }

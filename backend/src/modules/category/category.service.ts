@@ -58,4 +58,49 @@ export class CategoryService {
 
     return category;
   }
+
+  async getAllCategories(tenantSlug: string, activeOnly?: boolean) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch categories ordered by sort position
+    return this.prisma.category.findMany({
+      where: {
+        tenantId: tenant.id,
+        ...(activeOnly ? { isActive: true } : {}),
+      },
+      orderBy: { sort: 'asc' },
+    });
+  }
+
+  async getCategoryById(tenantSlug: string, categoryId: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch specific category
+    const category = await this.prisma.category.findFirst({
+      where: {
+        id: categoryId,
+        tenantId: tenant.id,
+      },
+    });
+
+    if (!category) {
+      throw new NotFoundException('Category');
+    }
+
+    return category;
+  }
 }
