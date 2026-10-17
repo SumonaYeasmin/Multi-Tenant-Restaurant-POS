@@ -1,0 +1,363 @@
+import { ApiError, commit, latency, tenantDb, uid } from "@/mocks/db";
+import type { TenantDb } from "@/mocks/seed";
+import { round2 } from "@/lib/pricing";
+import type {
+  AttendanceRecord,
+  Branch,
+  Customer,
+  LoyaltyTier,
+  Order,
+  Promotion,
+  Reservation,
+  ReservationStatus,
+  Shift,
+  StaffMember,
+} from "@/types/domain";
+
+// Customers & loyalty, reservations, staff, shifts, attendance, branches, promotions.
+// Future REST: /tenants/:tenantId/customers, /reservations, /staff, /shifts, /attendance, /branches, /promotions
+
+export const normalisePhone = (p: string) => p.replace(/[^\d+]/g, "");
+
+// ---------- Loyalty ----------
+export const TIER_THRESHOLDS: Record<LoyaltyTier, number> = { bronze: 0, silver: 250, gold: 600 };
+
+export function tierFor(lifetimePoints: number): LoyaltyTier {
+  if (lifetimePoints >= TIER_THRESHOLDS.gold) return "gold";
+  if (lifetimePoints >= TIER_THRESHOLDS.silver) return "silver";
+  return "bronze";
+}
+
+/** Points earned for a fully paid order: one point per `spendPerPoint` of the total. */
+export const pointsFor = (total: number, spendPerPoint: number) => Math.floor(total / spendPerPoint);
+
+/** Called when an order becomes fully paid. Creates the customer if the phone is new. */
+export function awardLoyalty(db: TenantDb, order: Order) {
+  const phone = normalisePhone(order.customerPhone);
+  if (phone.length < 6) return;
+  let c = db.customers.find((x) => normalisePhone(x.phone) === phone);
+  const now = new Date().toISOString();
+  if (!c) {
+    c = { id: uid("cus"), tenantId: db.customers[0]?.tenantId ?? order.tenantId, name: order.customerName.trim() || "Guest", phone, email: "", notes: "", points: 0, lifetimePoints: 0, visits: 0, totalSpent: 0, lastVisitAt: null, ledger: [], createdAt: now };
+    db.customers.push(c);
+  }
+  if (c.ledger.some((l) => l.reference === order.number && l.reason === "Order")) return;
+  const pts = pointsFor(order.totals.total, db.loyalty.spendPerPoint);
+  c.visits += 1;
+  c.totalSpent = round2(c.totalSpent + order.totals.total);
+  c.lastVisitAt = now;
+  if (pts > 0) {
+    c.points += pts;
+    c.lifetimePoints += pts;
+    c.ledger.unshift({ id: uid("led"), points: pts, reason: "Order", reference: order.number, at: now });
+  }
+}
+
+// ---------- Customers ----------
+export async function listCustomers(tenantId: string): Promise<Customer[]> {
+  await latency();
+  return [...tenantDb(tenantId).customers].sort((a, b) => b.totalSpent - a.totalSpent);
+}
+
+export type CustomerInput = Pick<Customer, "name" | "phone" | "email" | "notes"> & { id?: string | undefined };
+
+export async function saveCustomer(tenantId: string, input: CustomerInput): Promise<Customer> {
+  await latency();
+  const db = tenantDb(tenantId);
+  const name = input.name.trim();
+  const phone = normalisePhone(input.phone);
+  if (!name) throw new ApiError(422, "Name is required.");
+  if (phone.length < 6) throw new ApiError(422, "Enter a valid phone number.");
+  if (db.customers.some((c) => normalisePhone(c.phone) === phone && c.id !== input.id)) throw new ApiError(409, "A customer with this phone already exists.");
+  const data = { name, phone, email: input.email.trim(), notes: input.notes.trim() };
+  if (input.id) {
+    const c = db.customers.find((x) => x.id === input.id);
+    if (!c) throw new ApiError(404, "Customer not found.");
+    Object.assign(c, data);
+    commit(tenantId);
+    return c;
+  }
+  const c: Customer = { id: uid("cus"), tenantId, ...data, points: 0, lifetimePoints: 0, visits: 0, totalSpent: 0, lastVisitAt: null, ledger: [], createdAt: new Date().toISOString() };
+  db.customers.push(c);
+  commit(tenantId);
+  return c;
+}
+
+export async function adjustPoints(tenantId: string, input: { customerId: string; points: number; reason: string }): Promise<Customer> {
+  await latency();
+  const db = tenantDb(tenantId);
+  const c = db.customers.find((x) => x.id === input.customerId);
+  if (!c) throw new ApiError(404, "Customer not found.");
+  const pts = Math.trunc(input.points);
+  if (pts === 0) throw new ApiError(422, "Enter a non-zero number of points.");
+  if (!input.reason.trim()) throw new ApiError(422, "A reason is required.");
+  if (c.points + pts < 0) throw new ApiError(422, `Only ${c.points} points available.`);
+  c.points += pts;
+  if (pts > 0) c.lifetimePoints += pts;
+  c.ledger.unshift({ id: uid("led"), points: pts, reason: input.reason.trim(), reference: "", at: new Date().toISOString() });
+  commit(tenantId);
+  return c;
+}
+
+export async function getLoyaltySettings(tenantId: string) {
+  await latency(60, 120);
+  return tenantDb(tenantId).loyalty;
+}
+
+// ---------- Reservations ----------
+export async function listReservations(tenantId: string, branchId: string): Promise<Reservation[]> {
+  await latency();
+  return tenantDb(tenantId).reservations.filter((r) => r.branchId === branchId).sort((a, b) => a.at.localeCompare(b.at));
+}
+
+export type ReservationInput = Pick<Reservation, "branchId" | "customerName" | "phone" | "partySize" | "at" | "durationMin" | "tableId" | "notes"> & { id?: string | undefined };
+
+const overlaps = (a: Reservation | ReservationInput, b: Reservation) => {
+  const s1 = Date.parse(a.at), e1 = s1 + a.durationMin * 60000;
+  const s2 = Date.parse(b.at), e2 = s2 + b.durationMin * 60000;
+  return s1 < e2 && s2 < e1;
+};
+
+export async function saveReservation(tenantId: string, input: ReservationInput): Promise<Reservation> {
+  await latency();
+  const db = tenantDb(tenantId);
+  if (!input.customerName.trim()) throw new ApiError(422, "Guest name is required.");
+  if (!Number.isInteger(input.partySize) || input.partySize < 1 || input.partySize > 40) throw new ApiError(422, "Party size must be 1–40.");
+  if (Number.isNaN(Date.parse(input.at))) throw new ApiError(422, "Choose a date and time.");
+  let tableName: string | null = null;
+  if (input.tableId) {
+    const t = db.tables.find((x) => x.id === input.tableId && x.branchId === input.branchId);
+    if (!t) throw new ApiError(422, "Table not found in this branch.");
+    if (t.seats < input.partySize) throw new ApiError(422, `${t.name} seats only ${t.seats}.`);
+    const clash = db.reservations.find((r) => r.id !== input.id && r.tableId === t.id && (r.status === "booked" || r.status === "seated") && overlaps(input, r));
+    if (clash) throw new ApiError(409, `${t.name} is already booked for ${clash.customerName} at that time.`);
+    tableName = t.name;
+  }
+  const data = { ...input, customerName: input.customerName.trim(), phone: input.phone.trim(), notes: input.notes.trim(), tableName };
+  if (input.id) {
+    const r = db.reservations.find((x) => x.id === input.id);
+    if (!r) throw new ApiError(404, "Reservation not found.");
+    if (r.status !== "booked") throw new ApiError(409, "Only booked reservations can be edited.");
+    Object.assign(r, data);
+    commit(tenantId);
+    return r;
+  }
+  const { id: _id, ...rest } = data;
+  void _id;
+  const r: Reservation = { id: uid("res"), tenantId, ...rest, status: "booked", createdAt: new Date().toISOString() };
+  db.reservations.push(r);
+  commit(tenantId);
+  return r;
+}
+
+const RES_FLOW: Record<ReservationStatus, ReservationStatus[]> = {
+  booked: ["seated", "cancelled", "no_show"],
+  seated: ["completed"],
+  completed: [],
+  cancelled: [],
+  no_show: [],
+};
+
+export async function setReservationStatus(tenantId: string, id: string, status: ReservationStatus): Promise<Reservation> {
+  await latency();
+  const db = tenantDb(tenantId);
+  const r = db.reservations.find((x) => x.id === id);
+  if (!r) throw new ApiError(404, "Reservation not found.");
+  if (!RES_FLOW[r.status].includes(status)) throw new ApiError(409, `Can't change a ${r.status.replace("_", " ")} reservation to ${status.replace("_", " ")}.`);
+  r.status = status;
+  const t = r.tableId ? db.tables.find((x) => x.id === r.tableId) : undefined;
+  // Seating holds the table as reserved until the POS opens an order on it.
+  if (t && status === "seated" && t.status === "available") t.status = "reserved";
+  if (t && status !== "seated" && t.status === "reserved") t.status = "available";
+  commit(tenantId);
+  return r;
+}
+
+// ---------- Staff ----------
+export async function listStaff(tenantId: string): Promise<StaffMember[]> {
+  await latency();
+  return tenantDb(tenantId).staff;
+}
+
+export type StaffInput = Omit<StaffMember, "id" | "tenantId" | "userId"> & { id?: string | undefined };
+
+export async function saveStaff(tenantId: string, input: StaffInput): Promise<StaffMember> {
+  await latency();
+  const db = tenantDb(tenantId);
+  if (!input.name.trim()) throw new ApiError(422, "Name is required.");
+  if (input.hourlyRate < 0) throw new ApiError(422, "Hourly rate can't be negative.");
+  if (input.branchIds !== "all" && input.branchIds.length === 0) throw new ApiError(422, "Assign at least one branch.");
+  const existing = input.id ? db.staff.find((s) => s.id === input.id) : undefined;
+  if (input.id && !existing) throw new ApiError(404, "Staff member not found.");
+  if (existing?.role === "owner" && (input.role !== "owner" || !input.active)) {
+    const owners = db.staff.filter((s) => s.role === "owner" && s.active && s.id !== existing.id);
+    if (owners.length === 0) throw new ApiError(409, "The restaurant must keep at least one active owner.");
+  }
+  const { id: _id, ...rest } = input;
+  void _id;
+  const data = { ...rest, name: input.name.trim(), email: input.email.trim(), phone: input.phone.trim() };
+  if (existing) {
+    Object.assign(existing, data);
+    for (const s of db.shifts) if (s.staffId === existing.id) s.staffName = existing.name;
+    commit(tenantId);
+    return existing;
+  }
+  const s: StaffMember = { id: uid("stf"), tenantId, userId: null, ...data };
+  db.staff.push(s);
+  commit(tenantId);
+  return s;
+}
+
+// ---------- Shifts ----------
+export async function listShifts(tenantId: string, branchId: string): Promise<Shift[]> {
+  await latency();
+  return tenantDb(tenantId).shifts.filter((s) => s.branchId === branchId).sort((a, b) => `${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`));
+}
+
+export type ShiftInput = Pick<Shift, "branchId" | "staffId" | "date" | "start" | "end" | "notes"> & { id?: string | undefined };
+
+export async function saveShift(tenantId: string, input: ShiftInput): Promise<Shift> {
+  await latency();
+  const db = tenantDb(tenantId);
+  const staff = db.staff.find((s) => s.id === input.staffId);
+  if (!staff) throw new ApiError(422, "Choose a staff member.");
+  if (!staff.active) throw new ApiError(422, `${staff.name} is inactive.`);
+  if (staff.branchIds !== "all" && !staff.branchIds.includes(input.branchId)) throw new ApiError(422, `${staff.name} isn't assigned to this branch.`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new ApiError(422, "Choose a date.");
+  if (!(input.end > input.start)) throw new ApiError(422, "Shift must end after it starts.");
+  const clash = db.shifts.find((s) => s.id !== input.id && s.staffId === input.staffId && s.date === input.date && s.start < input.end && input.start < s.end);
+  if (clash) throw new ApiError(409, `${staff.name} already works ${clash.start}–${clash.end} that day.`);
+  if (input.id) {
+    const s = db.shifts.find((x) => x.id === input.id);
+    if (!s) throw new ApiError(404, "Shift not found.");
+    Object.assign(s, { ...input, staffName: staff.name });
+    commit(tenantId);
+    return s;
+  }
+  const { id: _id, ...rest } = input;
+  void _id;
+  const s: Shift = { id: uid("sh"), tenantId, ...rest, staffName: staff.name };
+  db.shifts.push(s);
+  commit(tenantId);
+  return s;
+}
+
+export async function deleteShift(tenantId: string, id: string): Promise<{ ok: true }> {
+  await latency();
+  const db = tenantDb(tenantId);
+  db.shifts = db.shifts.filter((s) => s.id !== id);
+  commit(tenantId);
+  return { ok: true };
+}
+
+// ---------- Attendance ----------
+export async function listAttendance(tenantId: string, branchId: string): Promise<AttendanceRecord[]> {
+  await latency();
+  return tenantDb(tenantId).attendance.filter((a) => a.branchId === branchId).sort((a, b) => b.clockIn.localeCompare(a.clockIn));
+}
+
+/** Clock the staff member linked to `userId` in or out at the given branch. */
+export async function toggleClock(tenantId: string, input: { userId: string; branchId: string }): Promise<AttendanceRecord> {
+  await latency();
+  const db = tenantDb(tenantId);
+  const staff = db.staff.find((s) => s.userId === input.userId);
+  if (!staff || !staff.active) throw new ApiError(403, "You don't have an active staff profile here.");
+  const open = db.attendance.find((a) => a.staffId === staff.id && a.clockOut === null);
+  const now = new Date().toISOString();
+  if (open) {
+    open.clockOut = now;
+    commit(tenantId);
+    return open;
+  }
+  const rec: AttendanceRecord = { id: uid("att"), tenantId, branchId: input.branchId, staffId: staff.id, staffName: staff.name, clockIn: now, clockOut: null };
+  db.attendance.push(rec);
+  commit(tenantId);
+  return rec;
+}
+
+export const hoursWorked = (a: AttendanceRecord, now = Date.now()) => round2(((a.clockOut ? Date.parse(a.clockOut) : now) - Date.parse(a.clockIn)) / 3600000);
+
+// ---------- Branches ----------
+export async function listAllBranches(tenantId: string): Promise<Branch[]> {
+  await latency();
+  return tenantDb(tenantId).branches;
+}
+
+export type BranchInput = Pick<Branch, "name" | "address" | "phone"> & { id?: string | undefined };
+
+export async function saveBranch(tenantId: string, input: BranchInput): Promise<Branch> {
+  await latency();
+  const db = tenantDb(tenantId);
+  const name = input.name.trim();
+  if (!name) throw new ApiError(422, "Branch name is required.");
+  if (db.branches.some((b) => b.name.toLowerCase() === name.toLowerCase() && b.id !== input.id)) throw new ApiError(409, "A branch with this name already exists.");
+  const data = { name, address: input.address.trim(), phone: input.phone.trim() };
+  if (input.id) {
+    const b = db.branches.find((x) => x.id === input.id);
+    if (!b) throw new ApiError(404, "Branch not found.");
+    Object.assign(b, data);
+    commit(tenantId);
+    return b;
+  }
+  const b: Branch = { id: uid("br"), tenantId, ...data };
+  db.branches.push(b);
+  // New branches start with the tenant's ingredient catalogue at zero stock.
+  const template = db.ingredients.filter((i) => i.branchId === db.branches[0]!.id);
+  for (const i of template) db.ingredients.push({ ...i, id: `${b.id}_ing_${i.key}`, branchId: b.id, stock: 0 });
+  commit(tenantId);
+  return b;
+}
+
+// ---------- Promotions ----------
+export function todayIso(d = new Date()) {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Validates a promo code for a cart subtotal. Throws ApiError with a user-facing reason. */
+export function checkPromotion(db: TenantDb, code: string, subtotal: number, today = todayIso()): Promotion {
+  const promo = db.promotions.find((p) => p.code.toUpperCase() === code.trim().toUpperCase());
+  if (!promo) throw new ApiError(404, "Promo code not found.");
+  if (!promo.active) throw new ApiError(422, "This promotion is paused.");
+  if (today < promo.startsAt) throw new ApiError(422, "This promotion hasn't started yet.");
+  if (today > promo.endsAt) throw new ApiError(422, "This promotion has ended.");
+  if (promo.maxUses !== null && promo.uses >= promo.maxUses) throw new ApiError(422, "This promotion has reached its usage limit.");
+  if (subtotal < promo.minSpend) throw new ApiError(422, `Minimum spend for ${promo.code} is ${promo.minSpend}.`);
+  return promo;
+}
+
+export async function validatePromotion(tenantId: string, code: string, subtotal: number): Promise<Promotion> {
+  await latency(100, 200);
+  return checkPromotion(tenantDb(tenantId), code, subtotal);
+}
+
+export async function listPromotions(tenantId: string): Promise<Promotion[]> {
+  await latency();
+  return tenantDb(tenantId).promotions;
+}
+
+export type PromotionInput = Omit<Promotion, "id" | "tenantId" | "uses"> & { id?: string | undefined };
+
+export async function savePromotion(tenantId: string, input: PromotionInput): Promise<Promotion> {
+  await latency();
+  const db = tenantDb(tenantId);
+  const code = input.code.trim().toUpperCase();
+  if (!input.name.trim()) throw new ApiError(422, "Name is required.");
+  if (!/^[A-Z0-9]{3,16}$/.test(code)) throw new ApiError(422, "Code must be 3–16 letters or digits.");
+  if (db.promotions.some((p) => p.code === code && p.id !== input.id)) throw new ApiError(409, "That code is already used.");
+  if (!(input.value > 0) || (input.kind === "percent" && input.value > 100)) throw new ApiError(422, "Enter a valid discount value.");
+  if (input.endsAt < input.startsAt) throw new ApiError(422, "End date must be on or after the start date.");
+  const { id: _id, ...rest } = input;
+  void _id;
+  const data = { ...rest, name: input.name.trim(), code };
+  if (input.id) {
+    const p = db.promotions.find((x) => x.id === input.id);
+    if (!p) throw new ApiError(404, "Promotion not found.");
+    Object.assign(p, data);
+    commit(tenantId);
+    return p;
+  }
+  const p: Promotion = { id: uid("promo"), tenantId, ...data, uses: 0 };
+  db.promotions.push(p);
+  commit(tenantId);
+  return p;
+}

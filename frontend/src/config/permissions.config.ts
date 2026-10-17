@@ -1,0 +1,91 @@
+import type { RoleId } from "@/types/domain";
+
+export type Permission =
+  | "dashboard.view"
+  | "pos.use"
+  | "orders.view"
+  | "orders.manage"
+  | "orders.void"
+  | "discounts.apply"
+  | "payments.process"
+  | "kitchen.view"
+  | "tables.view"
+  | "tables.manage"
+  | "inventory.view"
+  | "inventory.manage"
+  | "menu.manage"
+  | "recipes.view"
+  | "purchasing.manage"
+  | "customers.manage"
+  | "reservations.manage"
+  | "delivery.manage"
+  | "payments.view"
+  | "refunds.process"
+  | "cash.manage"
+  | "expenses.manage"
+  | "staff.manage"
+  | "roles.view"
+  | "shifts.manage"
+  | "attendance.self"
+  | "branches.manage"
+  | "promotions.manage";
+
+export const PERMISSION_LABELS: Record<Permission, string> = {
+  "dashboard.view": "View dashboard",
+  "pos.use": "Use POS terminal",
+  "orders.view": "View orders",
+  "orders.manage": "Create & update orders",
+  "orders.void": "Void orders",
+  "discounts.apply": "Apply discounts & promo codes",
+  "payments.process": "Take payments",
+  "kitchen.view": "Kitchen display",
+  "tables.view": "View tables",
+  "tables.manage": "Change table status",
+  "inventory.view": "View inventory",
+  "inventory.manage": "Adjust stock & counts",
+  "menu.manage": "Manage menu",
+  "recipes.view": "Recipes & food cost",
+  "purchasing.manage": "Suppliers & purchasing",
+  "customers.manage": "Customers & loyalty",
+  "reservations.manage": "Reservations",
+  "delivery.manage": "Delivery dispatch",
+  "payments.view": "Payments ledger",
+  "refunds.process": "Issue refunds",
+  "cash.manage": "Cash drawer & shift close",
+  "expenses.manage": "Record expenses",
+  "staff.manage": "Manage staff",
+  "roles.view": "View roles & permissions",
+  "shifts.manage": "Schedule shifts & view attendance",
+  "attendance.self": "Clock in / out",
+  "branches.manage": "Manage branches",
+  "promotions.manage": "Manage promotions",
+};
+
+export const ROLE_LABELS: Record<RoleId, string> = {
+  owner: "Owner",
+  manager: "Manager",
+  cashier: "Cashier",
+  kitchen: "Kitchen",
+  waiter: "Waiter",
+};
+
+const ALL: Permission[] = [
+  "dashboard.view", "pos.use", "orders.view", "orders.manage", "orders.void", "discounts.apply",
+  "payments.process", "kitchen.view", "tables.view", "tables.manage", "inventory.view",
+  "inventory.manage", "menu.manage", "recipes.view", "purchasing.manage",
+  "customers.manage", "reservations.manage", "delivery.manage", "payments.view", "refunds.process",
+  "cash.manage", "expenses.manage", "staff.manage", "roles.view", "shifts.manage", "attendance.self",
+  "branches.manage", "promotions.manage",
+];
+
+export const ROLE_PERMISSIONS: Record<RoleId, Permission[]> = {
+  owner: ALL,
+  // Managers run a branch but can't change branches or who has which role.
+  manager: ALL.filter((p) => p !== "branches.manage" && p !== "staff.manage"),
+  cashier: ["pos.use", "orders.view", "orders.manage", "discounts.apply", "payments.process", "tables.view", "kitchen.view", "customers.manage", "delivery.manage", "payments.view", "cash.manage", "attendance.self"],
+  kitchen: ["kitchen.view", "orders.view", "attendance.self"],
+  waiter: ["pos.use", "orders.view", "orders.manage", "tables.view", "tables.manage", "reservations.manage", "attendance.self"],
+};
+
+export const can = (role: RoleId | null | undefined, perm: Permission) =>
+  !!role && ROLE_PERMISSIONS[role].includes(perm);

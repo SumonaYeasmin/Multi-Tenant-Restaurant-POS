@@ -1,0 +1,58 @@
+import type { ReactNode } from "react";
+import { AlertTriangle, Inbox, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+export function FullPageSpinner({ label = "Loading…" }: { label?: string }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
+      <Loader2 className="size-4 animate-spin" aria-hidden /> {label}
+    </div>
+  );
+}
+
+export function EmptyState({ title, body, action, icon }: { title: string; body?: string; action?: ReactNode; icon?: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-12 text-center">
+      <div className="mb-3 text-muted-foreground">{icon ?? <Inbox className="size-8" aria-hidden />}</div>
+      <p className="font-medium">{title}</p>
+      {body && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{body}</p>}
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div role="alert" className="flex flex-col items-center rounded-lg border border-destructive/30 bg-destructive/5 px-6 py-10 text-center">
+      <AlertTriangle className="mb-2 size-6 text-destructive" aria-hidden />
+      <p className="text-sm">{message}</p>
+      {onRetry && (
+        <Button variant="outline" size="sm" className="mt-4" onClick={onRetry}>
+          Try again
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export function PageHeader({ title, description, actions, className }: { title: string; description?: string; actions?: ReactNode; className?: string }) {
+  return (
+    <div className={cn("mb-6 flex flex-wrap items-end justify-between gap-3", className)}>
+      <div>
+        <h1 className="text-2xl font-bold">{title}</h1>
+        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+      </div>
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+export function MockNotice({ children }: { children: ReactNode }) {
+  return (
+    <p className="rounded-md border border-dashed border-info/40 bg-info/5 px-3 py-2 text-xs text-muted-foreground">
+      <span className="font-semibold text-info">Demo · </span>
+      {children}
+    </p>
+  );
+}
