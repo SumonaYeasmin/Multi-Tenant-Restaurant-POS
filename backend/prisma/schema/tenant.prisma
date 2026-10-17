@@ -17,6 +17,7 @@ model Tenant {
     roles             TenantRole[]
     staff             StaffMember[]
     branches          Branch[]
+    categories        Category[]
 
     @@map("tenants")
 }
@@ -74,4 +75,20 @@ model Branch {
 
     @@unique([tenantId, name])
     @@map("branches")
+}
+
+model Category {
+    id          String   @id @default(uuid())
+    tenantId    String
+    name        String
+    sort        Int      @default(0)
+    description String?  @default("")
+    isActive    Boolean  @default(true)
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+    @@unique([tenantId, name])
+    @@map("categories")
 }
