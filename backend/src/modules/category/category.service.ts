@@ -145,4 +145,16 @@ export class CategoryService {
 
     return updatedCategory;
   }
+
+  async deleteCategory(tenantSlug: string, categoryId: string) {
+    // 1. Verify category exists for this tenant
+    await this.getCategoryById(tenantSlug, categoryId);
+
+    // 2. Delete category
+    await this.prisma.category.delete({
+      where: { id: categoryId },
+    });
+
+    return { message: 'Category deleted successfully' };
+  }
 }

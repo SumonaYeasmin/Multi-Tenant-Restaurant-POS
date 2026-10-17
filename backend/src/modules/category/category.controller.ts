@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -163,5 +164,40 @@ export class CategoryController {
       dto,
     );
     return ResponseHelper.success(category, 'Category updated successfully');
+  }
+
+  @Delete(':tenantSlug/categories/:categoryId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MENU_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Delete a menu category',
+    description: 'Permanently deletes a category from the restaurant tenant.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'categoryId',
+    example: 'uuid',
+    description: 'Category ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Category deleted successfully',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Category or restaurant not found' })
+  async deleteCategory(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('categoryId') categoryId: string,
+  ) {
+    const result = await this.categoryService.deleteCategory(
+      tenantSlug,
+      categoryId,
+    );
+    return ResponseHelper.success(result, 'Category deleted successfully');
   }
 }
