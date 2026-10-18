@@ -6,6 +6,7 @@ import { BranchModule } from './branch/branch.module';
 import { CategoryModule } from './category/category.module';
 import { ModifierGroupModule } from './modifier-group/modifier-group.module';
 import { ComboModule } from './combo/combo.module';
+import { MenuItemModule } from './menu-item/menu-item.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ComboModule } from './combo/combo.module';
     CategoryModule,
     ModifierGroupModule,
     ComboModule,
+    MenuItemModule,
   ],
   exports: [
     TenantRoleModule,
@@ -24,6 +26,7 @@ import { ComboModule } from './combo/combo.module';
     CategoryModule,
     ModifierGroupModule,
     ComboModule,
+    MenuItemModule,
   ],
 })
 export class ModulesModule {}
