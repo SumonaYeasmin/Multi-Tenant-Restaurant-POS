@@ -1,222 +1,237 @@
 model Tenant {
-    id                String   @id @default(uuid())
-    slug              String   @unique
-    name              String
-    tagline           String?  @default("")
-    initials          String?  @default("")
-    accent            String?  @default("oklch(0.6 0.2 240)")
-    currency          String   @default("USD")
-    locale            String   @default("en-US")
-    taxRate           Float    @default(0.1)
-    serviceChargeRate Float    @default(0.0)
-    receiptFooter     String?  @default("Thank you for dining with us!")
+  id                String  @id @default(uuid())
+  slug              String  @unique
+  name              String
+  tagline           String? @default("")
+  initials          String? @default("")
+  accent            String? @default("oklch(0.6 0.2 240)")
+  currency          String  @default("USD")
+  locale            String  @default("en-US")
+  taxRate           Float   @default(0.1)
+  serviceChargeRate Float   @default(0.0)
+  receiptFooter     String? @default("Thank you for dining with us!")
 
-    createdAt         DateTime @default(now())
-    updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    roles             TenantRole[]
-    staff             StaffMember[]
-    branches          Branch[]
-    categories        Category[]
-    modifierGroups    ModifierGroup[]
-    combos            Combo[]
-    menuItems         MenuItem[]
+  roles           TenantRole[]
+  staff           StaffMember[]
+  branches        Branch[]
+  categories      Category[]
+  modifierGroups  ModifierGroup[]
+  combos          Combo[]
+  menuItems       MenuItem[]
+  ingredients     Ingredient[]
+  suppliers       Supplier[]
+  purchaseOrders  PurchaseOrder[]
+  goodsReceipts   GoodsReceipt[]
+  supplierReturns SupplierReturn[]
+  stockMovements  StockMovement[]
+  stockCounts     StockCount[]
 
-    @@map("tenants")
+  @@map("tenants")
 }
 
 model TenantRole {
-    id          String   @id @default(uuid())
-    tenantId    String
-    role        UserRole
-    permissions String[]
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+  id          String   @id @default(uuid())
+  tenantId    String
+  role        UserRole
+  permissions String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-    tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    staff       StaffMember[]
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  staff  StaffMember[]
 
-    @@unique([tenantId, role])
-    @@map("tenant_roles")
+  @@unique([tenantId, role])
+  @@map("tenant_roles")
 }
 
 model StaffMember {
-    id                String   @id @default(uuid())
-    tenantId          String
-    userId            String?
-    roleId            String
-    role              UserRole
-    name              String
-    email             String?
-    phone             String?
-    hourlyRate        Float    @default(0.0)
-    branchIds         String[] @default([])
-    active            Boolean  @default(true)
-    customPermissions String[] @default([])
+  id                String   @id @default(uuid())
+  tenantId          String
+  userId            String?
+  roleId            String
+  role              UserRole
+  name              String
+  email             String?
+  phone             String?
+  hourlyRate        Float    @default(0.0)
+  branchIds         String[] @default([])
+  active            Boolean  @default(true)
+  customPermissions String[] @default([])
 
-    createdAt         DateTime @default(now())
-    updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    tenantRole        TenantRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
-    user              User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantRole TenantRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-    @@map("staff_members")
+  @@map("staff_members")
 }
 
 model Branch {
-    id        String   @id @default(uuid())
-    tenantId  String
-    name      String
-    address   String?  @default("")
-    phone     String?  @default("")
-    isActive  Boolean  @default(true)
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  address   String?  @default("")
+  phone     String?  @default("")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    tenant        Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    itemOverrides BranchMenuItemOverride[]
+  tenant            Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  itemOverrides     BranchMenuItemOverride[]
+  stocks            BranchStock[]
+  purchaseOrders    PurchaseOrder[]
+  goodsReceipts     GoodsReceipt[]
+  supplierReturns   SupplierReturn[]
+  stockMovements    StockMovement[]
+  stockCounts       StockCount[]
+  transfersSent     StockTransfer[]          @relation("TransfersSent")
+  transfersReceived StockTransfer[]          @relation("TransfersReceived")
 
-    @@unique([tenantId, name])
-    @@map("branches")
+  @@unique([tenantId, name])
+  @@map("branches")
 }
 
 model Category {
-    id          String   @id @default(uuid())
-    tenantId    String
-    name        String
-    sort        Int      @default(0)
-    description String?  @default("")
-    isActive    Boolean  @default(true)
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  sort        Int      @default(0)
+  description String?  @default("")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-    tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    items       MenuItem[]
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  MenuItem[]
 
-    @@unique([tenantId, name])
-    @@map("categories")
+  @@unique([tenantId, name])
+  @@map("categories")
 }
 
 model ModifierGroup {
-    id          String           @id @default(uuid())
-    tenantId    String
-    name        String
-    min         Int              @default(0)
-    max         Int              @default(1)
-    isRequired  Boolean          @default(false)
-    isActive    Boolean          @default(true)
-    isDeleted   Boolean          @default(false)
-    deletedAt   DateTime?
-    createdAt   DateTime         @default(now())
-    updatedAt   DateTime         @updatedAt
+  id         String    @id @default(uuid())
+  tenantId   String
+  name       String
+  min        Int       @default(0)
+  max        Int       @default(1)
+  isRequired Boolean   @default(false)
+  isActive   Boolean   @default(true)
+  isDeleted  Boolean   @default(false)
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-    tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    options     ModifierOption[]
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  options ModifierOption[]
 
-    @@map("modifier_groups")
+  @@map("modifier_groups")
 }
 
 model ModifierOption {
-    id          String        @id @default(uuid())
-    groupId     String
-    name        String
-    price       Float         @default(0.0)
-    isActive    Boolean       @default(true)
-    isDeleted   Boolean       @default(false)
-    deletedAt   DateTime?
-    createdAt   DateTime      @default(now())
-    updatedAt   DateTime      @updatedAt
+  id        String    @id @default(uuid())
+  groupId   String
+  name      String
+  price     Float     @default(0.0)
+  isActive  Boolean   @default(true)
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-    group       ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
-    @@map("modifier_options")
+  @@map("modifier_options")
 }
 
 model Combo {
-    id          String      @id @default(uuid())
-    tenantId    String
-    name        String
-    description String?     @default("")
-    price       Float       @default(0.0)
-    available   Boolean     @default(true)
-    isDeleted   Boolean     @default(false)
-    deletedAt   DateTime?
-    createdAt   DateTime    @default(now())
-    updatedAt   DateTime    @updatedAt
+  id          String    @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?   @default("")
+  price       Float     @default(0.0)
+  available   Boolean   @default(true)
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-    tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    items       ComboItem[]
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  ComboItem[]
 
-    @@map("combos")
+  @@map("combos")
 }
 
 model ComboItem {
-    id         String   @id @default(uuid())
-    comboId    String
-    menuItemId String
-    quantity   Int      @default(1)
-    createdAt  DateTime @default(now())
-    updatedAt  DateTime @updatedAt
+  id         String   @id @default(uuid())
+  comboId    String
+  menuItemId String
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-    combo      Combo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
-    menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  combo    Combo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
-    @@unique([comboId, menuItemId])
-    @@map("combo_items")
+  @@unique([comboId, menuItemId])
+  @@map("combo_items")
 }
 
 model MenuItem {
-    id               String                   @id @default(uuid())
-    tenantId         String
-    categoryId       String
-    name             String
-    description      String?                  @default("")
-    price            Float                    @default(0.0)
-    available        Boolean                  @default(true)
-    tags             String[]                 @default([])
-    modifierGroupIds String[]                 @default([])
-    isDeleted        Boolean                  @default(false)
-    deletedAt        DateTime?
-    createdAt        DateTime                 @default(now())
-    updatedAt        DateTime                 @updatedAt
+  id               String    @id @default(uuid())
+  tenantId         String
+  categoryId       String
+  name             String
+  description      String?   @default("")
+  price            Float     @default(0.0)
+  available        Boolean   @default(true)
+  tags             String[]  @default([])
+  modifierGroupIds String[]  @default([])
+  isDeleted        Boolean   @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-    tenant           Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    category         Category                 @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-    variants         MenuItemVariant[]
-    branchOverrides  BranchMenuItemOverride[]
-    comboItems       ComboItem[]
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category        Category                 @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  variants        MenuItemVariant[]
+  branchOverrides BranchMenuItemOverride[]
+  comboItems      ComboItem[]
+  recipeLines     RecipeLine[]
 
-    @@map("menu_items")
+  @@map("menu_items")
 }
 
 model MenuItemVariant {
-    id         String   @id @default(uuid())
-    menuItemId String
-    name       String
-    priceDelta Float    @default(0.0)
-    createdAt  DateTime @default(now())
-    updatedAt  DateTime @updatedAt
+  id         String   @id @default(uuid())
+  menuItemId String
+  name       String
+  priceDelta Float    @default(0.0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-    menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  menuItem    MenuItem     @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  recipeLines RecipeLine[]
 
-    @@map("menu_item_variants")
+  @@map("menu_item_variants")
 }
 
 model BranchMenuItemOverride {
-    id          String   @id @default(uuid())
-    branchId    String
-    menuItemId  String
-    price       Float?
-    isAvailable Boolean  @default(true)
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+  id          String   @id @default(uuid())
+  branchId    String
+  menuItemId  String
+  price       Float?
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-    branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-    menuItem    MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  branch   Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
-    @@unique([branchId, menuItemId])
-    @@map("branch_menu_item_overrides")
+  @@unique([branchId, menuItemId])
+  @@map("branch_menu_item_overrides")
 }
-
-

@@ -1,0 +1,299 @@
+model Ingredient {
+  id          String    @id @default(uuid())
+  tenantId    String
+  name        String
+  code        String?   @default("")
+  category    String?   @default("")
+  storageType String?   @default("")
+  unit        String
+  costPerUnit Float     @default(0.0)
+  isActive    Boolean   @default(true)
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchStocks        BranchStock[]
+  recipeLines         RecipeLine[]
+  stockMovements      StockMovement[]
+  purchaseOrderLines  PurchaseOrderLine[]
+  goodsReceiptLines   GoodsReceiptLine[]
+  supplierReturnLines SupplierReturnLine[]
+  stockCountLines     StockCountLine[]
+  stockTransferLines  StockTransferLine[]
+
+  @@unique([tenantId, name])
+  @@map("ingredients")
+}
+
+model BranchStock {
+  id              String    @id @default(uuid())
+  tenantId        String
+  branchId        String
+  ingredientId    String
+  currentStock    Float     @default(0.0)
+  reorderLevel    Float     @default(0.0)
+  idealStock      Float?    @default(0.0)
+  unitCost        Float     @default(0.0)
+  lastRestockedAt DateTime?
+  lastCountedAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, ingredientId])
+  @@map("branch_stocks")
+}
+
+model RecipeLine {
+  id           String   @id @default(uuid())
+  menuItemId   String
+  variantId    String?
+  ingredientId String
+  quantity     Float    @default(0.0)
+  unit         String?  @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  menuItem   MenuItem         @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  variant    MenuItemVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  ingredient Ingredient       @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@map("recipe_lines")
+}
+
+model StockMovement {
+  id            String         @id @default(uuid())
+  tenantId      String
+  branchId      String
+  ingredientId  String
+  quantity      Float
+  previousStock Float          @default(0.0)
+  newStock      Float          @default(0.0)
+  unit          String?        @default("")
+  reason        MovementReason
+  reference     String?        @default("")
+  notes         String?        @default("")
+  createdBy     String?        @default("")
+  createdAt     DateTime       @default(now())
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@map("stock_movements")
+}
+
+model StockCount {
+  id        String           @id @default(uuid())
+  tenantId  String
+  branchId  String
+  number    String
+  status    StockCountStatus @default(COMPLETED)
+  notes     String?          @default("")
+  createdBy String?          @default("")
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  lines  StockCountLine[]
+
+  @@unique([branchId, number])
+  @@map("stock_counts")
+}
+
+model StockCountLine {
+  id           String   @id @default(uuid())
+  stockCountId String
+  ingredientId String
+  expected     Float    @default(0.0)
+  counted      Float    @default(0.0)
+  variance     Float    @default(0.0)
+  unitCost     Float    @default(0.0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stockCount StockCount @relation(fields: [stockCountId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@map("stock_count_lines")
+}
+
+model Supplier {
+  id           String    @id @default(uuid())
+  tenantId     String
+  name         String
+  contact      String?   @default("")
+  phone        String    @default("")
+  email        String?   @default("")
+  supplies     String?   @default("")
+  paymentTerms String?   @default("")
+  active       Boolean   @default(true)
+  isDeleted    Boolean   @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchaseOrders  PurchaseOrder[]
+  goodsReceipts   GoodsReceipt[]
+  supplierReturns SupplierReturn[]
+
+  @@unique([tenantId, name])
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id           String              @id @default(uuid())
+  tenantId     String
+  branchId     String
+  supplierId   String
+  number       String
+  status       PurchaseOrderStatus @default(DRAFT)
+  expectedDate DateTime?
+  total        Float               @default(0.0)
+  notes        String?             @default("")
+  createdBy    String?             @default("")
+  sentAt       DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  supplier      Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  lines         PurchaseOrderLine[]
+  goodsReceipts GoodsReceipt[]
+
+  @@unique([branchId, number])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id              String   @id @default(uuid())
+  purchaseOrderId String
+  ingredientId    String
+  qty             Float    @default(0.0)
+  unitCost        Float    @default(0.0)
+  receivedQty     Float    @default(0.0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  ingredient    Ingredient    @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_order_lines")
+}
+
+model GoodsReceipt {
+  id         String   @id @default(uuid())
+  tenantId   String
+  branchId   String
+  supplierId String?
+  poId       String?
+  number     String
+  receivedBy String?  @default("")
+  receivedAt DateTime @default(now())
+  notes      String?  @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  supplier      Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder?     @relation(fields: [poId], references: [id], onDelete: SetNull)
+  lines         GoodsReceiptLine[]
+
+  @@unique([branchId, number])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptLine {
+  id             String   @id @default(uuid())
+  goodsReceiptId String
+  ingredientId   String
+  qty            Float    @default(0.0)
+  unitCost       Float    @default(0.0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  goodsReceipt GoodsReceipt @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@map("goods_receipt_lines")
+}
+
+model SupplierReturn {
+  id         String   @id @default(uuid())
+  tenantId   String
+  branchId   String
+  supplierId String
+  number     String
+  reason     String?  @default("")
+  credit     Float    @default(0.0)
+  createdBy  String?  @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch   Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  supplier Supplier             @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  lines    SupplierReturnLine[]
+
+  @@unique([branchId, number])
+  @@map("supplier_returns")
+}
+
+model SupplierReturnLine {
+  id               String   @id @default(uuid())
+  supplierReturnId String
+  ingredientId     String
+  qty              Float    @default(0.0)
+  unitCost         Float    @default(0.0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  supplierReturn SupplierReturn @relation(fields: [supplierReturnId], references: [id], onDelete: Cascade)
+  ingredient     Ingredient     @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@map("supplier_return_lines")
+}
+
+model StockTransfer {
+  id           String         @id @default(uuid())
+  tenantId     String
+  fromBranchId String
+  toBranchId   String
+  number       String
+  status       TransferStatus @default(PENDING)
+  notes        String?        @default("")
+  initiatedBy  String?        @default("")
+  receivedBy   String?        @default("")
+  sentAt       DateTime?
+  receivedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  fromBranch Branch              @relation("TransfersSent", fields: [fromBranchId], references: [id], onDelete: Cascade)
+  toBranch   Branch              @relation("TransfersReceived", fields: [toBranchId], references: [id], onDelete: Cascade)
+  lines      StockTransferLine[]
+
+  @@map("stock_transfers")
+}
+
+model StockTransferLine {
+  id           String   @id @default(uuid())
+  transferId   String
+  ingredientId String
+  quantity     Float    @default(0.0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  ingredient Ingredient    @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@map("stock_transfer_lines")
+}
