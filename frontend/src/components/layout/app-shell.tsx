@@ -145,6 +145,15 @@ function Notifications() {
             </li>
           ))}
         </ul>
+        <div className="border-t p-2 text-center bg-muted/20">
+          <Link
+            to="/app/$tenantSlug/notifications"
+            params={{ tenantSlug: tenant.slug }}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            View all notifications &rarr;
+          </Link>
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -222,6 +231,11 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
                 <p className="text-xs font-normal text-muted-foreground">{ROLE_LABELS[role]} · {user.email}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {can("settings.manage") && (
+                <DropdownMenuItem onSelect={() => navigate({ to: "/app/$tenantSlug/settings", params: { tenantSlug: tenant.slug } })}>
+                  <UtensilsCrossed className="size-4" /> Restaurant settings
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onSelect={() => navigate({ to: "/workspace/select" })}>
                 <Repeat className="size-4" /> Switch restaurant
               </DropdownMenuItem>

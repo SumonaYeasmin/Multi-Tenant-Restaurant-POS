@@ -1,15 +1,15 @@
 model User {
-    id          String     @id @default(uuid())
-    email       String?    @unique
-    password    String?
-    role        UserRole
-    status      UserStatus
+  id       String     @id @default(uuid())
+  email    String?    @unique
+  password String?
+  role     UserRole
+  status   UserStatus
 
-    createdAt   DateTime   @default(now())
-    updatedAt   DateTime   @updatedAt
-    lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
 
-    staffMembers StaffMember[]
+  staffMembers StaffMember[]
 
-    @@map("users")
+  @@map("users")
 }

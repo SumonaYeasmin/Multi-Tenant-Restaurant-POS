@@ -1,15 +1,48 @@
 enum UserRole {
-    OWNER
-    MANAGER
-    CASHIER
-    KITCHEN
-    WAITER
+  OWNER
+  MANAGER
+  CASHIER
+  KITCHEN
+  WAITER
 }
 
 enum UserStatus {
-    PENDING_VERIFICATION
-    ACTIVE
-    INACTIVE
-    BLOCK
-    SUSPEND
+  PENDING_VERIFICATION
+  ACTIVE
+  INACTIVE
+  BLOCK
+  SUSPEND
+}
+
+enum MovementReason {
+  SALE
+  PURCHASE
+  ADJUSTMENT
+  WASTE
+  COUNT
+  TRANSFER_IN
+  TRANSFER_OUT
+  RETURN
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  RECEIVED
+  CANCELLED
+}
+
+enum StockCountStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
+
+enum TransferStatus {
+  PENDING
+  IN_TRANSIT
+  RECEIVED
+  CANCELLED
+  REJECTED
 }

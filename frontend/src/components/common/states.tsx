@@ -11,13 +11,35 @@ export function FullPageSpinner({ label = "Loading…" }: { label?: string }) {
   );
 }
 
-export function EmptyState({ title, body, action, icon }: { title: string; body?: string; action?: ReactNode; icon?: ReactNode }) {
+export function EmptyState({
+  title,
+  body,
+  description,
+  action,
+  icon,
+}: {
+  title: string;
+  body?: string;
+  description?: string;
+  action?: ReactNode;
+  icon?: ReactNode;
+}) {
+  const text = body ?? description;
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-12 text-center">
       <div className="mb-3 text-muted-foreground">{icon ?? <Inbox className="size-8" aria-hidden />}</div>
       <p className="font-medium">{title}</p>
-      {body && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{body}</p>}
+      {text && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{text}</p>}
       {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+export function SkeletonCard({ className }: { className?: string }) {
+  return (
+    <div className={cn("rounded-lg border bg-card p-4 animate-pulse space-y-3", className)}>
+      <div className="h-4 w-1/3 rounded bg-muted" />
+      <div className="h-8 w-2/3 rounded bg-muted" />
     </div>
   );
 }

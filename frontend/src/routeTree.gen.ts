@@ -19,6 +19,7 @@ import { Route as AppTenantSlugRouteImport } from './routes/app.$tenantSlug'
 import { Route as WorkspaceInactiveRouteImport } from './routes/workspace.inactive'
 import { Route as WorkspaceSelectRouteImport } from './routes/workspace.select'
 import { Route as AppTenantSlugIndexRouteImport } from './routes/app.$tenantSlug.index'
+import { Route as AppTenantSlugAuditLogsRouteImport } from './routes/app.$tenantSlug.audit-logs'
 import { Route as AppTenantSlugBranchesRouteImport } from './routes/app.$tenantSlug.branches'
 import { Route as AppTenantSlugCustomersRouteImport } from './routes/app.$tenantSlug.customers'
 import { Route as AppTenantSlugDashboardRouteImport } from './routes/app.$tenantSlug.dashboard'
@@ -27,11 +28,14 @@ import { Route as AppTenantSlugFinanceRouteImport } from './routes/app.$tenantSl
 import { Route as AppTenantSlugInventoryRouteImport } from './routes/app.$tenantSlug.inventory'
 import { Route as AppTenantSlugKitchenRouteImport } from './routes/app.$tenantSlug.kitchen'
 import { Route as AppTenantSlugMenuRouteImport } from './routes/app.$tenantSlug.menu'
+import { Route as AppTenantSlugNotificationsRouteImport } from './routes/app.$tenantSlug.notifications'
 import { Route as AppTenantSlugOrdersRouteImport } from './routes/app.$tenantSlug.orders'
 import { Route as AppTenantSlugPosRouteImport } from './routes/app.$tenantSlug.pos'
 import { Route as AppTenantSlugPromotionsRouteImport } from './routes/app.$tenantSlug.promotions'
 import { Route as AppTenantSlugRecipesRouteImport } from './routes/app.$tenantSlug.recipes'
+import { Route as AppTenantSlugReportsRouteImport } from './routes/app.$tenantSlug.reports'
 import { Route as AppTenantSlugReservationsRouteImport } from './routes/app.$tenantSlug.reservations'
+import { Route as AppTenantSlugSettingsRouteImport } from './routes/app.$tenantSlug.settings'
 import { Route as AppTenantSlugSuppliersRouteImport } from './routes/app.$tenantSlug.suppliers'
 import { Route as AppTenantSlugTablesRouteImport } from './routes/app.$tenantSlug.tables'
 import { Route as AppTenantSlugTeamRouteImport } from './routes/app.$tenantSlug.team'
@@ -104,6 +108,11 @@ const AppTenantSlugIndexRoute = AppTenantSlugIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppTenantSlugRoute,
 } as any)
+const AppTenantSlugAuditLogsRoute = AppTenantSlugAuditLogsRouteImport.update({
+  id: '/audit-logs',
+  path: '/audit-logs',
+  getParentRoute: () => AppTenantSlugRoute,
+} as any)
 const AppTenantSlugBranchesRoute = AppTenantSlugBranchesRouteImport.update({
   id: '/branches',
   path: '/branches',
@@ -144,6 +153,12 @@ const AppTenantSlugMenuRoute = AppTenantSlugMenuRouteImport.update({
   path: '/menu',
   getParentRoute: () => AppTenantSlugRoute,
 } as any)
+const AppTenantSlugNotificationsRoute =
+  AppTenantSlugNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AppTenantSlugRoute,
+  } as any)
 const AppTenantSlugOrdersRoute = AppTenantSlugOrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
@@ -164,12 +179,22 @@ const AppTenantSlugRecipesRoute = AppTenantSlugRecipesRouteImport.update({
   path: '/recipes',
   getParentRoute: () => AppTenantSlugRoute,
 } as any)
+const AppTenantSlugReportsRoute = AppTenantSlugReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppTenantSlugRoute,
+} as any)
 const AppTenantSlugReservationsRoute =
   AppTenantSlugReservationsRouteImport.update({
     id: '/reservations',
     path: '/reservations',
     getParentRoute: () => AppTenantSlugRoute,
   } as any)
+const AppTenantSlugSettingsRoute = AppTenantSlugSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppTenantSlugRoute,
+} as any)
 const AppTenantSlugSuppliersRoute = AppTenantSlugSuppliersRouteImport.update({
   id: '/suppliers',
   path: '/suppliers',
@@ -299,6 +324,7 @@ export interface FileRoutesByFullPath {
   '/app/$tenantSlug': typeof AppTenantSlugRouteWithChildren
   '/workspace/inactive': typeof WorkspaceInactiveRoute
   '/workspace/select': typeof WorkspaceSelectRoute
+  '/app/$tenantSlug/audit-logs': typeof AppTenantSlugAuditLogsRoute
   '/app/$tenantSlug/branches': typeof AppTenantSlugBranchesRoute
   '/app/$tenantSlug/customers': typeof AppTenantSlugCustomersRoute
   '/app/$tenantSlug/dashboard': typeof AppTenantSlugDashboardRoute
@@ -307,11 +333,14 @@ export interface FileRoutesByFullPath {
   '/app/$tenantSlug/inventory': typeof AppTenantSlugInventoryRouteWithChildren
   '/app/$tenantSlug/kitchen': typeof AppTenantSlugKitchenRoute
   '/app/$tenantSlug/menu': typeof AppTenantSlugMenuRouteWithChildren
+  '/app/$tenantSlug/notifications': typeof AppTenantSlugNotificationsRoute
   '/app/$tenantSlug/orders': typeof AppTenantSlugOrdersRouteWithChildren
   '/app/$tenantSlug/pos': typeof AppTenantSlugPosRoute
   '/app/$tenantSlug/promotions': typeof AppTenantSlugPromotionsRoute
   '/app/$tenantSlug/recipes': typeof AppTenantSlugRecipesRoute
+  '/app/$tenantSlug/reports': typeof AppTenantSlugReportsRoute
   '/app/$tenantSlug/reservations': typeof AppTenantSlugReservationsRoute
+  '/app/$tenantSlug/settings': typeof AppTenantSlugSettingsRoute
   '/app/$tenantSlug/suppliers': typeof AppTenantSlugSuppliersRoute
   '/app/$tenantSlug/tables': typeof AppTenantSlugTablesRoute
   '/app/$tenantSlug/team': typeof AppTenantSlugTeamRouteWithChildren
@@ -344,16 +373,20 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/workspace/inactive': typeof WorkspaceInactiveRoute
   '/workspace/select': typeof WorkspaceSelectRoute
+  '/app/$tenantSlug/audit-logs': typeof AppTenantSlugAuditLogsRoute
   '/app/$tenantSlug/branches': typeof AppTenantSlugBranchesRoute
   '/app/$tenantSlug/customers': typeof AppTenantSlugCustomersRoute
   '/app/$tenantSlug/dashboard': typeof AppTenantSlugDashboardRoute
   '/app/$tenantSlug/delivery': typeof AppTenantSlugDeliveryRoute
   '/app/$tenantSlug/kitchen': typeof AppTenantSlugKitchenRoute
+  '/app/$tenantSlug/notifications': typeof AppTenantSlugNotificationsRoute
   '/app/$tenantSlug/orders': typeof AppTenantSlugOrdersRouteWithChildren
   '/app/$tenantSlug/pos': typeof AppTenantSlugPosRoute
   '/app/$tenantSlug/promotions': typeof AppTenantSlugPromotionsRoute
   '/app/$tenantSlug/recipes': typeof AppTenantSlugRecipesRoute
+  '/app/$tenantSlug/reports': typeof AppTenantSlugReportsRoute
   '/app/$tenantSlug/reservations': typeof AppTenantSlugReservationsRoute
+  '/app/$tenantSlug/settings': typeof AppTenantSlugSettingsRoute
   '/app/$tenantSlug/suppliers': typeof AppTenantSlugSuppliersRoute
   '/app/$tenantSlug/tables': typeof AppTenantSlugTablesRoute
   '/app/$tenantSlug': typeof AppTenantSlugIndexRoute
@@ -387,6 +420,7 @@ export interface FileRoutesById {
   '/app/$tenantSlug': typeof AppTenantSlugRouteWithChildren
   '/workspace/inactive': typeof WorkspaceInactiveRoute
   '/workspace/select': typeof WorkspaceSelectRoute
+  '/app/$tenantSlug/audit-logs': typeof AppTenantSlugAuditLogsRoute
   '/app/$tenantSlug/branches': typeof AppTenantSlugBranchesRoute
   '/app/$tenantSlug/customers': typeof AppTenantSlugCustomersRoute
   '/app/$tenantSlug/dashboard': typeof AppTenantSlugDashboardRoute
@@ -395,11 +429,14 @@ export interface FileRoutesById {
   '/app/$tenantSlug/inventory': typeof AppTenantSlugInventoryRouteWithChildren
   '/app/$tenantSlug/kitchen': typeof AppTenantSlugKitchenRoute
   '/app/$tenantSlug/menu': typeof AppTenantSlugMenuRouteWithChildren
+  '/app/$tenantSlug/notifications': typeof AppTenantSlugNotificationsRoute
   '/app/$tenantSlug/orders': typeof AppTenantSlugOrdersRouteWithChildren
   '/app/$tenantSlug/pos': typeof AppTenantSlugPosRoute
   '/app/$tenantSlug/promotions': typeof AppTenantSlugPromotionsRoute
   '/app/$tenantSlug/recipes': typeof AppTenantSlugRecipesRoute
+  '/app/$tenantSlug/reports': typeof AppTenantSlugReportsRoute
   '/app/$tenantSlug/reservations': typeof AppTenantSlugReservationsRoute
+  '/app/$tenantSlug/settings': typeof AppTenantSlugSettingsRoute
   '/app/$tenantSlug/suppliers': typeof AppTenantSlugSuppliersRoute
   '/app/$tenantSlug/tables': typeof AppTenantSlugTablesRoute
   '/app/$tenantSlug/team': typeof AppTenantSlugTeamRouteWithChildren
@@ -435,6 +472,7 @@ export interface FileRouteTypes {
     | '/app/$tenantSlug'
     | '/workspace/inactive'
     | '/workspace/select'
+    | '/app/$tenantSlug/audit-logs'
     | '/app/$tenantSlug/branches'
     | '/app/$tenantSlug/customers'
     | '/app/$tenantSlug/dashboard'
@@ -443,11 +481,14 @@ export interface FileRouteTypes {
     | '/app/$tenantSlug/inventory'
     | '/app/$tenantSlug/kitchen'
     | '/app/$tenantSlug/menu'
+    | '/app/$tenantSlug/notifications'
     | '/app/$tenantSlug/orders'
     | '/app/$tenantSlug/pos'
     | '/app/$tenantSlug/promotions'
     | '/app/$tenantSlug/recipes'
+    | '/app/$tenantSlug/reports'
     | '/app/$tenantSlug/reservations'
+    | '/app/$tenantSlug/settings'
     | '/app/$tenantSlug/suppliers'
     | '/app/$tenantSlug/tables'
     | '/app/$tenantSlug/team'
@@ -480,16 +521,20 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/workspace/inactive'
     | '/workspace/select'
+    | '/app/$tenantSlug/audit-logs'
     | '/app/$tenantSlug/branches'
     | '/app/$tenantSlug/customers'
     | '/app/$tenantSlug/dashboard'
     | '/app/$tenantSlug/delivery'
     | '/app/$tenantSlug/kitchen'
+    | '/app/$tenantSlug/notifications'
     | '/app/$tenantSlug/orders'
     | '/app/$tenantSlug/pos'
     | '/app/$tenantSlug/promotions'
     | '/app/$tenantSlug/recipes'
+    | '/app/$tenantSlug/reports'
     | '/app/$tenantSlug/reservations'
+    | '/app/$tenantSlug/settings'
     | '/app/$tenantSlug/suppliers'
     | '/app/$tenantSlug/tables'
     | '/app/$tenantSlug'
@@ -522,6 +567,7 @@ export interface FileRouteTypes {
     | '/app/$tenantSlug'
     | '/workspace/inactive'
     | '/workspace/select'
+    | '/app/$tenantSlug/audit-logs'
     | '/app/$tenantSlug/branches'
     | '/app/$tenantSlug/customers'
     | '/app/$tenantSlug/dashboard'
@@ -530,11 +576,14 @@ export interface FileRouteTypes {
     | '/app/$tenantSlug/inventory'
     | '/app/$tenantSlug/kitchen'
     | '/app/$tenantSlug/menu'
+    | '/app/$tenantSlug/notifications'
     | '/app/$tenantSlug/orders'
     | '/app/$tenantSlug/pos'
     | '/app/$tenantSlug/promotions'
     | '/app/$tenantSlug/recipes'
+    | '/app/$tenantSlug/reports'
     | '/app/$tenantSlug/reservations'
+    | '/app/$tenantSlug/settings'
     | '/app/$tenantSlug/suppliers'
     | '/app/$tenantSlug/tables'
     | '/app/$tenantSlug/team'
@@ -643,6 +692,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantSlugIndexRouteImport
       parentRoute: typeof AppTenantSlugRoute
     }
+    '/app/$tenantSlug/audit-logs': {
+      id: '/app/$tenantSlug/audit-logs'
+      path: '/audit-logs'
+      fullPath: '/app/$tenantSlug/audit-logs'
+      preLoaderRoute: typeof AppTenantSlugAuditLogsRouteImport
+      parentRoute: typeof AppTenantSlugRoute
+    }
     '/app/$tenantSlug/branches': {
       id: '/app/$tenantSlug/branches'
       path: '/branches'
@@ -699,6 +755,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantSlugMenuRouteImport
       parentRoute: typeof AppTenantSlugRoute
     }
+    '/app/$tenantSlug/notifications': {
+      id: '/app/$tenantSlug/notifications'
+      path: '/notifications'
+      fullPath: '/app/$tenantSlug/notifications'
+      preLoaderRoute: typeof AppTenantSlugNotificationsRouteImport
+      parentRoute: typeof AppTenantSlugRoute
+    }
     '/app/$tenantSlug/orders': {
       id: '/app/$tenantSlug/orders'
       path: '/orders'
@@ -727,11 +790,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantSlugRecipesRouteImport
       parentRoute: typeof AppTenantSlugRoute
     }
+    '/app/$tenantSlug/reports': {
+      id: '/app/$tenantSlug/reports'
+      path: '/reports'
+      fullPath: '/app/$tenantSlug/reports'
+      preLoaderRoute: typeof AppTenantSlugReportsRouteImport
+      parentRoute: typeof AppTenantSlugRoute
+    }
     '/app/$tenantSlug/reservations': {
       id: '/app/$tenantSlug/reservations'
       path: '/reservations'
       fullPath: '/app/$tenantSlug/reservations'
       preLoaderRoute: typeof AppTenantSlugReservationsRouteImport
+      parentRoute: typeof AppTenantSlugRoute
+    }
+    '/app/$tenantSlug/settings': {
+      id: '/app/$tenantSlug/settings'
+      path: '/settings'
+      fullPath: '/app/$tenantSlug/settings'
+      preLoaderRoute: typeof AppTenantSlugSettingsRouteImport
       parentRoute: typeof AppTenantSlugRoute
     }
     '/app/$tenantSlug/suppliers': {
@@ -965,6 +1042,7 @@ const AppTenantSlugTeamRouteWithChildren =
   AppTenantSlugTeamRoute._addFileChildren(AppTenantSlugTeamRouteChildren)
 
 interface AppTenantSlugRouteChildren {
+  AppTenantSlugAuditLogsRoute: typeof AppTenantSlugAuditLogsRoute
   AppTenantSlugBranchesRoute: typeof AppTenantSlugBranchesRoute
   AppTenantSlugCustomersRoute: typeof AppTenantSlugCustomersRoute
   AppTenantSlugDashboardRoute: typeof AppTenantSlugDashboardRoute
@@ -973,11 +1051,14 @@ interface AppTenantSlugRouteChildren {
   AppTenantSlugInventoryRoute: typeof AppTenantSlugInventoryRouteWithChildren
   AppTenantSlugKitchenRoute: typeof AppTenantSlugKitchenRoute
   AppTenantSlugMenuRoute: typeof AppTenantSlugMenuRouteWithChildren
+  AppTenantSlugNotificationsRoute: typeof AppTenantSlugNotificationsRoute
   AppTenantSlugOrdersRoute: typeof AppTenantSlugOrdersRouteWithChildren
   AppTenantSlugPosRoute: typeof AppTenantSlugPosRoute
   AppTenantSlugPromotionsRoute: typeof AppTenantSlugPromotionsRoute
   AppTenantSlugRecipesRoute: typeof AppTenantSlugRecipesRoute
+  AppTenantSlugReportsRoute: typeof AppTenantSlugReportsRoute
   AppTenantSlugReservationsRoute: typeof AppTenantSlugReservationsRoute
+  AppTenantSlugSettingsRoute: typeof AppTenantSlugSettingsRoute
   AppTenantSlugSuppliersRoute: typeof AppTenantSlugSuppliersRoute
   AppTenantSlugTablesRoute: typeof AppTenantSlugTablesRoute
   AppTenantSlugTeamRoute: typeof AppTenantSlugTeamRouteWithChildren
@@ -988,6 +1069,7 @@ interface AppTenantSlugRouteChildren {
 }
 
 const AppTenantSlugRouteChildren: AppTenantSlugRouteChildren = {
+  AppTenantSlugAuditLogsRoute: AppTenantSlugAuditLogsRoute,
   AppTenantSlugBranchesRoute: AppTenantSlugBranchesRoute,
   AppTenantSlugCustomersRoute: AppTenantSlugCustomersRoute,
   AppTenantSlugDashboardRoute: AppTenantSlugDashboardRoute,
@@ -996,11 +1078,14 @@ const AppTenantSlugRouteChildren: AppTenantSlugRouteChildren = {
   AppTenantSlugInventoryRoute: AppTenantSlugInventoryRouteWithChildren,
   AppTenantSlugKitchenRoute: AppTenantSlugKitchenRoute,
   AppTenantSlugMenuRoute: AppTenantSlugMenuRouteWithChildren,
+  AppTenantSlugNotificationsRoute: AppTenantSlugNotificationsRoute,
   AppTenantSlugOrdersRoute: AppTenantSlugOrdersRouteWithChildren,
   AppTenantSlugPosRoute: AppTenantSlugPosRoute,
   AppTenantSlugPromotionsRoute: AppTenantSlugPromotionsRoute,
   AppTenantSlugRecipesRoute: AppTenantSlugRecipesRoute,
+  AppTenantSlugReportsRoute: AppTenantSlugReportsRoute,
   AppTenantSlugReservationsRoute: AppTenantSlugReservationsRoute,
+  AppTenantSlugSettingsRoute: AppTenantSlugSettingsRoute,
   AppTenantSlugSuppliersRoute: AppTenantSlugSuppliersRoute,
   AppTenantSlugTablesRoute: AppTenantSlugTablesRoute,
   AppTenantSlugTeamRoute: AppTenantSlugTeamRouteWithChildren,

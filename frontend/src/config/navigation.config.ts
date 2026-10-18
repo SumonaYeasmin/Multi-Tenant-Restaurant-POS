@@ -19,12 +19,17 @@ import {
   Store,
   TicketPercent,
   Clock,
+  BarChart3,
+  Bell,
+  History,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import type { Permission } from "./permissions.config";
 
 export type AppPath =
   | "dashboard"
+  | "reports"
   | "pos"
   | "orders"
   | "tables"
@@ -43,7 +48,10 @@ export type AppPath =
   | "team"
   | "team/attendance"
   | "branches"
-  | "promotions";
+  | "promotions"
+  | "notifications"
+  | "audit-logs"
+  | "settings";
 
 export interface NavItem {
   path: AppPath;
@@ -60,7 +68,10 @@ export interface NavGroup {
 export const NAVIGATION: NavGroup[] = [
   {
     label: "Overview",
-    items: [{ path: "dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard.view" }],
+    items: [
+      { path: "dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard.view" },
+      { path: "reports", label: "Reports", icon: BarChart3, permission: "reports.view" },
+    ],
   },
   {
     label: "Service",
@@ -104,6 +115,14 @@ export const NAVIGATION: NavGroup[] = [
       { path: "purchasing/orders", label: "Purchase orders", icon: FileText, permission: "purchasing.manage" },
       { path: "purchasing/receiving", label: "Receiving", icon: PackageCheck, permission: "purchasing.manage" },
       { path: "purchasing/returns", label: "Supplier returns", icon: Undo2, permission: "purchasing.manage" },
+    ],
+  },
+  {
+    label: "Management",
+    items: [
+      { path: "notifications", label: "Notifications", icon: Bell, permission: "notifications.view" },
+      { path: "audit-logs", label: "Audit logs", icon: History, permission: "audit.view" },
+      { path: "settings", label: "Settings", icon: Settings, permission: "settings.manage" },
     ],
   },
 ];
