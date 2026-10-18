@@ -278,6 +278,41 @@ export class ModifierGroupService {
 
     return option;
   }
+
+  async getAllModifierOptions(tenantSlug: string, groupId: string) {
+    // 1. Verify group exists in tenant and is not deleted
+    await this.getModifierGroupById(tenantSlug, groupId);
+
+    // 2. Fetch all options for this group
+    return this.prisma.modifierOption.findMany({
+      where: { groupId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async getModifierOptionById(
+    tenantSlug: string,
+    groupId: string,
+    optionId: string,
+  ) {
+    // 1. Verify group exists in tenant and is not deleted
+    await this.getModifierGroupById(tenantSlug, groupId);
+
+    // 2. Fetch specific option
+    const option = await this.prisma.modifierOption.findFirst({
+      where: {
+        id: optionId,
+        groupId,
+      },
+    });
+
+    if (!option) {
+      throw new NotFoundException('Modifier option');
+    }
+
+    return option;
+  }
 }
+
 
 

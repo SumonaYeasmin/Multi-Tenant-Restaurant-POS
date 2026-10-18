@@ -231,5 +231,79 @@ export class ModifierGroupController {
     );
     return ResponseHelper.created(option, 'Modifier option created successfully');
   }
+
+  @Get(':tenantSlug/modifier-groups/:groupId/options')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all options for a modifier group',
+    description: 'Retrieves all customizable options under a specific modifier group.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'groupId',
+    example: 'uuid',
+    description: 'Modifier Group ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Modifier options retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Modifier group or restaurant not found' })
+  async getAllModifierOptions(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('groupId') groupId: string,
+  ) {
+    const options = await this.modifierGroupService.getAllModifierOptions(
+      tenantSlug,
+      groupId,
+    );
+    return ResponseHelper.success(options, 'Modifier options retrieved successfully');
+  }
+
+  @Get(':tenantSlug/modifier-groups/:groupId/options/:optionId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get details of a specific modifier option',
+    description: 'Retrieves a single modifier option by ID under a modifier group.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'groupId',
+    example: 'uuid',
+    description: 'Modifier Group ID',
+  })
+  @ApiParam({
+    name: 'optionId',
+    example: 'uuid',
+    description: 'Modifier Option ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Modifier option retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Modifier option or group not found' })
+  async getModifierOptionById(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('groupId') groupId: string,
+    @Param('optionId') optionId: string,
+  ) {
+    const option = await this.modifierGroupService.getModifierOptionById(
+      tenantSlug,
+      groupId,
+      optionId,
+    );
+    return ResponseHelper.success(option, 'Modifier option retrieved successfully');
+  }
 }
+
 
