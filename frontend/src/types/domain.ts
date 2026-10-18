@@ -514,3 +514,92 @@ export interface Promotion {
   uses: number;
   maxUses: number | null;
 }
+
+// ---------- Stage 4: reports, audit logs, integrations, and settings ----------
+
+export type AuditAction = "create" | "update" | "delete" | "void" | "refund" | "stock_adjust" | "status_change" | "payment";
+export type AuditEntity = "order" | "inventory" | "staff" | "payment" | "table" | "menu" | "settings" | "branch";
+
+export interface AuditLog {
+  id: string;
+  tenantId: string;
+  branchId?: string;
+  actorId: string;
+  actorName: string;
+  action: AuditAction;
+  entity: AuditEntity;
+  entityId?: string;
+  summary: string;
+  details?: string;
+  createdAt: string;
+}
+
+export type IntegrationCategory = "payments" | "delivery" | "accounting" | "notifications";
+
+export interface Integration {
+  id: string;
+  tenantId: string;
+  key: string;
+  name: string;
+  category: IntegrationCategory;
+  description: string;
+  icon: string;
+  enabled: boolean;
+  config: Record<string, string>;
+  lastSyncAt: string | null;
+  status: "connected" | "disconnected" | "error";
+}
+
+export interface SalesReport {
+  totalRevenue: number;
+  netSales: number;
+  totalOrders: number;
+  avgOrderValue: number;
+  hourlySales: { hour: string; sales: number; orders: number }[];
+  dailySales: { date: string; sales: number; orders: number }[];
+  topItems: { itemId: string; name: string; qty: number; revenue: number }[];
+  salesByCategory: { categoryId: string; name: string; revenue: number }[];
+}
+
+export interface FinancialReport {
+  grossSales: number;
+  discounts: number;
+  taxes: number;
+  serviceCharges: number;
+  refunds: number;
+  netRevenue: number;
+  expensesTotal: number;
+  netProfit: number;
+  byPaymentMethod: { method: PaymentMethod; count: number; total: number }[];
+}
+
+export interface InventoryReport {
+  totalValuation: number;
+  totalItems: number;
+  lowStockCount: number;
+  wastageCost: number;
+  lowStockList: { id: string; name: string; unit: string; stock: number; reorderLevel: number; unitCost: number }[];
+  topMovements: { ingredientId: string; name: string; qty: number; reason: string }[];
+}
+
+export interface OperationsReport {
+  avgPrepTimeMinutes: number;
+  ordersByStatus: { status: OrderStatus; count: number }[];
+  ordersByType: { type: OrderType; count: number; revenue: number }[];
+  kitchenBumpsCount: number;
+  tableTurnover: { tableId: string; name: string; orderCount: number; totalRevenue: number }[];
+  staffShiftsSummary: { staffId: string; name: string; shiftsCount: number; totalHours: number }[];
+}
+
+export interface TenantSettingsInput {
+  name: string;
+  tagline: string;
+  initials: string;
+  accent: string;
+  currency: string;
+  locale: string;
+  taxRate: number;
+  serviceChargeRate: number;
+  receiptFooter: string;
+}
+

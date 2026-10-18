@@ -40,57 +40,87 @@ const COMBOS: Record<string, [string, string, [number, number][], number][]> = {
   t_lumen: [["Morning Duo", "Flat white + butter croissant", [[0, 1], [2, 1]], 6.2]],
 };
 
-export function buildBackoffice(tenantId: string, menuItems: MenuItem[], ingredients: Ingredient[], branchIds: string[]): BackofficeData {
-  const p = tenantId.slice(2, 5);
-  const suppliers: Supplier[] = (SUPPLIERS[tenantId] ?? []).map(([name, contact, phone, email, keys], i) => ({
-    id: `${p}_sup_${i}`,
+export function buildBackoffice(
+  tenantId: string,
+  menuItems: MenuItem[],
+  ingredients: Ingredient[],
+  branchIds: string[],
+): BackofficeData {
+  const tenantPrefix = tenantId.replace(/^t_/, "").slice(0, 3);
+
+  const suppliers: Supplier[] = (SUPPLIERS[tenantId] ?? []).map(
+    ([supplierName, contactPerson, phone, email, supplyKeys], supplierIndex) => ({
+      id: `${tenantPrefix}_sup_${supplierIndex}`,
+      tenantId,
+      name: supplierName,
+      contact: contactPerson,
+      phone,
+      email,
+      supplies: supplyKeys.join(","),
+      paymentTerms: supplierIndex === 0 ? "Net 7" : "Net 14",
+      active: true,
+    }),
+  );
+
+  const combos: Combo[] = (COMBOS[tenantId] ?? []).map(([comboName, description, components, price], comboIndex) => ({
+    id: `${tenantPrefix}_combo_${comboIndex}`,
     tenantId,
-    name,
-    contact,
-    phone,
-    email,
-    supplies: keys.join(","),
-    paymentTerms: i === 0 ? "Net 7" : "Net 14",
-    active: true,
-  }));
-  const combos: Combo[] = (COMBOS[tenantId] ?? []).map(([name, description, comps, price], i) => ({
-    id: `${p}_combo_${i}`,
-    tenantId,
-    name,
+    name: comboName,
     description,
     price,
-    components: comps.filter(([idx]) => menuItems[idx]).map(([idx, qty]) => ({ itemId: menuItems[idx]!.id, qty })),
+    components: components
+      .filter(([menuItemIndex]) => menuItems[menuItemIndex])
+      .map(([menuItemIndex, quantity]) => ({ itemId: menuItems[menuItemIndex]!.id, qty: quantity })),
     available: true,
   }));
 
   // One open (sent) PO per branch so receiving has something to do.
-  let docSeq = 500;
+  let documentSequence = 500;
   const purchaseOrders: PurchaseOrder[] = [];
-  const now = Date.now();
+  const currentTimestamp = Date.now();
+
   for (const branchId of branchIds) {
-    const sup = suppliers[0];
-    if (!sup) continue;
-    const keys = sup.supplies.split(",");
-    const lines = ingredients
-      .filter((ing) => ing.branchId === branchId && keys.includes(ing.key))
-      .map((ing) => ({ ingredientId: ing.id, name: ing.name, unit: ing.unit, qty: Math.max(5, ing.reorderLevel * 2), unitCost: ing.unitCost, receivedQty: 0 }));
-    docSeq++;
+    const primarySupplier = suppliers[0];
+    if (!primarySupplier) continue;
+
+    const supplierItemKeys = primarySupplier.supplies.split(",");
+    const purchaseLines = ingredients
+      .filter((ingredient) => ingredient.branchId === branchId && supplierItemKeys.includes(ingredient.key))
+      .map((ingredient) => ({
+        ingredientId: ingredient.id,
+        name: ingredient.name,
+        unit: ingredient.unit,
+        qty: Math.max(5, ingredient.reorderLevel * 2),
+        unitCost: ingredient.unitCost,
+        receivedQty: 0,
+      }));
+
+    documentSequence++;
     purchaseOrders.push({
-      id: `${p}_po_${docSeq}`,
+      id: `${tenantPrefix}_po_${documentSequence}`,
       tenantId,
       branchId,
-      number: `PO-${docSeq}`,
-      supplierId: sup.id,
-      supplierName: sup.name,
+      number: `PO-${documentSequence}`,
+      supplierId: primarySupplier.id,
+      supplierName: primarySupplier.name,
       status: "sent",
-      lines,
+      lines: purchaseLines,
       notes: "Weekly restock",
-      expectedDate: new Date(now + 86400000).toISOString().slice(0, 10),
-      total: round2(lines.reduce((s, l) => s + l.qty * l.unitCost, 0)),
+      expectedDate: new Date(currentTimestamp + 86400000).toISOString().slice(0, 10),
+      total: round2(purchaseLines.reduce((sum, line) => sum + line.qty * line.unitCost, 0)),
       createdBy: "Seed",
-      createdAt: new Date(now - 86400000).toISOString(),
-      sentAt: new Date(now - 86000000).toISOString(),
+      createdAt: new Date(currentTimestamp - 86400000).toISOString(),
+      sentAt: new Date(currentTimestamp - 86000000).toISOString(),
     });
   }
-  return { combos, suppliers, purchaseOrders, receipts: [], supplierReturns: [], stockCounts: [], docSeq };
+
+  return {
+    combos,
+    suppliers,
+    purchaseOrders,
+    receipts: [],
+    supplierReturns: [],
+    stockCounts: [],
+    docSeq: documentSequence,
+  };
 }

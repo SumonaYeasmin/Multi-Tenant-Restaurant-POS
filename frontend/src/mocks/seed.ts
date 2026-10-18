@@ -13,8 +13,9 @@ import { computeTotals } from "@/lib/pricing";
 import { BRANCHES, TENANTS } from "./platform";
 import { buildBackoffice, type BackofficeData } from "./seed-backoffice";
 import { buildPeople, type PeopleData } from "./seed-people";
+import { buildStage4, type Stage4Data } from "./seed-stage4";
 
-export interface TenantDb extends BackofficeData, PeopleData {
+export interface TenantDb extends BackofficeData, PeopleData, Stage4Data {
   version: number;
   categories: Category[];
   modifierGroups: ModifierGroup[];
@@ -27,7 +28,7 @@ export interface TenantDb extends BackofficeData, PeopleData {
   orderSeq: number;
 }
 
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 interface ItemSpec {
   cat: string;
@@ -142,130 +143,203 @@ function rng(seed: number) {
 }
 
 export function buildTenantSeed(tenantId: string): TenantDb {
-  const spec = SPECS[tenantId];
-  const tenant = TENANTS.find((t) => t.id === tenantId);
-  if (!spec || !tenant) throw new Error(`Unknown tenant ${tenantId}`);
-  const branches = BRANCHES.filter((b) => b.tenantId === tenantId);
-  const p = tenantId.slice(2, 5);
+  const tenantSpec = SPECS[tenantId];
+  const tenant = TENANTS.find((targetTenant) => targetTenant.id === tenantId);
+  if (!tenantSpec || !tenant) throw new Error(`Unknown tenant ${tenantId}`);
+  const branches = BRANCHES.filter((branch) => branch.tenantId === tenantId);
+  const tenantPrefix = tenantId.replace(/^t_/, "").slice(0, 3);
 
-  const categories: Category[] = spec.categories.map((name, i) => ({ id: `${p}_cat_${i}`, tenantId, name, sort: i }));
-  const modifierGroups: ModifierGroup[] = spec.modifiers.map((m) => ({
-    id: `${p}_mg_${m.key}`,
+  const categories: Category[] = tenantSpec.categories.map((categoryName, categoryIndex) => ({
+    id: `${tenantPrefix}_cat_${categoryIndex}`,
     tenantId,
-    name: m.name,
-    min: m.min,
-    max: m.max,
-    options: m.options.map(([name, price], i) => ({ id: `${p}_mo_${m.key}_${i}`, name, price })),
+    name: categoryName,
+    sort: categoryIndex,
   }));
-  const menuItems: MenuItem[] = spec.items.map((it, i) => ({
-    id: `${p}_item_${i}`,
+
+  const modifierGroups: ModifierGroup[] = tenantSpec.modifiers.map((modifierGroupSpec) => ({
+    id: `${tenantPrefix}_mg_${modifierGroupSpec.key}`,
     tenantId,
-    categoryId: categories[spec.categories.indexOf(it.cat)]!.id,
-    name: it.name,
-    description: it.desc,
-    price: it.price,
-    variants: (it.variants ?? []).map(([name, d], vi) => ({ id: `${p}_v_${i}_${vi}`, name, priceDelta: d })),
-    modifierGroupIds: (it.mods ?? []).map((k) => `${p}_mg_${k}`),
-    recipe: it.recipe.map(([ingredientKey, qty]) => ({ ingredientKey, qty })),
+    name: modifierGroupSpec.name,
+    min: modifierGroupSpec.min,
+    max: modifierGroupSpec.max,
+    options: modifierGroupSpec.options.map(([optionName, optionPrice], optionIndex) => ({
+      id: `${tenantPrefix}_mo_${modifierGroupSpec.key}_${optionIndex}`,
+      name: optionName,
+      price: optionPrice,
+    })),
+  }));
+
+  const menuItems: MenuItem[] = tenantSpec.items.map((menuItemSpec, itemIndex) => ({
+    id: `${tenantPrefix}_item_${itemIndex}`,
+    tenantId,
+    categoryId: categories[tenantSpec.categories.indexOf(menuItemSpec.cat)]!.id,
+    name: menuItemSpec.name,
+    description: menuItemSpec.desc,
+    price: menuItemSpec.price,
+    variants: (menuItemSpec.variants ?? []).map(([variantName, priceDelta], variantIndex) => ({
+      id: `${tenantPrefix}_v_${itemIndex}_${variantIndex}`,
+      name: variantName,
+      priceDelta,
+    })),
+    modifierGroupIds: (menuItemSpec.mods ?? []).map((modifierGroupKey) => `${tenantPrefix}_mg_${modifierGroupKey}`),
+    recipe: menuItemSpec.recipe.map(([ingredientKey, quantity]) => ({ ingredientKey, qty: quantity })),
     available: true,
-    tags: it.tags ?? [],
+    tags: menuItemSpec.tags ?? [],
   }));
 
   const ingredients: Ingredient[] = [];
   const tables: DiningTable[] = [];
-  for (const b of branches) {
-    spec.ingredients.forEach(([key, name, unit, stock, reorder, cost]) =>
-      ingredients.push({ id: `${b.id}_ing_${key}`, tenantId, branchId: b.id, key, name, unit, stock, reorderLevel: reorder, unitCost: cost }),
-    );
-    const count = spec.areas.length > 1 ? 10 : 6;
-    for (let i = 0; i < count; i++) {
-      const area = spec.areas[i < count / 2 || spec.areas.length === 1 ? 0 : 1];
-      const col = i % 5;
-      const row = Math.floor(i / 5);
-      tables.push({
-        id: `${b.id}_tbl_${i + 1}`,
+  for (const branch of branches) {
+    tenantSpec.ingredients.forEach(([ingredientKey, ingredientName, unit, currentStock, reorderLevel, unitCost]) =>
+      ingredients.push({
+        id: `${branch.id}_ing_${ingredientKey}`,
         tenantId,
-        branchId: b.id,
-        name: `T${i + 1}`,
-        seats: [2, 4, 4, 6, 2, 4, 8, 2, 4, 4][i % 10]!,
+        branchId: branch.id,
+        key: ingredientKey,
+        name: ingredientName,
+        unit,
+        stock: currentStock,
+        reorderLevel,
+        unitCost,
+      }),
+    );
+    const tableCount = tenantSpec.areas.length > 1 ? 10 : 6;
+    for (let tableIndex = 0; tableIndex < tableCount; tableIndex++) {
+      const area = tenantSpec.areas[tableIndex < tableCount / 2 || tenantSpec.areas.length === 1 ? 0 : 1];
+      const column = tableIndex % 5;
+      const row = Math.floor(tableIndex / 5);
+      tables.push({
+        id: `${branch.id}_tbl_${tableIndex + 1}`,
+        tenantId,
+        branchId: branch.id,
+        name: `T${tableIndex + 1}`,
+        seats: [2, 4, 4, 6, 2, 4, 8, 2, 4, 4][tableIndex % 10]!,
         area: area ?? "Main",
-        status: i === 3 ? "reserved" : "available",
+        status: tableIndex === 3 ? "reserved" : "available",
         currentOrderId: null,
-        x: col,
+        x: column,
         y: row,
-        shape: i % 10 === 6 ? "long" : i % 3 === 0 ? "round" : "square",
+        shape: tableIndex % 10 === 6 ? "long" : tableIndex % 3 === 0 ? "round" : "square",
       });
     }
   }
 
   // Historic completed orders over the last 7 days for dashboard history.
-  const rand = rng(tenantId.length * 7919 + 13);
+  const randomGenerator = rng(tenantId.length * 7919 + 13);
   const orders: Order[] = [];
-  let seq = 1000;
-  const now = Date.now();
-  const types = ["dine_in", "takeaway", "dine_in", "pickup", "counter"] as const;
-  for (const b of branches) {
-    for (let d = 7; d >= 1; d--) {
-      const perDay = 6 + Math.floor(rand() * 6);
-      for (let k = 0; k < perDay; k++) {
-        const created = new Date(now - d * 86400000 + (10 + rand() * 11) * 3600000);
-        const nLines = 1 + Math.floor(rand() * 3);
-        const lines: OrderLine[] = [];
-        for (let l = 0; l < nLines; l++) {
-          const item = menuItems[Math.floor(rand() * menuItems.length)]!;
-          lines.push({
-            id: `l${seq}_${l}`,
-            itemId: item.id,
-            name: item.name,
+  let orderSequence = 1000;
+  const currentTimestamp = Date.now();
+  const orderTypes = ["dine_in", "takeaway", "dine_in", "pickup", "counter"] as const;
+
+  for (const branch of branches) {
+    for (let dayOffset = 7; dayOffset >= 1; dayOffset--) {
+      const ordersPerDay = 6 + Math.floor(randomGenerator() * 6);
+      for (let orderIndex = 0; orderIndex < ordersPerDay; orderIndex++) {
+        const orderCreatedAt = new Date(currentTimestamp - dayOffset * 86400000 + (10 + randomGenerator() * 11) * 3600000);
+        const orderLineCount = 1 + Math.floor(randomGenerator() * 3);
+        const orderLines: OrderLine[] = [];
+
+        for (let lineIndex = 0; lineIndex < orderLineCount; lineIndex++) {
+          const selectedMenuItem = menuItems[Math.floor(randomGenerator() * menuItems.length)]!;
+          orderLines.push({
+            id: `l${orderSequence}_${lineIndex}`,
+            itemId: selectedMenuItem.id,
+            name: selectedMenuItem.name,
             variantId: null,
             variantName: null,
             modifiers: [],
-            qty: 1 + Math.floor(rand() * 2),
-            unitPrice: item.price,
+            qty: 1 + Math.floor(randomGenerator() * 2),
+            unitPrice: selectedMenuItem.price,
             notes: "",
           });
         }
-        const type = types[Math.floor(rand() * types.length)]!;
-        const totals = computeTotals({ lines, discount: null, orderType: type, taxRate: tenant.taxRate, serviceChargeRate: tenant.serviceChargeRate });
-        seq++;
+        const orderType = orderTypes[Math.floor(randomGenerator() * orderTypes.length)]!;
+        const orderTotals = computeTotals({
+          lines: orderLines,
+          discount: null,
+          orderType,
+          taxRate: tenant.taxRate,
+          serviceChargeRate: tenant.serviceChargeRate,
+        });
+        orderSequence++;
+
         orders.push({
-          id: `${p}_ord_${seq}`,
+          id: `${tenantPrefix}_ord_${orderSequence}`,
           tenantId,
-          branchId: b.id,
-          number: `#${seq}`,
-          type,
+          branchId: branch.id,
+          number: `#${orderSequence}`,
+          type: orderType,
           tableId: null,
           tableName: null,
           customerName: "",
           customerPhone: "",
-          lines,
+          lines: orderLines,
           discount: null,
           notes: "",
-          totals,
+          totals: orderTotals,
           status: "completed",
           kitchenStatus: "bumped",
-          payments: [{ id: `pay_${seq}`, method: rand() > 0.5 ? "card" : "cash", amount: totals.total, tendered: totals.total, change: 0, reference: "", at: created.toISOString() }],
-          paid: totals.total,
+          payments: [
+            {
+              id: `pay_${orderSequence}`,
+              method: randomGenerator() > 0.5 ? "card" : "cash",
+              amount: orderTotals.total,
+              tendered: orderTotals.total,
+              change: 0,
+              reference: "",
+              at: orderCreatedAt.toISOString(),
+            },
+          ],
+          paid: orderTotals.total,
           refunds: [],
           refunded: 0,
           delivery: null,
           inventoryDeducted: true,
           createdBy: "seed",
-          createdAt: created.toISOString(),
-          sentToKitchenAt: created.toISOString(),
-          readyAt: created.toISOString(),
-          completedAt: new Date(created.getTime() + 40 * 60000).toISOString(),
+          createdAt: orderCreatedAt.toISOString(),
+          sentToKitchenAt: orderCreatedAt.toISOString(),
+          readyAt: orderCreatedAt.toISOString(),
+          completedAt: new Date(orderCreatedAt.getTime() + 40 * 60000).toISOString(),
         });
       }
     }
   }
 
   const notifications: Notification[] = [
-    { id: `${p}_n1`, tenantId, title: "Low stock", body: "Some ingredients are below reorder level.", createdAt: new Date(now - 3600000).toISOString(), read: false },
-    { id: `${p}_n2`, tenantId, title: "Welcome", body: `${tenant.name} workspace is ready (demo data).`, createdAt: new Date(now - 86400000).toISOString(), read: true },
+    {
+      id: `${tenantPrefix}_n1`,
+      tenantId,
+      title: "Low stock",
+      body: "Some ingredients are below reorder level.",
+      createdAt: new Date(currentTimestamp - 3600000).toISOString(),
+      read: false,
+    },
+    {
+      id: `${tenantPrefix}_n2`,
+      tenantId,
+      title: "Welcome",
+      body: `${tenant.name} workspace is ready (demo data).`,
+      createdAt: new Date(currentTimestamp - 86400000).toISOString(),
+      read: true,
+    },
   ];
 
-  const backoffice = buildBackoffice(tenantId, menuItems, ingredients, branches.map((b) => b.id));
+  const backoffice = buildBackoffice(tenantId, menuItems, ingredients, branches.map((branch) => branch.id));
   const people = buildPeople(tenantId, orders);
-  return { ...backoffice, ...people, version: DB_VERSION, categories, modifierGroups, menuItems, ingredients, movements: [], tables, orders, notifications, orderSeq: seq };
+  const stage4 = buildStage4(tenantId);
+  return {
+    ...backoffice,
+    ...people,
+    ...stage4,
+    version: DB_VERSION,
+    categories,
+    modifierGroups,
+    menuItems,
+    ingredients,
+    movements: [],
+    tables,
+    orders,
+    notifications,
+    orderSeq: orderSequence,
+  };
 }

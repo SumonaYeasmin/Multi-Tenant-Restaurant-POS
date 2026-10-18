@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChefHat, CreditCard, Loader2, Minus, Plus, Search, Trash2, X } from "lucide-react";
 import { RequirePermission } from "@/features/tenant/require-permission";
@@ -120,6 +120,19 @@ function PosPage() {
       toast.error(errorMessage(e));
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        submit(true);
+      } else if (e.key === "Escape") {
+        if (configuring) setConfiguring(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [lines, cart, configuring]);
 
   return (
     <div className="-m-4 grid h-[calc(100vh-3.5rem)] md:-m-6 lg:grid-cols-[1fr_380px]">
