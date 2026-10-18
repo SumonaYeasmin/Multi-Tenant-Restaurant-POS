@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateModifierGroupDto } from './dto/create-modifier-group.dto';
+import { CreateModifierOptionDto } from './dto/create-modifier-option.dto';
 import { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
 import {
   NotFoundException,
@@ -238,5 +239,45 @@ export class ModifierGroupService {
 
     return { message: 'Modifier group deleted successfully' };
   }
+
+  async createModifierOption(
+    tenantSlug: string,
+    groupId: string,
+    dto: CreateModifierOptionDto,
+  ) {
+    // 1. Verify group exists in tenant and is not deleted
+    const group = await this.getModifierGroupById(tenantSlug, groupId);
+
+    const trimmedName = dto.name.trim();
+
+    // 2. Check if option with same name already exists in this group (case-insensitive)
+    const existingOption = await this.prisma.modifierOption.findFirst({
+      where: {
+        groupId: group.id,
+        name: {
+          equals: trimmedName,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (existingOption) {
+      throw new AlreadyExistsException(
+        'A modifier option with this name in this group',
+      );
+    }
+
+    // 3. Create modifier option
+    const option = await this.prisma.modifierOption.create({
+      data: {
+        groupId: group.id,
+        name: trimmedName,
+        price: dto.price ?? 0.0,
+      },
+    });
+
+    return option;
+  }
 }
+
 

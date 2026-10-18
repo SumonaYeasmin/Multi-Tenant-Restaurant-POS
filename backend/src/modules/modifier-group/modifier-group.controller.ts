@@ -17,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { ModifierGroupService } from './modifier-group.service';
 import { CreateModifierGroupDto } from './dto/create-modifier-group.dto';
+import { CreateModifierOptionDto } from './dto/create-modifier-option.dto';
 import { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -191,4 +192,44 @@ export class ModifierGroupController {
     );
     return ResponseHelper.success(result, 'Modifier group deleted successfully');
   }
+
+  @Post(':tenantSlug/modifier-groups/:groupId/options')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MENU_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Add an option to a modifier group',
+    description: 'Creates a new customizable option (e.g. Extra Cheese) under a specific modifier group.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'groupId',
+    example: 'uuid',
+    description: 'Modifier Group ID',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Modifier option created successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Modifier group or restaurant not found' })
+  @ApiResponse({ status: 409, description: 'Modifier option with this name already exists in this group' })
+  async createModifierOption(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('groupId') groupId: string,
+    @Body() dto: CreateModifierOptionDto,
+  ) {
+    const option = await this.modifierGroupService.createModifierOption(
+      tenantSlug,
+      groupId,
+      dto,
+    );
+    return ResponseHelper.created(option, 'Modifier option created successfully');
+  }
 }
+
