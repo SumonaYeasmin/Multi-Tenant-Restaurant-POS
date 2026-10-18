@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateModifierGroupDto } from './dto/create-modifier-group.dto';
+import { CreateModifierOptionDto } from './dto/create-modifier-option.dto';
 import { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
+import { UpdateModifierOptionDto } from './dto/update-modifier-option.dto';
 import {
   NotFoundException,
   AlreadyExistsException,
@@ -101,6 +103,7 @@ export class ModifierGroupService {
       },
       include: {
         options: {
+          where: { isDeleted: false },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -127,6 +130,7 @@ export class ModifierGroupService {
       },
       include: {
         options: {
+          where: { isDeleted: false },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -215,6 +219,7 @@ export class ModifierGroupService {
         },
         include: {
           options: {
+            where: { isDeleted: false },
             orderBy: { createdAt: 'asc' },
           },
         },
@@ -238,5 +243,148 @@ export class ModifierGroupService {
 
     return { message: 'Modifier group deleted successfully' };
   }
+
+  async createModifierOption(
+    tenantSlug: string,
+    groupId: string,
+    dto: CreateModifierOptionDto,
+  ) {
+    // 1. Verify group exists in tenant and is not deleted
+    const group = await this.getModifierGroupById(tenantSlug, groupId);
+
+    const trimmedName = dto.name.trim();
+
+    // 2. Check if active/non-deleted option with same name already exists in this group (case-insensitive)
+    const existingOption = await this.prisma.modifierOption.findFirst({
+      where: {
+        groupId: group.id,
+        isDeleted: false,
+        name: {
+          equals: trimmedName,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (existingOption) {
+      throw new AlreadyExistsException(
+        'A modifier option with this name in this group',
+      );
+    }
+
+    // 3. Create modifier option
+    const option = await this.prisma.modifierOption.create({
+      data: {
+        groupId: group.id,
+        name: trimmedName,
+        price: dto.price ?? 0.0,
+      },
+    });
+
+    return option;
+  }
+
+  async getAllModifierOptions(tenantSlug: string, groupId: string) {
+    // 1. Verify group exists in tenant and is not deleted
+    await this.getModifierGroupById(tenantSlug, groupId);
+
+    // 2. Fetch all non-deleted options for this group
+    return this.prisma.modifierOption.findMany({
+      where: {
+        groupId,
+        isDeleted: false,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async getModifierOptionById(
+    tenantSlug: string,
+    groupId: string,
+    optionId: string,
+  ) {
+    // 1. Verify group exists in tenant and is not deleted
+    await this.getModifierGroupById(tenantSlug, groupId);
+
+    // 2. Fetch specific non-deleted option
+    const option = await this.prisma.modifierOption.findFirst({
+      where: {
+        id: optionId,
+        groupId,
+        isDeleted: false,
+      },
+    });
+
+    if (!option) {
+      throw new NotFoundException('Modifier option');
+    }
+
+    return option;
+  }
+
+  async updateModifierOption(
+    tenantSlug: string,
+    groupId: string,
+    optionId: string,
+    dto: UpdateModifierOptionDto,
+  ) {
+    // 1. Verify option exists in group and is not deleted
+    await this.getModifierOptionById(tenantSlug, groupId, optionId);
+
+    // 2. If name is being changed, verify uniqueness among non-deleted options in this group
+    if (dto.name !== undefined) {
+      const trimmedName = dto.name.trim();
+      const existingOption = await this.prisma.modifierOption.findFirst({
+        where: {
+          groupId,
+          isDeleted: false,
+          name: {
+            equals: trimmedName,
+            mode: 'insensitive',
+          },
+          id: { not: optionId },
+        },
+      });
+
+      if (existingOption) {
+        throw new AlreadyExistsException(
+          'A modifier option with this name in this group',
+        );
+      }
+    }
+
+    // 3. Update modifier option
+    return this.prisma.modifierOption.update({
+      where: { id: optionId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.price !== undefined && { price: dto.price }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      },
+    });
+  }
+
+  async deleteModifierOption(
+    tenantSlug: string,
+    groupId: string,
+    optionId: string,
+  ) {
+    // 1. Verify option exists in group and is not deleted
+    await this.getModifierOptionById(tenantSlug, groupId, optionId);
+
+    // 2. Soft delete modifier option
+    await this.prisma.modifierOption.update({
+      where: { id: optionId },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        isActive: false,
+      },
+    });
+
+    return { message: 'Modifier option deleted successfully' };
+  }
 }
+
+
 
