@@ -43,6 +43,16 @@ export type Branch = Prisma.BranchModel
  */
 export type Category = Prisma.CategoryModel
 /**
+ * Model ModifierGroup
+ * 
+ */
+export type ModifierGroup = Prisma.ModifierGroupModel
+/**
+ * Model ModifierOption
+ * 
+ */
+export type ModifierOption = Prisma.ModifierOptionModel
+/**
  * Model User
  * 
  */
