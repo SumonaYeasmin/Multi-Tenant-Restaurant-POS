@@ -13,6 +13,14 @@ import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateModifierOptionDto {
+  @ApiPropertyOptional({
+    description: 'Option ID (when updating existing options)',
+    example: 'uuid',
+  })
+  @IsString()
+  @IsOptional()
+  id?: string;
+
   @ApiProperty({
     description: 'Name of the modifier option',
     example: 'Extra Cheese',

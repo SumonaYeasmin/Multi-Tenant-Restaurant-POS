@@ -1128,6 +1128,9 @@ export const ModifierGroupScalarFieldEnum = {
   min: 'min',
   max: 'max',
   isRequired: 'isRequired',
+  isActive: 'isActive',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

@@ -101,13 +101,15 @@ model ModifierGroup {
     min         Int              @default(0)
     max         Int              @default(1)
     isRequired  Boolean          @default(false)
+    isActive    Boolean          @default(true)
+    isDeleted   Boolean          @default(false)
+    deletedAt   DateTime?
     createdAt   DateTime         @default(now())
     updatedAt   DateTime         @updatedAt
 
     tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
     options     ModifierOption[]
 
-    @@unique([tenantId, name])
     @@map("modifier_groups")
 }
 

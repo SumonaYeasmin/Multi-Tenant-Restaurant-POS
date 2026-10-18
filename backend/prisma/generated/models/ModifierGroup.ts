@@ -43,6 +43,9 @@ export type ModifierGroupMinAggregateOutputType = {
   min: number | null
   max: number | null
   isRequired: boolean | null
+  isActive: boolean | null
+  isDeleted: boolean | null
+  deletedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -54,6 +57,9 @@ export type ModifierGroupMaxAggregateOutputType = {
   min: number | null
   max: number | null
   isRequired: boolean | null
+  isActive: boolean | null
+  isDeleted: boolean | null
+  deletedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -65,6 +71,9 @@ export type ModifierGroupCountAggregateOutputType = {
   min: number
   max: number
   isRequired: number
+  isActive: number
+  isDeleted: number
+  deletedAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -88,6 +97,9 @@ export type ModifierGroupMinAggregateInputType = {
   min?: true
   max?: true
   isRequired?: true
+  isActive?: true
+  isDeleted?: true
+  deletedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -99,6 +111,9 @@ export type ModifierGroupMaxAggregateInputType = {
   min?: true
   max?: true
   isRequired?: true
+  isActive?: true
+  isDeleted?: true
+  deletedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -110,6 +125,9 @@ export type ModifierGroupCountAggregateInputType = {
   min?: true
   max?: true
   isRequired?: true
+  isActive?: true
+  isDeleted?: true
+  deletedAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -208,6 +226,9 @@ export type ModifierGroupGroupByOutputType = {
   min: number
   max: number
   isRequired: boolean
+  isActive: boolean
+  isDeleted: boolean
+  deletedAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: ModifierGroupCountAggregateOutputType | null
@@ -242,6 +263,9 @@ export type ModifierGroupWhereInput = {
   min?: Prisma.IntFilter<"ModifierGroup"> | number
   max?: Prisma.IntFilter<"ModifierGroup"> | number
   isRequired?: Prisma.BoolFilter<"ModifierGroup"> | boolean
+  isActive?: Prisma.BoolFilter<"ModifierGroup"> | boolean
+  isDeleted?: Prisma.BoolFilter<"ModifierGroup"> | boolean
+  deletedAt?: Prisma.DateTimeNullableFilter<"ModifierGroup"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ModifierGroup"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ModifierGroup"> | Date | string
   tenant?: Prisma.XOR<Prisma.TenantScalarRelationFilter, Prisma.TenantWhereInput>
@@ -255,6 +279,9 @@ export type ModifierGroupOrderByWithRelationInput = {
   min?: Prisma.SortOrder
   max?: Prisma.SortOrder
   isRequired?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
+  isDeleted?: Prisma.SortOrder
+  deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   tenant?: Prisma.TenantOrderByWithRelationInput
@@ -263,7 +290,6 @@ export type ModifierGroupOrderByWithRelationInput = {
 
 export type ModifierGroupWhereUniqueInput = Prisma.AtLeast<{
   id?: string
-  tenantId_name?: Prisma.ModifierGroupTenantIdNameCompoundUniqueInput
   AND?: Prisma.ModifierGroupWhereInput | Prisma.ModifierGroupWhereInput[]
   OR?: Prisma.ModifierGroupWhereInput[]
   NOT?: Prisma.ModifierGroupWhereInput | Prisma.ModifierGroupWhereInput[]
@@ -272,11 +298,14 @@ export type ModifierGroupWhereUniqueInput = Prisma.AtLeast<{
   min?: Prisma.IntFilter<"ModifierGroup"> | number
   max?: Prisma.IntFilter<"ModifierGroup"> | number
   isRequired?: Prisma.BoolFilter<"ModifierGroup"> | boolean
+  isActive?: Prisma.BoolFilter<"ModifierGroup"> | boolean
+  isDeleted?: Prisma.BoolFilter<"ModifierGroup"> | boolean
+  deletedAt?: Prisma.DateTimeNullableFilter<"ModifierGroup"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ModifierGroup"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ModifierGroup"> | Date | string
   tenant?: Prisma.XOR<Prisma.TenantScalarRelationFilter, Prisma.TenantWhereInput>
   options?: Prisma.ModifierOptionListRelationFilter
-}, "id" | "tenantId_name">
+}, "id">
 
 export type ModifierGroupOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -285,6 +314,9 @@ export type ModifierGroupOrderByWithAggregationInput = {
   min?: Prisma.SortOrder
   max?: Prisma.SortOrder
   isRequired?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
+  isDeleted?: Prisma.SortOrder
+  deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.ModifierGroupCountOrderByAggregateInput
@@ -304,6 +336,9 @@ export type ModifierGroupScalarWhereWithAggregatesInput = {
   min?: Prisma.IntWithAggregatesFilter<"ModifierGroup"> | number
   max?: Prisma.IntWithAggregatesFilter<"ModifierGroup"> | number
   isRequired?: Prisma.BoolWithAggregatesFilter<"ModifierGroup"> | boolean
+  isActive?: Prisma.BoolWithAggregatesFilter<"ModifierGroup"> | boolean
+  isDeleted?: Prisma.BoolWithAggregatesFilter<"ModifierGroup"> | boolean
+  deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ModifierGroup"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ModifierGroup"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"ModifierGroup"> | Date | string
 }
@@ -314,6 +349,9 @@ export type ModifierGroupCreateInput = {
   min?: number
   max?: number
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutModifierGroupsInput
@@ -327,6 +365,9 @@ export type ModifierGroupUncheckedCreateInput = {
   min?: number
   max?: number
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   options?: Prisma.ModifierOptionUncheckedCreateNestedManyWithoutGroupInput
@@ -338,6 +379,9 @@ export type ModifierGroupUpdateInput = {
   min?: Prisma.IntFieldUpdateOperationsInput | number
   max?: Prisma.IntFieldUpdateOperationsInput | number
   isRequired?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutModifierGroupsNestedInput
@@ -351,6 +395,9 @@ export type ModifierGroupUncheckedUpdateInput = {
   min?: Prisma.IntFieldUpdateOperationsInput | number
   max?: Prisma.IntFieldUpdateOperationsInput | number
   isRequired?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   options?: Prisma.ModifierOptionUncheckedUpdateManyWithoutGroupNestedInput
@@ -363,6 +410,9 @@ export type ModifierGroupCreateManyInput = {
   min?: number
   max?: number
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -373,6 +423,9 @@ export type ModifierGroupUpdateManyMutationInput = {
   min?: Prisma.IntFieldUpdateOperationsInput | number
   max?: Prisma.IntFieldUpdateOperationsInput | number
   isRequired?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -384,6 +437,9 @@ export type ModifierGroupUncheckedUpdateManyInput = {
   min?: Prisma.IntFieldUpdateOperationsInput | number
   max?: Prisma.IntFieldUpdateOperationsInput | number
   isRequired?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -398,11 +454,6 @@ export type ModifierGroupOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
-export type ModifierGroupTenantIdNameCompoundUniqueInput = {
-  tenantId: string
-  name: string
-}
-
 export type ModifierGroupCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   tenantId?: Prisma.SortOrder
@@ -410,6 +461,9 @@ export type ModifierGroupCountOrderByAggregateInput = {
   min?: Prisma.SortOrder
   max?: Prisma.SortOrder
   isRequired?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
+  isDeleted?: Prisma.SortOrder
+  deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -426,6 +480,9 @@ export type ModifierGroupMaxOrderByAggregateInput = {
   min?: Prisma.SortOrder
   max?: Prisma.SortOrder
   isRequired?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
+  isDeleted?: Prisma.SortOrder
+  deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -437,6 +494,9 @@ export type ModifierGroupMinOrderByAggregateInput = {
   min?: Prisma.SortOrder
   max?: Prisma.SortOrder
   isRequired?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
+  isDeleted?: Prisma.SortOrder
+  deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -493,6 +553,10 @@ export type ModifierGroupUncheckedUpdateManyWithoutTenantNestedInput = {
   deleteMany?: Prisma.ModifierGroupScalarWhereInput | Prisma.ModifierGroupScalarWhereInput[]
 }
 
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
+}
+
 export type ModifierGroupCreateNestedOneWithoutOptionsInput = {
   create?: Prisma.XOR<Prisma.ModifierGroupCreateWithoutOptionsInput, Prisma.ModifierGroupUncheckedCreateWithoutOptionsInput>
   connectOrCreate?: Prisma.ModifierGroupCreateOrConnectWithoutOptionsInput
@@ -513,6 +577,9 @@ export type ModifierGroupCreateWithoutTenantInput = {
   min?: number
   max?: number
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   options?: Prisma.ModifierOptionCreateNestedManyWithoutGroupInput
@@ -524,6 +591,9 @@ export type ModifierGroupUncheckedCreateWithoutTenantInput = {
   min?: number
   max?: number
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   options?: Prisma.ModifierOptionUncheckedCreateNestedManyWithoutGroupInput
@@ -565,6 +635,9 @@ export type ModifierGroupScalarWhereInput = {
   min?: Prisma.IntFilter<"ModifierGroup"> | number
   max?: Prisma.IntFilter<"ModifierGroup"> | number
   isRequired?: Prisma.BoolFilter<"ModifierGroup"> | boolean
+  isActive?: Prisma.BoolFilter<"ModifierGroup"> | boolean
+  isDeleted?: Prisma.BoolFilter<"ModifierGroup"> | boolean
+  deletedAt?: Prisma.DateTimeNullableFilter<"ModifierGroup"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ModifierGroup"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ModifierGroup"> | Date | string
 }
@@ -575,6 +648,9 @@ export type ModifierGroupCreateWithoutOptionsInput = {
   min?: number
   max?: number
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutModifierGroupsInput
@@ -587,6 +663,9 @@ export type ModifierGroupUncheckedCreateWithoutOptionsInput = {
   min?: number
   max?: number
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -613,6 +692,9 @@ export type ModifierGroupUpdateWithoutOptionsInput = {
   min?: Prisma.IntFieldUpdateOperationsInput | number
   max?: Prisma.IntFieldUpdateOperationsInput | number
   isRequired?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutModifierGroupsNestedInput
@@ -625,6 +707,9 @@ export type ModifierGroupUncheckedUpdateWithoutOptionsInput = {
   min?: Prisma.IntFieldUpdateOperationsInput | number
   max?: Prisma.IntFieldUpdateOperationsInput | number
   isRequired?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -635,6 +720,9 @@ export type ModifierGroupCreateManyTenantInput = {
   min?: number
   max?: number
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -645,6 +733,9 @@ export type ModifierGroupUpdateWithoutTenantInput = {
   min?: Prisma.IntFieldUpdateOperationsInput | number
   max?: Prisma.IntFieldUpdateOperationsInput | number
   isRequired?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   options?: Prisma.ModifierOptionUpdateManyWithoutGroupNestedInput
@@ -656,6 +747,9 @@ export type ModifierGroupUncheckedUpdateWithoutTenantInput = {
   min?: Prisma.IntFieldUpdateOperationsInput | number
   max?: Prisma.IntFieldUpdateOperationsInput | number
   isRequired?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   options?: Prisma.ModifierOptionUncheckedUpdateManyWithoutGroupNestedInput
@@ -667,6 +761,9 @@ export type ModifierGroupUncheckedUpdateManyWithoutTenantInput = {
   min?: Prisma.IntFieldUpdateOperationsInput | number
   max?: Prisma.IntFieldUpdateOperationsInput | number
   isRequired?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -709,6 +806,9 @@ export type ModifierGroupSelect<ExtArgs extends runtime.Types.Extensions.Interna
   min?: boolean
   max?: boolean
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
@@ -723,6 +823,9 @@ export type ModifierGroupSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   min?: boolean
   max?: boolean
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
@@ -735,6 +838,9 @@ export type ModifierGroupSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   min?: boolean
   max?: boolean
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
@@ -747,11 +853,14 @@ export type ModifierGroupSelectScalar = {
   min?: boolean
   max?: boolean
   isRequired?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ModifierGroupOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "name" | "min" | "max" | "isRequired" | "createdAt" | "updatedAt", ExtArgs["result"]["modifierGroup"]>
+export type ModifierGroupOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "name" | "min" | "max" | "isRequired" | "isActive" | "isDeleted" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["modifierGroup"]>
 export type ModifierGroupInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
   options?: boolean | Prisma.ModifierGroup$optionsArgs<ExtArgs>
@@ -777,6 +886,9 @@ export type $ModifierGroupPayload<ExtArgs extends runtime.Types.Extensions.Inter
     min: number
     max: number
     isRequired: boolean
+    isActive: boolean
+    isDeleted: boolean
+    deletedAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["modifierGroup"]>
@@ -1210,6 +1322,9 @@ export interface ModifierGroupFieldRefs {
   readonly min: Prisma.FieldRef<"ModifierGroup", 'Int'>
   readonly max: Prisma.FieldRef<"ModifierGroup", 'Int'>
   readonly isRequired: Prisma.FieldRef<"ModifierGroup", 'Boolean'>
+  readonly isActive: Prisma.FieldRef<"ModifierGroup", 'Boolean'>
+  readonly isDeleted: Prisma.FieldRef<"ModifierGroup", 'Boolean'>
+  readonly deletedAt: Prisma.FieldRef<"ModifierGroup", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"ModifierGroup", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"ModifierGroup", 'DateTime'>
 }
