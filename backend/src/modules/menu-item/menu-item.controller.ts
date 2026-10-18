@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -184,5 +186,93 @@ export class MenuItemController {
       dto,
     );
     return ResponseHelper.success(item, 'Menu item updated successfully');
+  }
+
+  @Delete(':tenantSlug/menu-items/:itemId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MENU_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Delete a menu item',
+    description:
+      'Soft deletes a menu item so past orders preserve historical records.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'itemId',
+    example: 'uuid',
+    description: 'Menu item ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Menu item deleted successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Menu item or restaurant not found',
+  })
+  async deleteMenuItem(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('itemId') itemId: string,
+  ) {
+    const result = await this.menuItemService.deleteMenuItem(
+      tenantSlug,
+      itemId,
+    );
+    return ResponseHelper.success(result, 'Menu item deleted successfully');
+  }
+
+  @Patch(':tenantSlug/menu-items/:itemId/availability')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MENU_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Toggle menu item availability',
+    description: 'Quickly marks an item as available or sold out on the POS.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'itemId',
+    example: 'uuid',
+    description: 'Menu item ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Menu item availability updated successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Menu item or restaurant not found',
+  })
+  async toggleAvailability(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('itemId') itemId: string,
+    @Body('available') available: boolean,
+  ) {
+    const item = await this.menuItemService.toggleMenuItemAvailability(
+      tenantSlug,
+      itemId,
+      Boolean(available),
+    );
+    return ResponseHelper.success(
+      item,
+      `Menu item marked as ${available ? 'available' : 'sold out'}`,
+    );
   }
 }

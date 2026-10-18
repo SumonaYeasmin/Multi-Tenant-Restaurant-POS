@@ -403,4 +403,53 @@ export class MenuItemService {
       });
     });
   }
+
+  async deleteMenuItem(tenantSlug: string, itemId: string) {
+    // 1. Verify item exists in tenant and is not deleted
+    await this.getMenuItemById(tenantSlug, itemId);
+
+    // 2. Soft delete menu item
+    await this.prisma.menuItem.update({
+      where: { id: itemId },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        available: false,
+      },
+    });
+
+    return { message: 'Menu item deleted successfully' };
+  }
+
+  async toggleMenuItemAvailability(
+    tenantSlug: string,
+    itemId: string,
+    available: boolean,
+  ) {
+    // 1. Verify item exists in tenant and is not deleted
+    await this.getMenuItemById(tenantSlug, itemId);
+
+    // 2. Update availability
+    return this.prisma.menuItem.update({
+      where: { id: itemId },
+      data: { available },
+      include: {
+        category: true,
+        variants: {
+          orderBy: { createdAt: 'asc' },
+        },
+        branchOverrides: {
+          include: {
+            branch: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 }
+
