@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
+import { GetMenuItemsQueryDto } from './dto/get-menu-items-query.dto';
 import {
   NotFoundException,
   AlreadyExistsException,
@@ -128,6 +129,137 @@ export class MenuItemService {
         },
       },
     });
+
+    return item;
+  }
+
+  async getAllMenuItems(tenantSlug: string, query?: GetMenuItemsQueryDto) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Build where filter
+    const where: any = {
+      tenantId: tenant.id,
+      isDeleted: false,
+    };
+
+    if (query?.categoryId) {
+      where.categoryId = query.categoryId;
+    }
+
+    if (query?.search) {
+      where.name = {
+        contains: query.search.trim(),
+        mode: 'insensitive',
+      };
+    }
+
+    if (query?.available !== undefined) {
+      where.available = query.available;
+    }
+
+    // 3. Fetch items with relations
+    const items = await this.prisma.menuItem.findMany({
+      where,
+      include: {
+        category: true,
+        variants: {
+          orderBy: { createdAt: 'asc' },
+        },
+        branchOverrides: {
+          include: {
+            branch: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // 4. If branchId query is provided, compute effective price & availability
+    if (query?.branchId) {
+      return items.map((item) => {
+        const branchOverride = item.branchOverrides.find(
+          (b) => b.branchId === query.branchId,
+        );
+
+        return {
+          ...item,
+          effectivePrice: branchOverride?.price ?? item.price,
+          effectiveAvailable: branchOverride?.isAvailable ?? item.available,
+          branchOverride: branchOverride ?? null,
+        };
+      });
+    }
+
+    return items;
+  }
+
+  async getMenuItemById(
+    tenantSlug: string,
+    itemId: string,
+    branchId?: string,
+  ) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch specific item
+    const item = await this.prisma.menuItem.findFirst({
+      where: {
+        id: itemId,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+      include: {
+        category: true,
+        variants: {
+          orderBy: { createdAt: 'asc' },
+        },
+        branchOverrides: {
+          include: {
+            branch: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException('Menu item');
+    }
+
+    if (branchId) {
+      const branchOverride = item.branchOverrides.find(
+        (b) => b.branchId === branchId,
+      );
+
+      return {
+        ...item,
+        effectivePrice: branchOverride?.price ?? item.price,
+        effectiveAvailable: branchOverride?.isAvailable ?? item.available,
+        branchOverride: branchOverride ?? null,
+      };
+    }
 
     return item;
   }
