@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -8,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { ComboService } from './combo.service';
 import { CreateComboDto } from './dto/create-combo.dto';
+import { UpdateComboDto } from './dto/update-combo.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -105,6 +115,83 @@ export class ComboController {
   ) {
     const combo = await this.comboService.getComboById(tenantSlug, comboId);
     return ResponseHelper.success(combo, 'Combo retrieved successfully');
+  }
+
+  @Put(':tenantSlug/combos/:comboId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MENU_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update a combo meal',
+    description:
+      'Updates details of a combo meal and optionally replaces its included items.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'comboId',
+    example: 'uuid',
+    description: 'Combo ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Combo updated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({ status: 404, description: 'Combo or restaurant not found' })
+  @ApiResponse({
+    status: 409,
+    description: 'Combo with this name already exists',
+  })
+  async updateCombo(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('comboId') comboId: string,
+    @Body() dto: UpdateComboDto,
+  ) {
+    const combo = await this.comboService.updateCombo(tenantSlug, comboId, dto);
+    return ResponseHelper.success(combo, 'Combo updated successfully');
+  }
+
+  @Delete(':tenantSlug/combos/:comboId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MENU_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Delete a combo meal',
+    description: 'Soft deletes a combo meal.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'comboId',
+    example: 'uuid',
+    description: 'Combo ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Combo deleted successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({ status: 404, description: 'Combo or restaurant not found' })
+  async deleteCombo(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('comboId') comboId: string,
+  ) {
+    const result = await this.comboService.deleteCombo(tenantSlug, comboId);
+    return ResponseHelper.success(result, 'Combo deleted successfully');
   }
 }
 
