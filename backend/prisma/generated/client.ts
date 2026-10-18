@@ -29,8 +29,8 @@ export * from "./enums"
  * const prisma = new PrismaClient({
  *   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
  * })
- * // Fetch zero or more OTPS
- * const oTPS = await prisma.oTP.findMany()
+ * // Fetch zero or more Tenants
+ * const tenants = await prisma.tenant.findMany()
  * ```
  * 
  * Read more in our [docs](https://pris.ly/d/client).
@@ -40,10 +40,40 @@ export type PrismaClient<LogOpts extends Prisma.LogLevel = never, OmitOpts exten
 export { Prisma }
 
 /**
- * Model OTP
+ * Model Tenant
  * 
  */
-export type OTP = Prisma.OTPModel
+export type Tenant = Prisma.TenantModel
+/**
+ * Model TenantRole
+ * 
+ */
+export type TenantRole = Prisma.TenantRoleModel
+/**
+ * Model StaffMember
+ * 
+ */
+export type StaffMember = Prisma.StaffMemberModel
+/**
+ * Model Branch
+ * 
+ */
+export type Branch = Prisma.BranchModel
+/**
+ * Model Category
+ * 
+ */
+export type Category = Prisma.CategoryModel
+/**
+ * Model ModifierGroup
+ * 
+ */
+export type ModifierGroup = Prisma.ModifierGroupModel
+/**
+ * Model ModifierOption
+ * 
+ */
+export type ModifierOption = Prisma.ModifierOptionModel
 /**
  * Model User
  * 

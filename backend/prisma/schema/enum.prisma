@@ -1,7 +1,9 @@
 enum UserRole {
-    ADMIN
-    USER
-    ORGANIZER
+    OWNER
+    MANAGER
+    CASHIER
+    KITCHEN
+    WAITER
 }
 
 enum UserStatus {
@@ -10,9 +12,4 @@ enum UserStatus {
     INACTIVE
     BLOCK
     SUSPEND
-}
-
-enum OtpType {
-    ACCOUNT_VERIFY
-    PASSWORD_RESET
 }

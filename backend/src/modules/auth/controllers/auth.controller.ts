@@ -1,12 +1,10 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards, Req } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import {
     ThrottleLogin,
     ThrottleRefreshToken,
-    ThrottleRegister,
 } from '../../../common/decorators/throttle.decorator';
 import { LoginDto } from '../dto/login.dto';
-import { RegisterDto } from '../dto/register.dto';
 import { AuthService } from '../services/auth.service';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
@@ -17,20 +15,11 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 export class AuthController {
     constructor(private readonly authService: AuthService) { }
 
-    @Post('register')
-    @ThrottleRegister()
-    @ApiOperation({ summary: 'Register user basic information' })
-    @ApiResponse({ status: 201, description: 'User successfully registered' })
-    @ApiResponse({ status: 409, description: 'User already exists' })
-    async register(@Body() dto: RegisterDto) {
-        return this.authService.register(dto);
-    }
-
     @Post('login')
     @ThrottleLogin()
     @HttpCode(HttpStatus.OK)
     @ApiOperation({
-        summary: 'Verify login credentials and send login OTP or direct login',
+        summary: 'Verify login credentials and direct login',
     })
     @ApiResponse({ status: 200, description: 'User successfully logged in' })
     @ApiResponse({ status: 401, description: 'Invalid credentials' })

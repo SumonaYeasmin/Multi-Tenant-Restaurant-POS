@@ -51,7 +51,13 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
-  OTP: 'OTP',
+  Tenant: 'Tenant',
+  TenantRole: 'TenantRole',
+  StaffMember: 'StaffMember',
+  Branch: 'Branch',
+  Category: 'Category',
+  ModifierGroup: 'ModifierGroup',
+  ModifierOption: 'ModifierOption',
   User: 'User'
 } as const
 
@@ -71,17 +77,112 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
-export const OTPScalarFieldEnum = {
+export const TenantScalarFieldEnum = {
   id: 'id',
-  userId: 'userId',
-  code: 'code',
-  type: 'type',
-  isUsed: 'isUsed',
-  expiresAt: 'expiresAt',
-  createdAt: 'createdAt'
+  slug: 'slug',
+  name: 'name',
+  tagline: 'tagline',
+  initials: 'initials',
+  accent: 'accent',
+  currency: 'currency',
+  locale: 'locale',
+  taxRate: 'taxRate',
+  serviceChargeRate: 'serviceChargeRate',
+  receiptFooter: 'receiptFooter',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 } as const
 
-export type OTPScalarFieldEnum = (typeof OTPScalarFieldEnum)[keyof typeof OTPScalarFieldEnum]
+export type TenantScalarFieldEnum = (typeof TenantScalarFieldEnum)[keyof typeof TenantScalarFieldEnum]
+
+
+export const TenantRoleScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  role: 'role',
+  permissions: 'permissions',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TenantRoleScalarFieldEnum = (typeof TenantRoleScalarFieldEnum)[keyof typeof TenantRoleScalarFieldEnum]
+
+
+export const StaffMemberScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  userId: 'userId',
+  roleId: 'roleId',
+  role: 'role',
+  name: 'name',
+  email: 'email',
+  phone: 'phone',
+  hourlyRate: 'hourlyRate',
+  branchIds: 'branchIds',
+  active: 'active',
+  customPermissions: 'customPermissions',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StaffMemberScalarFieldEnum = (typeof StaffMemberScalarFieldEnum)[keyof typeof StaffMemberScalarFieldEnum]
+
+
+export const BranchScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  name: 'name',
+  address: 'address',
+  phone: 'phone',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BranchScalarFieldEnum = (typeof BranchScalarFieldEnum)[keyof typeof BranchScalarFieldEnum]
+
+
+export const CategoryScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  name: 'name',
+  sort: 'sort',
+  description: 'description',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CategoryScalarFieldEnum = (typeof CategoryScalarFieldEnum)[keyof typeof CategoryScalarFieldEnum]
+
+
+export const ModifierGroupScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  name: 'name',
+  min: 'min',
+  max: 'max',
+  isRequired: 'isRequired',
+  isActive: 'isActive',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ModifierGroupScalarFieldEnum = (typeof ModifierGroupScalarFieldEnum)[keyof typeof ModifierGroupScalarFieldEnum]
+
+
+export const ModifierOptionScalarFieldEnum = {
+  id: 'id',
+  groupId: 'groupId',
+  name: 'name',
+  price: 'price',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ModifierOptionScalarFieldEnum = (typeof ModifierOptionScalarFieldEnum)[keyof typeof ModifierOptionScalarFieldEnum]
 
 
 export const UserScalarFieldEnum = {
