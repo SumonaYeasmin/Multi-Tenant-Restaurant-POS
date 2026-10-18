@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
+import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { GetMenuItemsQueryDto } from './dto/get-menu-items-query.dto';
 import {
   NotFoundException,
@@ -262,5 +263,144 @@ export class MenuItemService {
     }
 
     return item;
+  }
+
+  async updateMenuItem(
+    tenantSlug: string,
+    itemId: string,
+    dto: UpdateMenuItemDto,
+  ) {
+    // 1. Verify item exists in tenant and is not deleted
+    const item = await this.getMenuItemById(tenantSlug, itemId);
+
+    // 2. If categoryId is provided, verify it belongs to this tenant
+    if (dto.categoryId !== undefined) {
+      const category = await this.prisma.category.findFirst({
+        where: { id: dto.categoryId, tenantId: item.tenantId },
+      });
+
+      if (!category) {
+        throw new NotFoundException('Category');
+      }
+    }
+
+    // 3. If name is being changed, verify uniqueness among non-deleted items
+    if (dto.name !== undefined) {
+      const trimmedName = dto.name.trim();
+      const existing = await this.prisma.menuItem.findFirst({
+        where: {
+          tenantId: item.tenantId,
+          isDeleted: false,
+          name: {
+            equals: trimmedName,
+            mode: 'insensitive',
+          },
+          id: { not: itemId },
+        },
+      });
+
+      if (existing) {
+        throw new AlreadyExistsException('A menu item with this name');
+      }
+    }
+
+    // 4. Validate modifierGroupIds if provided
+    if (dto.modifierGroupIds && dto.modifierGroupIds.length > 0) {
+      const validGroupCount = await this.prisma.modifierGroup.count({
+        where: {
+          id: { in: dto.modifierGroupIds },
+          tenantId: item.tenantId,
+          isDeleted: false,
+        },
+      });
+
+      if (validGroupCount !== dto.modifierGroupIds.length) {
+        throw new BadRequestException('One or more modifier groups are invalid');
+      }
+    }
+
+    // 5. Validate branchIds in branchOverrides if provided
+    if (dto.branchOverrides && dto.branchOverrides.length > 0) {
+      const branchIds = dto.branchOverrides.map((b) => b.branchId);
+      const validBranchCount = await this.prisma.branch.count({
+        where: {
+          id: { in: branchIds },
+          tenantId: item.tenantId,
+        },
+      });
+
+      if (validBranchCount !== branchIds.length) {
+        throw new BadRequestException('One or more branch IDs are invalid');
+      }
+    }
+
+    // 6. Atomically update item, variants, and branch overrides
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.variants !== undefined) {
+        await tx.menuItemVariant.deleteMany({
+          where: { menuItemId: itemId },
+        });
+
+        if (dto.variants.length > 0) {
+          await tx.menuItemVariant.createMany({
+            data: dto.variants.map((v) => ({
+              menuItemId: itemId,
+              name: v.name.trim(),
+              priceDelta: v.priceDelta ?? 0.0,
+            })),
+          });
+        }
+      }
+
+      if (dto.branchOverrides !== undefined) {
+        await tx.branchMenuItemOverride.deleteMany({
+          where: { menuItemId: itemId },
+        });
+
+        if (dto.branchOverrides.length > 0) {
+          await tx.branchMenuItemOverride.createMany({
+            data: dto.branchOverrides.map((b) => ({
+              branchId: b.branchId,
+              menuItemId: itemId,
+              price: b.price ?? null,
+              isAvailable: b.isAvailable ?? true,
+            })),
+          });
+        }
+      }
+
+      return tx.menuItem.update({
+        where: { id: itemId },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name.trim() }),
+          ...(dto.description !== undefined && {
+            description: dto.description.trim(),
+          }),
+          ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
+          ...(dto.price !== undefined && { price: dto.price }),
+          ...(dto.available !== undefined && { available: dto.available }),
+          ...(dto.tags !== undefined && { tags: dto.tags }),
+          ...(dto.modifierGroupIds !== undefined && {
+            modifierGroupIds: dto.modifierGroupIds,
+          }),
+        },
+        include: {
+          category: true,
+          variants: {
+            orderBy: { createdAt: 'asc' },
+          },
+          branchOverrides: {
+            include: {
+              branch: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    });
   }
 }

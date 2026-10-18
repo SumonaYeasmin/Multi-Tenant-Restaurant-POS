@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { MenuItemService } from './menu-item.service';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
+import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { GetMenuItemsQueryDto } from './dto/get-menu-items-query.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -133,5 +135,54 @@ export class MenuItemController {
       branchId,
     );
     return ResponseHelper.success(item, 'Menu item retrieved successfully');
+  }
+
+  @Put(':tenantSlug/menu-items/:itemId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MENU_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update a menu item',
+    description:
+      'Updates details of a menu item (name, description, price, category, variants, modifiers, branch overrides).',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'itemId',
+    example: 'uuid',
+    description: 'Menu item ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Menu item updated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Menu item, restaurant or category not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Menu item with this name already exists',
+  })
+  async updateMenuItem(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateMenuItemDto,
+  ) {
+    const item = await this.menuItemService.updateMenuItem(
+      tenantSlug,
+      itemId,
+      dto,
+    );
+    return ResponseHelper.success(item, 'Menu item updated successfully');
   }
 }
