@@ -17,7 +17,9 @@ import {
 } from '@nestjs/swagger';
 import { ModifierGroupService } from './modifier-group.service';
 import { CreateModifierGroupDto } from './dto/create-modifier-group.dto';
+import { CreateModifierOptionDto } from './dto/create-modifier-option.dto';
 import { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
+import { UpdateModifierOptionDto } from './dto/update-modifier-option.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -191,4 +193,206 @@ export class ModifierGroupController {
     );
     return ResponseHelper.success(result, 'Modifier group deleted successfully');
   }
+
+  @Post(':tenantSlug/modifier-groups/:groupId/options')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MENU_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Add an option to a modifier group',
+    description: 'Creates a new customizable option (e.g. Extra Cheese) under a specific modifier group.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'groupId',
+    example: 'uuid',
+    description: 'Modifier Group ID',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Modifier option created successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Modifier group or restaurant not found' })
+  @ApiResponse({ status: 409, description: 'Modifier option with this name already exists in this group' })
+  async createModifierOption(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('groupId') groupId: string,
+    @Body() dto: CreateModifierOptionDto,
+  ) {
+    const option = await this.modifierGroupService.createModifierOption(
+      tenantSlug,
+      groupId,
+      dto,
+    );
+    return ResponseHelper.created(option, 'Modifier option created successfully');
+  }
+
+  @Get(':tenantSlug/modifier-groups/:groupId/options')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all options for a modifier group',
+    description: 'Retrieves all customizable options under a specific modifier group.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'groupId',
+    example: 'uuid',
+    description: 'Modifier Group ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Modifier options retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Modifier group or restaurant not found' })
+  async getAllModifierOptions(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('groupId') groupId: string,
+  ) {
+    const options = await this.modifierGroupService.getAllModifierOptions(
+      tenantSlug,
+      groupId,
+    );
+    return ResponseHelper.success(options, 'Modifier options retrieved successfully');
+  }
+
+  @Get(':tenantSlug/modifier-groups/:groupId/options/:optionId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get details of a specific modifier option',
+    description: 'Retrieves a single modifier option by ID under a modifier group.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'groupId',
+    example: 'uuid',
+    description: 'Modifier Group ID',
+  })
+  @ApiParam({
+    name: 'optionId',
+    example: 'uuid',
+    description: 'Modifier Option ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Modifier option retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Modifier option or group not found' })
+  async getModifierOptionById(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('groupId') groupId: string,
+    @Param('optionId') optionId: string,
+  ) {
+    const option = await this.modifierGroupService.getModifierOptionById(
+      tenantSlug,
+      groupId,
+      optionId,
+    );
+    return ResponseHelper.success(option, 'Modifier option retrieved successfully');
+  }
+
+  @Put(':tenantSlug/modifier-groups/:groupId/options/:optionId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MENU_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update a modifier option',
+    description: 'Updates details of a modifier option (name, price, active status).',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'groupId',
+    example: 'uuid',
+    description: 'Modifier Group ID',
+  })
+  @ApiParam({
+    name: 'optionId',
+    example: 'uuid',
+    description: 'Modifier Option ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Modifier option updated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Modifier option or group not found' })
+  @ApiResponse({ status: 409, description: 'Modifier option with this name already exists in this group' })
+  async updateModifierOption(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('groupId') groupId: string,
+    @Param('optionId') optionId: string,
+    @Body() dto: UpdateModifierOptionDto,
+  ) {
+    const option = await this.modifierGroupService.updateModifierOption(
+      tenantSlug,
+      groupId,
+      optionId,
+      dto,
+    );
+    return ResponseHelper.success(option, 'Modifier option updated successfully');
+  }
+
+  @Delete(':tenantSlug/modifier-groups/:groupId/options/:optionId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MENU_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Delete a modifier option',
+    description: 'Soft deletes a modifier option from the group.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'groupId',
+    example: 'uuid',
+    description: 'Modifier Group ID',
+  })
+  @ApiParam({
+    name: 'optionId',
+    example: 'uuid',
+    description: 'Modifier Option ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Modifier option deleted successfully',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Modifier option or group not found' })
+  async deleteModifierOption(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('groupId') groupId: string,
+    @Param('optionId') optionId: string,
+  ) {
+    const result = await this.modifierGroupService.deleteModifierOption(
+      tenantSlug,
+      groupId,
+      optionId,
+    );
+    return ResponseHelper.success(result, 'Modifier option deleted successfully');
+  }
 }
+
+
