@@ -114,14 +114,18 @@ model ModifierGroup {
 }
 
 model ModifierOption {
-    id        String        @id @default(uuid())
-    groupId   String
-    name      String
-    price     Float         @default(0.0)
-    createdAt DateTime      @default(now())
-    updatedAt DateTime      @updatedAt
+    id          String        @id @default(uuid())
+    groupId     String
+    name        String
+    price       Float         @default(0.0)
+    isActive    Boolean       @default(true)
+    isDeleted   Boolean       @default(false)
+    deletedAt   DateTime?
+    createdAt   DateTime      @default(now())
+    updatedAt   DateTime      @updatedAt
 
-    group     ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+    group       ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
     @@map("modifier_options")
 }
+
