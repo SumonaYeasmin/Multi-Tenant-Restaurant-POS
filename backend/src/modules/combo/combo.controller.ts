@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -54,4 +54,57 @@ export class ComboController {
     const combo = await this.comboService.createCombo(tenantSlug, dto);
     return ResponseHelper.created(combo, 'Combo created successfully');
   }
+
+  @Get(':tenantSlug/combos')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all combo meals',
+    description: 'Retrieves all available combo meals and their included items.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Combos retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Restaurant not found' })
+  async getAllCombos(@Param('tenantSlug') tenantSlug: string) {
+    const combos = await this.comboService.getAllCombos(tenantSlug);
+    return ResponseHelper.success(combos, 'Combos retrieved successfully');
+  }
+
+  @Get(':tenantSlug/combos/:comboId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get details of a specific combo meal',
+    description: 'Retrieves a single combo meal with its included items by ID.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'comboId',
+    example: 'uuid',
+    description: 'Combo ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Combo retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Combo or restaurant not found' })
+  async getComboById(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('comboId') comboId: string,
+  ) {
+    const combo = await this.comboService.getComboById(tenantSlug, comboId);
+    return ResponseHelper.success(combo, 'Combo retrieved successfully');
+  }
 }
+

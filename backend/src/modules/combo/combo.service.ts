@@ -88,4 +88,75 @@ export class ComboService {
       })),
     };
   }
+
+  async getAllCombos(tenantSlug: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch all non-deleted combos with items
+    const combos = await this.prisma.combo.findMany({
+      where: {
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+      include: {
+        items: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return combos.map((combo) => ({
+      ...combo,
+      components: combo.items.map((it) => ({
+        itemId: it.menuItemId,
+        qty: it.quantity,
+      })),
+    }));
+  }
+
+  async getComboById(tenantSlug: string, comboId: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch specific non-deleted combo with items
+    const combo = await this.prisma.combo.findFirst({
+      where: {
+        id: comboId,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+      include: {
+        items: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!combo) {
+      throw new NotFoundException('Combo');
+    }
+
+    return {
+      ...combo,
+      components: combo.items.map((it) => ({
+        itemId: it.menuItemId,
+        qty: it.quantity,
+      })),
+    };
+  }
 }
+
