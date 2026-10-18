@@ -207,6 +207,7 @@ export type BranchWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Branch"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Branch"> | Date | string
   tenant?: Prisma.XOR<Prisma.TenantScalarRelationFilter, Prisma.TenantWhereInput>
+  itemOverrides?: Prisma.BranchMenuItemOverrideListRelationFilter
 }
 
 export type BranchOrderByWithRelationInput = {
@@ -219,6 +220,7 @@ export type BranchOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   tenant?: Prisma.TenantOrderByWithRelationInput
+  itemOverrides?: Prisma.BranchMenuItemOverrideOrderByRelationAggregateInput
 }
 
 export type BranchWhereUniqueInput = Prisma.AtLeast<{
@@ -235,6 +237,7 @@ export type BranchWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Branch"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Branch"> | Date | string
   tenant?: Prisma.XOR<Prisma.TenantScalarRelationFilter, Prisma.TenantWhereInput>
+  itemOverrides?: Prisma.BranchMenuItemOverrideListRelationFilter
 }, "id" | "tenantId_name">
 
 export type BranchOrderByWithAggregationInput = {
@@ -274,6 +277,7 @@ export type BranchCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   tenant: Prisma.TenantCreateNestedOneWithoutBranchesInput
+  itemOverrides?: Prisma.BranchMenuItemOverrideCreateNestedManyWithoutBranchInput
 }
 
 export type BranchUncheckedCreateInput = {
@@ -285,6 +289,7 @@ export type BranchUncheckedCreateInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  itemOverrides?: Prisma.BranchMenuItemOverrideUncheckedCreateNestedManyWithoutBranchInput
 }
 
 export type BranchUpdateInput = {
@@ -296,6 +301,7 @@ export type BranchUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tenant?: Prisma.TenantUpdateOneRequiredWithoutBranchesNestedInput
+  itemOverrides?: Prisma.BranchMenuItemOverrideUpdateManyWithoutBranchNestedInput
 }
 
 export type BranchUncheckedUpdateInput = {
@@ -307,6 +313,7 @@ export type BranchUncheckedUpdateInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  itemOverrides?: Prisma.BranchMenuItemOverrideUncheckedUpdateManyWithoutBranchNestedInput
 }
 
 export type BranchCreateManyInput = {
@@ -389,6 +396,11 @@ export type BranchMinOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
 }
 
+export type BranchScalarRelationFilter = {
+  is?: Prisma.BranchWhereInput
+  isNot?: Prisma.BranchWhereInput
+}
+
 export type BranchCreateNestedManyWithoutTenantInput = {
   create?: Prisma.XOR<Prisma.BranchCreateWithoutTenantInput, Prisma.BranchUncheckedCreateWithoutTenantInput> | Prisma.BranchCreateWithoutTenantInput[] | Prisma.BranchUncheckedCreateWithoutTenantInput[]
   connectOrCreate?: Prisma.BranchCreateOrConnectWithoutTenantInput | Prisma.BranchCreateOrConnectWithoutTenantInput[]
@@ -431,6 +443,20 @@ export type BranchUncheckedUpdateManyWithoutTenantNestedInput = {
   deleteMany?: Prisma.BranchScalarWhereInput | Prisma.BranchScalarWhereInput[]
 }
 
+export type BranchCreateNestedOneWithoutItemOverridesInput = {
+  create?: Prisma.XOR<Prisma.BranchCreateWithoutItemOverridesInput, Prisma.BranchUncheckedCreateWithoutItemOverridesInput>
+  connectOrCreate?: Prisma.BranchCreateOrConnectWithoutItemOverridesInput
+  connect?: Prisma.BranchWhereUniqueInput
+}
+
+export type BranchUpdateOneRequiredWithoutItemOverridesNestedInput = {
+  create?: Prisma.XOR<Prisma.BranchCreateWithoutItemOverridesInput, Prisma.BranchUncheckedCreateWithoutItemOverridesInput>
+  connectOrCreate?: Prisma.BranchCreateOrConnectWithoutItemOverridesInput
+  upsert?: Prisma.BranchUpsertWithoutItemOverridesInput
+  connect?: Prisma.BranchWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.BranchUpdateToOneWithWhereWithoutItemOverridesInput, Prisma.BranchUpdateWithoutItemOverridesInput>, Prisma.BranchUncheckedUpdateWithoutItemOverridesInput>
+}
+
 export type BranchCreateWithoutTenantInput = {
   id?: string
   name: string
@@ -439,6 +465,7 @@ export type BranchCreateWithoutTenantInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  itemOverrides?: Prisma.BranchMenuItemOverrideCreateNestedManyWithoutBranchInput
 }
 
 export type BranchUncheckedCreateWithoutTenantInput = {
@@ -449,6 +476,7 @@ export type BranchUncheckedCreateWithoutTenantInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  itemOverrides?: Prisma.BranchMenuItemOverrideUncheckedCreateNestedManyWithoutBranchInput
 }
 
 export type BranchCreateOrConnectWithoutTenantInput = {
@@ -491,6 +519,66 @@ export type BranchScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"Branch"> | Date | string
 }
 
+export type BranchCreateWithoutItemOverridesInput = {
+  id?: string
+  name: string
+  address?: string | null
+  phone?: string | null
+  isActive?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  tenant: Prisma.TenantCreateNestedOneWithoutBranchesInput
+}
+
+export type BranchUncheckedCreateWithoutItemOverridesInput = {
+  id?: string
+  tenantId: string
+  name: string
+  address?: string | null
+  phone?: string | null
+  isActive?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type BranchCreateOrConnectWithoutItemOverridesInput = {
+  where: Prisma.BranchWhereUniqueInput
+  create: Prisma.XOR<Prisma.BranchCreateWithoutItemOverridesInput, Prisma.BranchUncheckedCreateWithoutItemOverridesInput>
+}
+
+export type BranchUpsertWithoutItemOverridesInput = {
+  update: Prisma.XOR<Prisma.BranchUpdateWithoutItemOverridesInput, Prisma.BranchUncheckedUpdateWithoutItemOverridesInput>
+  create: Prisma.XOR<Prisma.BranchCreateWithoutItemOverridesInput, Prisma.BranchUncheckedCreateWithoutItemOverridesInput>
+  where?: Prisma.BranchWhereInput
+}
+
+export type BranchUpdateToOneWithWhereWithoutItemOverridesInput = {
+  where?: Prisma.BranchWhereInput
+  data: Prisma.XOR<Prisma.BranchUpdateWithoutItemOverridesInput, Prisma.BranchUncheckedUpdateWithoutItemOverridesInput>
+}
+
+export type BranchUpdateWithoutItemOverridesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  tenant?: Prisma.TenantUpdateOneRequiredWithoutBranchesNestedInput
+}
+
+export type BranchUncheckedUpdateWithoutItemOverridesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  tenantId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 export type BranchCreateManyTenantInput = {
   id?: string
   name: string
@@ -509,6 +597,7 @@ export type BranchUpdateWithoutTenantInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  itemOverrides?: Prisma.BranchMenuItemOverrideUpdateManyWithoutBranchNestedInput
 }
 
 export type BranchUncheckedUpdateWithoutTenantInput = {
@@ -519,6 +608,7 @@ export type BranchUncheckedUpdateWithoutTenantInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  itemOverrides?: Prisma.BranchMenuItemOverrideUncheckedUpdateManyWithoutBranchNestedInput
 }
 
 export type BranchUncheckedUpdateManyWithoutTenantInput = {
@@ -532,6 +622,35 @@ export type BranchUncheckedUpdateManyWithoutTenantInput = {
 }
 
 
+/**
+ * Count Type BranchCountOutputType
+ */
+
+export type BranchCountOutputType = {
+  itemOverrides: number
+}
+
+export type BranchCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  itemOverrides?: boolean | BranchCountOutputTypeCountItemOverridesArgs
+}
+
+/**
+ * BranchCountOutputType without action
+ */
+export type BranchCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the BranchCountOutputType
+   */
+  select?: Prisma.BranchCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * BranchCountOutputType without action
+ */
+export type BranchCountOutputTypeCountItemOverridesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.BranchMenuItemOverrideWhereInput
+}
+
 
 export type BranchSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -543,6 +662,8 @@ export type BranchSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   createdAt?: boolean
   updatedAt?: boolean
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
+  itemOverrides?: boolean | Prisma.Branch$itemOverridesArgs<ExtArgs>
+  _count?: boolean | Prisma.BranchCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["branch"]>
 
 export type BranchSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -583,6 +704,8 @@ export type BranchSelectScalar = {
 export type BranchOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "tenantId" | "name" | "address" | "phone" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["branch"]>
 export type BranchInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
+  itemOverrides?: boolean | Prisma.Branch$itemOverridesArgs<ExtArgs>
+  _count?: boolean | Prisma.BranchCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type BranchIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tenant?: boolean | Prisma.TenantDefaultArgs<ExtArgs>
@@ -595,6 +718,7 @@ export type $BranchPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
   name: "Branch"
   objects: {
     tenant: Prisma.$TenantPayload<ExtArgs>
+    itemOverrides: Prisma.$BranchMenuItemOverridePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1000,6 +1124,7 @@ readonly fields: BranchFieldRefs;
 export interface Prisma__BranchClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   tenant<T extends Prisma.TenantDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TenantDefaultArgs<ExtArgs>>): Prisma.Prisma__TenantClient<runtime.Types.Result.GetResult<Prisma.$TenantPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  itemOverrides<T extends Prisma.Branch$itemOverridesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Branch$itemOverridesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BranchMenuItemOverridePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1430,6 +1555,30 @@ export type BranchDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Intern
    * Limit how many Branches to delete.
    */
   limit?: number
+}
+
+/**
+ * Branch.itemOverrides
+ */
+export type Branch$itemOverridesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the BranchMenuItemOverride
+   */
+  select?: Prisma.BranchMenuItemOverrideSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the BranchMenuItemOverride
+   */
+  omit?: Prisma.BranchMenuItemOverrideOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.BranchMenuItemOverrideInclude<ExtArgs> | null
+  where?: Prisma.BranchMenuItemOverrideWhereInput
+  orderBy?: Prisma.BranchMenuItemOverrideOrderByWithRelationInput | Prisma.BranchMenuItemOverrideOrderByWithRelationInput[]
+  cursor?: Prisma.BranchMenuItemOverrideWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.BranchMenuItemOverrideScalarFieldEnum | Prisma.BranchMenuItemOverrideScalarFieldEnum[]
 }
 
 /**
