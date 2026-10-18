@@ -20,6 +20,7 @@ model Tenant {
     categories        Category[]
     modifierGroups    ModifierGroup[]
     combos            Combo[]
+    menuItems         MenuItem[]
 
     @@map("tenants")
 }
@@ -73,7 +74,8 @@ model Branch {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    tenant        Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    itemOverrides BranchMenuItemOverride[]
 
     @@unique([tenantId, name])
     @@map("branches")
@@ -89,7 +91,8 @@ model Category {
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
 
-    tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    items       MenuItem[]
 
     @@unique([tenantId, name])
     @@map("categories")
@@ -157,9 +160,63 @@ model ComboItem {
     updatedAt  DateTime @updatedAt
 
     combo      Combo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
+    menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
     @@unique([comboId, menuItemId])
     @@map("combo_items")
+}
+
+model MenuItem {
+    id               String                   @id @default(uuid())
+    tenantId         String
+    categoryId       String
+    name             String
+    description      String?                  @default("")
+    price            Float                    @default(0.0)
+    available        Boolean                  @default(true)
+    tags             String[]                 @default([])
+    modifierGroupIds String[]                 @default([])
+    isDeleted        Boolean                  @default(false)
+    deletedAt        DateTime?
+    createdAt        DateTime                 @default(now())
+    updatedAt        DateTime                 @updatedAt
+
+    tenant           Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    category         Category                 @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+    variants         MenuItemVariant[]
+    branchOverrides  BranchMenuItemOverride[]
+    comboItems       ComboItem[]
+
+    @@map("menu_items")
+}
+
+model MenuItemVariant {
+    id         String   @id @default(uuid())
+    menuItemId String
+    name       String
+    priceDelta Float    @default(0.0)
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+    @@map("menu_item_variants")
+}
+
+model BranchMenuItemOverride {
+    id          String   @id @default(uuid())
+    branchId    String
+    menuItemId  String
+    price       Float?
+    isAvailable Boolean  @default(true)
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+    menuItem    MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+    @@unique([branchId, menuItemId])
+    @@map("branch_menu_item_overrides")
 }
 
 

@@ -225,6 +225,7 @@ export type ComboItemWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"ComboItem"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ComboItem"> | Date | string
   combo?: Prisma.XOR<Prisma.ComboScalarRelationFilter, Prisma.ComboWhereInput>
+  menuItem?: Prisma.XOR<Prisma.MenuItemScalarRelationFilter, Prisma.MenuItemWhereInput>
 }
 
 export type ComboItemOrderByWithRelationInput = {
@@ -235,6 +236,7 @@ export type ComboItemOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   combo?: Prisma.ComboOrderByWithRelationInput
+  menuItem?: Prisma.MenuItemOrderByWithRelationInput
 }
 
 export type ComboItemWhereUniqueInput = Prisma.AtLeast<{
@@ -249,6 +251,7 @@ export type ComboItemWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"ComboItem"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ComboItem"> | Date | string
   combo?: Prisma.XOR<Prisma.ComboScalarRelationFilter, Prisma.ComboWhereInput>
+  menuItem?: Prisma.XOR<Prisma.MenuItemScalarRelationFilter, Prisma.MenuItemWhereInput>
 }, "id" | "comboId_menuItemId">
 
 export type ComboItemOrderByWithAggregationInput = {
@@ -279,11 +282,11 @@ export type ComboItemScalarWhereWithAggregatesInput = {
 
 export type ComboItemCreateInput = {
   id?: string
-  menuItemId: string
   quantity?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   combo: Prisma.ComboCreateNestedOneWithoutItemsInput
+  menuItem: Prisma.MenuItemCreateNestedOneWithoutComboItemsInput
 }
 
 export type ComboItemUncheckedCreateInput = {
@@ -297,11 +300,11 @@ export type ComboItemUncheckedCreateInput = {
 
 export type ComboItemUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  menuItemId?: Prisma.StringFieldUpdateOperationsInput | string
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   combo?: Prisma.ComboUpdateOneRequiredWithoutItemsNestedInput
+  menuItem?: Prisma.MenuItemUpdateOneRequiredWithoutComboItemsNestedInput
 }
 
 export type ComboItemUncheckedUpdateInput = {
@@ -324,7 +327,6 @@ export type ComboItemCreateManyInput = {
 
 export type ComboItemUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  menuItemId?: Prisma.StringFieldUpdateOperationsInput | string
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -431,12 +433,54 @@ export type ComboItemUncheckedUpdateManyWithoutComboNestedInput = {
   deleteMany?: Prisma.ComboItemScalarWhereInput | Prisma.ComboItemScalarWhereInput[]
 }
 
+export type ComboItemCreateNestedManyWithoutMenuItemInput = {
+  create?: Prisma.XOR<Prisma.ComboItemCreateWithoutMenuItemInput, Prisma.ComboItemUncheckedCreateWithoutMenuItemInput> | Prisma.ComboItemCreateWithoutMenuItemInput[] | Prisma.ComboItemUncheckedCreateWithoutMenuItemInput[]
+  connectOrCreate?: Prisma.ComboItemCreateOrConnectWithoutMenuItemInput | Prisma.ComboItemCreateOrConnectWithoutMenuItemInput[]
+  createMany?: Prisma.ComboItemCreateManyMenuItemInputEnvelope
+  connect?: Prisma.ComboItemWhereUniqueInput | Prisma.ComboItemWhereUniqueInput[]
+}
+
+export type ComboItemUncheckedCreateNestedManyWithoutMenuItemInput = {
+  create?: Prisma.XOR<Prisma.ComboItemCreateWithoutMenuItemInput, Prisma.ComboItemUncheckedCreateWithoutMenuItemInput> | Prisma.ComboItemCreateWithoutMenuItemInput[] | Prisma.ComboItemUncheckedCreateWithoutMenuItemInput[]
+  connectOrCreate?: Prisma.ComboItemCreateOrConnectWithoutMenuItemInput | Prisma.ComboItemCreateOrConnectWithoutMenuItemInput[]
+  createMany?: Prisma.ComboItemCreateManyMenuItemInputEnvelope
+  connect?: Prisma.ComboItemWhereUniqueInput | Prisma.ComboItemWhereUniqueInput[]
+}
+
+export type ComboItemUpdateManyWithoutMenuItemNestedInput = {
+  create?: Prisma.XOR<Prisma.ComboItemCreateWithoutMenuItemInput, Prisma.ComboItemUncheckedCreateWithoutMenuItemInput> | Prisma.ComboItemCreateWithoutMenuItemInput[] | Prisma.ComboItemUncheckedCreateWithoutMenuItemInput[]
+  connectOrCreate?: Prisma.ComboItemCreateOrConnectWithoutMenuItemInput | Prisma.ComboItemCreateOrConnectWithoutMenuItemInput[]
+  upsert?: Prisma.ComboItemUpsertWithWhereUniqueWithoutMenuItemInput | Prisma.ComboItemUpsertWithWhereUniqueWithoutMenuItemInput[]
+  createMany?: Prisma.ComboItemCreateManyMenuItemInputEnvelope
+  set?: Prisma.ComboItemWhereUniqueInput | Prisma.ComboItemWhereUniqueInput[]
+  disconnect?: Prisma.ComboItemWhereUniqueInput | Prisma.ComboItemWhereUniqueInput[]
+  delete?: Prisma.ComboItemWhereUniqueInput | Prisma.ComboItemWhereUniqueInput[]
+  connect?: Prisma.ComboItemWhereUniqueInput | Prisma.ComboItemWhereUniqueInput[]
+  update?: Prisma.ComboItemUpdateWithWhereUniqueWithoutMenuItemInput | Prisma.ComboItemUpdateWithWhereUniqueWithoutMenuItemInput[]
+  updateMany?: Prisma.ComboItemUpdateManyWithWhereWithoutMenuItemInput | Prisma.ComboItemUpdateManyWithWhereWithoutMenuItemInput[]
+  deleteMany?: Prisma.ComboItemScalarWhereInput | Prisma.ComboItemScalarWhereInput[]
+}
+
+export type ComboItemUncheckedUpdateManyWithoutMenuItemNestedInput = {
+  create?: Prisma.XOR<Prisma.ComboItemCreateWithoutMenuItemInput, Prisma.ComboItemUncheckedCreateWithoutMenuItemInput> | Prisma.ComboItemCreateWithoutMenuItemInput[] | Prisma.ComboItemUncheckedCreateWithoutMenuItemInput[]
+  connectOrCreate?: Prisma.ComboItemCreateOrConnectWithoutMenuItemInput | Prisma.ComboItemCreateOrConnectWithoutMenuItemInput[]
+  upsert?: Prisma.ComboItemUpsertWithWhereUniqueWithoutMenuItemInput | Prisma.ComboItemUpsertWithWhereUniqueWithoutMenuItemInput[]
+  createMany?: Prisma.ComboItemCreateManyMenuItemInputEnvelope
+  set?: Prisma.ComboItemWhereUniqueInput | Prisma.ComboItemWhereUniqueInput[]
+  disconnect?: Prisma.ComboItemWhereUniqueInput | Prisma.ComboItemWhereUniqueInput[]
+  delete?: Prisma.ComboItemWhereUniqueInput | Prisma.ComboItemWhereUniqueInput[]
+  connect?: Prisma.ComboItemWhereUniqueInput | Prisma.ComboItemWhereUniqueInput[]
+  update?: Prisma.ComboItemUpdateWithWhereUniqueWithoutMenuItemInput | Prisma.ComboItemUpdateWithWhereUniqueWithoutMenuItemInput[]
+  updateMany?: Prisma.ComboItemUpdateManyWithWhereWithoutMenuItemInput | Prisma.ComboItemUpdateManyWithWhereWithoutMenuItemInput[]
+  deleteMany?: Prisma.ComboItemScalarWhereInput | Prisma.ComboItemScalarWhereInput[]
+}
+
 export type ComboItemCreateWithoutComboInput = {
   id?: string
-  menuItemId: string
   quantity?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  menuItem: Prisma.MenuItemCreateNestedOneWithoutComboItemsInput
 }
 
 export type ComboItemUncheckedCreateWithoutComboInput = {
@@ -485,6 +529,48 @@ export type ComboItemScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"ComboItem"> | Date | string
 }
 
+export type ComboItemCreateWithoutMenuItemInput = {
+  id?: string
+  quantity?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  combo: Prisma.ComboCreateNestedOneWithoutItemsInput
+}
+
+export type ComboItemUncheckedCreateWithoutMenuItemInput = {
+  id?: string
+  comboId: string
+  quantity?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type ComboItemCreateOrConnectWithoutMenuItemInput = {
+  where: Prisma.ComboItemWhereUniqueInput
+  create: Prisma.XOR<Prisma.ComboItemCreateWithoutMenuItemInput, Prisma.ComboItemUncheckedCreateWithoutMenuItemInput>
+}
+
+export type ComboItemCreateManyMenuItemInputEnvelope = {
+  data: Prisma.ComboItemCreateManyMenuItemInput | Prisma.ComboItemCreateManyMenuItemInput[]
+  skipDuplicates?: boolean
+}
+
+export type ComboItemUpsertWithWhereUniqueWithoutMenuItemInput = {
+  where: Prisma.ComboItemWhereUniqueInput
+  update: Prisma.XOR<Prisma.ComboItemUpdateWithoutMenuItemInput, Prisma.ComboItemUncheckedUpdateWithoutMenuItemInput>
+  create: Prisma.XOR<Prisma.ComboItemCreateWithoutMenuItemInput, Prisma.ComboItemUncheckedCreateWithoutMenuItemInput>
+}
+
+export type ComboItemUpdateWithWhereUniqueWithoutMenuItemInput = {
+  where: Prisma.ComboItemWhereUniqueInput
+  data: Prisma.XOR<Prisma.ComboItemUpdateWithoutMenuItemInput, Prisma.ComboItemUncheckedUpdateWithoutMenuItemInput>
+}
+
+export type ComboItemUpdateManyWithWhereWithoutMenuItemInput = {
+  where: Prisma.ComboItemScalarWhereInput
+  data: Prisma.XOR<Prisma.ComboItemUpdateManyMutationInput, Prisma.ComboItemUncheckedUpdateManyWithoutMenuItemInput>
+}
+
 export type ComboItemCreateManyComboInput = {
   id?: string
   menuItemId: string
@@ -495,10 +581,10 @@ export type ComboItemCreateManyComboInput = {
 
 export type ComboItemUpdateWithoutComboInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  menuItemId?: Prisma.StringFieldUpdateOperationsInput | string
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  menuItem?: Prisma.MenuItemUpdateOneRequiredWithoutComboItemsNestedInput
 }
 
 export type ComboItemUncheckedUpdateWithoutComboInput = {
@@ -517,6 +603,38 @@ export type ComboItemUncheckedUpdateManyWithoutComboInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+export type ComboItemCreateManyMenuItemInput = {
+  id?: string
+  comboId: string
+  quantity?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type ComboItemUpdateWithoutMenuItemInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  combo?: Prisma.ComboUpdateOneRequiredWithoutItemsNestedInput
+}
+
+export type ComboItemUncheckedUpdateWithoutMenuItemInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  comboId?: Prisma.StringFieldUpdateOperationsInput | string
+  quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ComboItemUncheckedUpdateManyWithoutMenuItemInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  comboId?: Prisma.StringFieldUpdateOperationsInput | string
+  quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 
 
 export type ComboItemSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -527,6 +645,7 @@ export type ComboItemSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   createdAt?: boolean
   updatedAt?: boolean
   combo?: boolean | Prisma.ComboDefaultArgs<ExtArgs>
+  menuItem?: boolean | Prisma.MenuItemDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["comboItem"]>
 
 export type ComboItemSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -537,6 +656,7 @@ export type ComboItemSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   createdAt?: boolean
   updatedAt?: boolean
   combo?: boolean | Prisma.ComboDefaultArgs<ExtArgs>
+  menuItem?: boolean | Prisma.MenuItemDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["comboItem"]>
 
 export type ComboItemSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -547,6 +667,7 @@ export type ComboItemSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   createdAt?: boolean
   updatedAt?: boolean
   combo?: boolean | Prisma.ComboDefaultArgs<ExtArgs>
+  menuItem?: boolean | Prisma.MenuItemDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["comboItem"]>
 
 export type ComboItemSelectScalar = {
@@ -561,18 +682,22 @@ export type ComboItemSelectScalar = {
 export type ComboItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "comboId" | "menuItemId" | "quantity" | "createdAt" | "updatedAt", ExtArgs["result"]["comboItem"]>
 export type ComboItemInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   combo?: boolean | Prisma.ComboDefaultArgs<ExtArgs>
+  menuItem?: boolean | Prisma.MenuItemDefaultArgs<ExtArgs>
 }
 export type ComboItemIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   combo?: boolean | Prisma.ComboDefaultArgs<ExtArgs>
+  menuItem?: boolean | Prisma.MenuItemDefaultArgs<ExtArgs>
 }
 export type ComboItemIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   combo?: boolean | Prisma.ComboDefaultArgs<ExtArgs>
+  menuItem?: boolean | Prisma.MenuItemDefaultArgs<ExtArgs>
 }
 
 export type $ComboItemPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "ComboItem"
   objects: {
     combo: Prisma.$ComboPayload<ExtArgs>
+    menuItem: Prisma.$MenuItemPayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -976,6 +1101,7 @@ readonly fields: ComboItemFieldRefs;
 export interface Prisma__ComboItemClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   combo<T extends Prisma.ComboDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ComboDefaultArgs<ExtArgs>>): Prisma.Prisma__ComboClient<runtime.Types.Result.GetResult<Prisma.$ComboPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  menuItem<T extends Prisma.MenuItemDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.MenuItemDefaultArgs<ExtArgs>>): Prisma.Prisma__MenuItemClient<runtime.Types.Result.GetResult<Prisma.$MenuItemPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.

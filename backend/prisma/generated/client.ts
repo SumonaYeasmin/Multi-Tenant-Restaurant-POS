@@ -85,6 +85,21 @@ export type Combo = Prisma.ComboModel
  */
 export type ComboItem = Prisma.ComboItemModel
 /**
+ * Model MenuItem
+ * 
+ */
+export type MenuItem = Prisma.MenuItemModel
+/**
+ * Model MenuItemVariant
+ * 
+ */
+export type MenuItemVariant = Prisma.MenuItemVariantModel
+/**
+ * Model BranchMenuItemOverride
+ * 
+ */
+export type BranchMenuItemOverride = Prisma.BranchMenuItemOverrideModel
+/**
  * Model User
  * 
  */

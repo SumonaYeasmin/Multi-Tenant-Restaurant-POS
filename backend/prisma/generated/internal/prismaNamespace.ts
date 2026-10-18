@@ -393,6 +393,9 @@ export const ModelName = {
   ModifierOption: 'ModifierOption',
   Combo: 'Combo',
   ComboItem: 'ComboItem',
+  MenuItem: 'MenuItem',
+  MenuItemVariant: 'MenuItemVariant',
+  BranchMenuItemOverride: 'BranchMenuItemOverride',
   User: 'User'
 } as const
 
@@ -409,7 +412,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "tenant" | "tenantRole" | "staffMember" | "branch" | "category" | "modifierGroup" | "modifierOption" | "combo" | "comboItem" | "user"
+    modelProps: "tenant" | "tenantRole" | "staffMember" | "branch" | "category" | "modifierGroup" | "modifierOption" | "combo" | "comboItem" | "menuItem" | "menuItemVariant" | "branchMenuItemOverride" | "user"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1079,6 +1082,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    MenuItem: {
+      payload: Prisma.$MenuItemPayload<ExtArgs>
+      fields: Prisma.MenuItemFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MenuItemFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MenuItemFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemPayload>
+        }
+        findFirst: {
+          args: Prisma.MenuItemFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MenuItemFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemPayload>
+        }
+        findMany: {
+          args: Prisma.MenuItemFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemPayload>[]
+        }
+        create: {
+          args: Prisma.MenuItemCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemPayload>
+        }
+        createMany: {
+          args: Prisma.MenuItemCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MenuItemCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemPayload>[]
+        }
+        delete: {
+          args: Prisma.MenuItemDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemPayload>
+        }
+        update: {
+          args: Prisma.MenuItemUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemPayload>
+        }
+        deleteMany: {
+          args: Prisma.MenuItemDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MenuItemUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MenuItemUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemPayload>[]
+        }
+        upsert: {
+          args: Prisma.MenuItemUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemPayload>
+        }
+        aggregate: {
+          args: Prisma.MenuItemAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMenuItem>
+        }
+        groupBy: {
+          args: Prisma.MenuItemGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MenuItemGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MenuItemCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MenuItemCountAggregateOutputType> | number
+        }
+      }
+    }
+    MenuItemVariant: {
+      payload: Prisma.$MenuItemVariantPayload<ExtArgs>
+      fields: Prisma.MenuItemVariantFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MenuItemVariantFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemVariantPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MenuItemVariantFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemVariantPayload>
+        }
+        findFirst: {
+          args: Prisma.MenuItemVariantFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemVariantPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MenuItemVariantFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemVariantPayload>
+        }
+        findMany: {
+          args: Prisma.MenuItemVariantFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemVariantPayload>[]
+        }
+        create: {
+          args: Prisma.MenuItemVariantCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemVariantPayload>
+        }
+        createMany: {
+          args: Prisma.MenuItemVariantCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MenuItemVariantCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemVariantPayload>[]
+        }
+        delete: {
+          args: Prisma.MenuItemVariantDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemVariantPayload>
+        }
+        update: {
+          args: Prisma.MenuItemVariantUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemVariantPayload>
+        }
+        deleteMany: {
+          args: Prisma.MenuItemVariantDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MenuItemVariantUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MenuItemVariantUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemVariantPayload>[]
+        }
+        upsert: {
+          args: Prisma.MenuItemVariantUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MenuItemVariantPayload>
+        }
+        aggregate: {
+          args: Prisma.MenuItemVariantAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMenuItemVariant>
+        }
+        groupBy: {
+          args: Prisma.MenuItemVariantGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MenuItemVariantGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MenuItemVariantCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MenuItemVariantCountAggregateOutputType> | number
+        }
+      }
+    }
+    BranchMenuItemOverride: {
+      payload: Prisma.$BranchMenuItemOverridePayload<ExtArgs>
+      fields: Prisma.BranchMenuItemOverrideFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.BranchMenuItemOverrideFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BranchMenuItemOverridePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.BranchMenuItemOverrideFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BranchMenuItemOverridePayload>
+        }
+        findFirst: {
+          args: Prisma.BranchMenuItemOverrideFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BranchMenuItemOverridePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.BranchMenuItemOverrideFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BranchMenuItemOverridePayload>
+        }
+        findMany: {
+          args: Prisma.BranchMenuItemOverrideFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BranchMenuItemOverridePayload>[]
+        }
+        create: {
+          args: Prisma.BranchMenuItemOverrideCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BranchMenuItemOverridePayload>
+        }
+        createMany: {
+          args: Prisma.BranchMenuItemOverrideCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.BranchMenuItemOverrideCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BranchMenuItemOverridePayload>[]
+        }
+        delete: {
+          args: Prisma.BranchMenuItemOverrideDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BranchMenuItemOverridePayload>
+        }
+        update: {
+          args: Prisma.BranchMenuItemOverrideUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BranchMenuItemOverridePayload>
+        }
+        deleteMany: {
+          args: Prisma.BranchMenuItemOverrideDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.BranchMenuItemOverrideUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.BranchMenuItemOverrideUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BranchMenuItemOverridePayload>[]
+        }
+        upsert: {
+          args: Prisma.BranchMenuItemOverrideUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BranchMenuItemOverridePayload>
+        }
+        aggregate: {
+          args: Prisma.BranchMenuItemOverrideAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBranchMenuItemOverride>
+        }
+        groupBy: {
+          args: Prisma.BranchMenuItemOverrideGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BranchMenuItemOverrideGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.BranchMenuItemOverrideCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BranchMenuItemOverrideCountAggregateOutputType> | number
+        }
+      }
+    }
     User: {
       payload: Prisma.$UserPayload<ExtArgs>
       fields: Prisma.UserFieldRefs
@@ -1331,6 +1556,50 @@ export const ComboItemScalarFieldEnum = {
 export type ComboItemScalarFieldEnum = (typeof ComboItemScalarFieldEnum)[keyof typeof ComboItemScalarFieldEnum]
 
 
+export const MenuItemScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  categoryId: 'categoryId',
+  name: 'name',
+  description: 'description',
+  price: 'price',
+  available: 'available',
+  tags: 'tags',
+  modifierGroupIds: 'modifierGroupIds',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MenuItemScalarFieldEnum = (typeof MenuItemScalarFieldEnum)[keyof typeof MenuItemScalarFieldEnum]
+
+
+export const MenuItemVariantScalarFieldEnum = {
+  id: 'id',
+  menuItemId: 'menuItemId',
+  name: 'name',
+  priceDelta: 'priceDelta',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MenuItemVariantScalarFieldEnum = (typeof MenuItemVariantScalarFieldEnum)[keyof typeof MenuItemVariantScalarFieldEnum]
+
+
+export const BranchMenuItemOverrideScalarFieldEnum = {
+  id: 'id',
+  branchId: 'branchId',
+  menuItemId: 'menuItemId',
+  price: 'price',
+  isAvailable: 'isAvailable',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BranchMenuItemOverrideScalarFieldEnum = (typeof BranchMenuItemOverrideScalarFieldEnum)[keyof typeof BranchMenuItemOverrideScalarFieldEnum]
+
+
 export const UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
@@ -1569,6 +1838,9 @@ export type GlobalOmitConfig = {
   modifierOption?: Prisma.ModifierOptionOmit
   combo?: Prisma.ComboOmit
   comboItem?: Prisma.ComboItemOmit
+  menuItem?: Prisma.MenuItemOmit
+  menuItemVariant?: Prisma.MenuItemVariantOmit
+  branchMenuItemOverride?: Prisma.BranchMenuItemOverrideOmit
   user?: Prisma.UserOmit
 }
 

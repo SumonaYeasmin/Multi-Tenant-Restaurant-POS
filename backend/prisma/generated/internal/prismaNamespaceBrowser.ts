@@ -60,6 +60,9 @@ export const ModelName = {
   ModifierOption: 'ModifierOption',
   Combo: 'Combo',
   ComboItem: 'ComboItem',
+  MenuItem: 'MenuItem',
+  MenuItemVariant: 'MenuItemVariant',
+  BranchMenuItemOverride: 'BranchMenuItemOverride',
   User: 'User'
 } as const
 
@@ -216,6 +219,50 @@ export const ComboItemScalarFieldEnum = {
 } as const
 
 export type ComboItemScalarFieldEnum = (typeof ComboItemScalarFieldEnum)[keyof typeof ComboItemScalarFieldEnum]
+
+
+export const MenuItemScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  categoryId: 'categoryId',
+  name: 'name',
+  description: 'description',
+  price: 'price',
+  available: 'available',
+  tags: 'tags',
+  modifierGroupIds: 'modifierGroupIds',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MenuItemScalarFieldEnum = (typeof MenuItemScalarFieldEnum)[keyof typeof MenuItemScalarFieldEnum]
+
+
+export const MenuItemVariantScalarFieldEnum = {
+  id: 'id',
+  menuItemId: 'menuItemId',
+  name: 'name',
+  priceDelta: 'priceDelta',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MenuItemVariantScalarFieldEnum = (typeof MenuItemVariantScalarFieldEnum)[keyof typeof MenuItemVariantScalarFieldEnum]
+
+
+export const BranchMenuItemOverrideScalarFieldEnum = {
+  id: 'id',
+  branchId: 'branchId',
+  menuItemId: 'menuItemId',
+  price: 'price',
+  isAvailable: 'isAvailable',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BranchMenuItemOverrideScalarFieldEnum = (typeof BranchMenuItemOverrideScalarFieldEnum)[keyof typeof BranchMenuItemOverrideScalarFieldEnum]
 
 
 export const UserScalarFieldEnum = {
