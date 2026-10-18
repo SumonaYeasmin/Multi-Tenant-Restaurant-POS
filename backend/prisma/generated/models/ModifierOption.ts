@@ -39,6 +39,9 @@ export type ModifierOptionMinAggregateOutputType = {
   groupId: string | null
   name: string | null
   price: number | null
+  isActive: boolean | null
+  isDeleted: boolean | null
+  deletedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -48,6 +51,9 @@ export type ModifierOptionMaxAggregateOutputType = {
   groupId: string | null
   name: string | null
   price: number | null
+  isActive: boolean | null
+  isDeleted: boolean | null
+  deletedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -57,6 +63,9 @@ export type ModifierOptionCountAggregateOutputType = {
   groupId: number
   name: number
   price: number
+  isActive: number
+  isDeleted: number
+  deletedAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -76,6 +85,9 @@ export type ModifierOptionMinAggregateInputType = {
   groupId?: true
   name?: true
   price?: true
+  isActive?: true
+  isDeleted?: true
+  deletedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -85,6 +97,9 @@ export type ModifierOptionMaxAggregateInputType = {
   groupId?: true
   name?: true
   price?: true
+  isActive?: true
+  isDeleted?: true
+  deletedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -94,6 +109,9 @@ export type ModifierOptionCountAggregateInputType = {
   groupId?: true
   name?: true
   price?: true
+  isActive?: true
+  isDeleted?: true
+  deletedAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -190,6 +208,9 @@ export type ModifierOptionGroupByOutputType = {
   groupId: string
   name: string
   price: number
+  isActive: boolean
+  isDeleted: boolean
+  deletedAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: ModifierOptionCountAggregateOutputType | null
@@ -222,6 +243,9 @@ export type ModifierOptionWhereInput = {
   groupId?: Prisma.StringFilter<"ModifierOption"> | string
   name?: Prisma.StringFilter<"ModifierOption"> | string
   price?: Prisma.FloatFilter<"ModifierOption"> | number
+  isActive?: Prisma.BoolFilter<"ModifierOption"> | boolean
+  isDeleted?: Prisma.BoolFilter<"ModifierOption"> | boolean
+  deletedAt?: Prisma.DateTimeNullableFilter<"ModifierOption"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ModifierOption"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ModifierOption"> | Date | string
   group?: Prisma.XOR<Prisma.ModifierGroupScalarRelationFilter, Prisma.ModifierGroupWhereInput>
@@ -232,6 +256,9 @@ export type ModifierOptionOrderByWithRelationInput = {
   groupId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   price?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
+  isDeleted?: Prisma.SortOrder
+  deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   group?: Prisma.ModifierGroupOrderByWithRelationInput
@@ -245,6 +272,9 @@ export type ModifierOptionWhereUniqueInput = Prisma.AtLeast<{
   groupId?: Prisma.StringFilter<"ModifierOption"> | string
   name?: Prisma.StringFilter<"ModifierOption"> | string
   price?: Prisma.FloatFilter<"ModifierOption"> | number
+  isActive?: Prisma.BoolFilter<"ModifierOption"> | boolean
+  isDeleted?: Prisma.BoolFilter<"ModifierOption"> | boolean
+  deletedAt?: Prisma.DateTimeNullableFilter<"ModifierOption"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ModifierOption"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ModifierOption"> | Date | string
   group?: Prisma.XOR<Prisma.ModifierGroupScalarRelationFilter, Prisma.ModifierGroupWhereInput>
@@ -255,6 +285,9 @@ export type ModifierOptionOrderByWithAggregationInput = {
   groupId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   price?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
+  isDeleted?: Prisma.SortOrder
+  deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.ModifierOptionCountOrderByAggregateInput
@@ -272,6 +305,9 @@ export type ModifierOptionScalarWhereWithAggregatesInput = {
   groupId?: Prisma.StringWithAggregatesFilter<"ModifierOption"> | string
   name?: Prisma.StringWithAggregatesFilter<"ModifierOption"> | string
   price?: Prisma.FloatWithAggregatesFilter<"ModifierOption"> | number
+  isActive?: Prisma.BoolWithAggregatesFilter<"ModifierOption"> | boolean
+  isDeleted?: Prisma.BoolWithAggregatesFilter<"ModifierOption"> | boolean
+  deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ModifierOption"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ModifierOption"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"ModifierOption"> | Date | string
 }
@@ -280,6 +316,9 @@ export type ModifierOptionCreateInput = {
   id?: string
   name: string
   price?: number
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   group: Prisma.ModifierGroupCreateNestedOneWithoutOptionsInput
@@ -290,6 +329,9 @@ export type ModifierOptionUncheckedCreateInput = {
   groupId: string
   name: string
   price?: number
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -298,6 +340,9 @@ export type ModifierOptionUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   price?: Prisma.FloatFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   group?: Prisma.ModifierGroupUpdateOneRequiredWithoutOptionsNestedInput
@@ -308,6 +353,9 @@ export type ModifierOptionUncheckedUpdateInput = {
   groupId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   price?: Prisma.FloatFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -317,6 +365,9 @@ export type ModifierOptionCreateManyInput = {
   groupId: string
   name: string
   price?: number
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -325,6 +376,9 @@ export type ModifierOptionUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   price?: Prisma.FloatFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -334,6 +388,9 @@ export type ModifierOptionUncheckedUpdateManyInput = {
   groupId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   price?: Prisma.FloatFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -353,6 +410,9 @@ export type ModifierOptionCountOrderByAggregateInput = {
   groupId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   price?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
+  isDeleted?: Prisma.SortOrder
+  deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -366,6 +426,9 @@ export type ModifierOptionMaxOrderByAggregateInput = {
   groupId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   price?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
+  isDeleted?: Prisma.SortOrder
+  deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -375,6 +438,9 @@ export type ModifierOptionMinOrderByAggregateInput = {
   groupId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   price?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
+  isDeleted?: Prisma.SortOrder
+  deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -429,6 +495,9 @@ export type ModifierOptionCreateWithoutGroupInput = {
   id?: string
   name: string
   price?: number
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -437,6 +506,9 @@ export type ModifierOptionUncheckedCreateWithoutGroupInput = {
   id?: string
   name: string
   price?: number
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -475,6 +547,9 @@ export type ModifierOptionScalarWhereInput = {
   groupId?: Prisma.StringFilter<"ModifierOption"> | string
   name?: Prisma.StringFilter<"ModifierOption"> | string
   price?: Prisma.FloatFilter<"ModifierOption"> | number
+  isActive?: Prisma.BoolFilter<"ModifierOption"> | boolean
+  isDeleted?: Prisma.BoolFilter<"ModifierOption"> | boolean
+  deletedAt?: Prisma.DateTimeNullableFilter<"ModifierOption"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ModifierOption"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ModifierOption"> | Date | string
 }
@@ -483,6 +558,9 @@ export type ModifierOptionCreateManyGroupInput = {
   id?: string
   name: string
   price?: number
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -491,6 +569,9 @@ export type ModifierOptionUpdateWithoutGroupInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   price?: Prisma.FloatFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -499,6 +580,9 @@ export type ModifierOptionUncheckedUpdateWithoutGroupInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   price?: Prisma.FloatFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -507,6 +591,9 @@ export type ModifierOptionUncheckedUpdateManyWithoutGroupInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   price?: Prisma.FloatFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -518,6 +605,9 @@ export type ModifierOptionSelect<ExtArgs extends runtime.Types.Extensions.Intern
   groupId?: boolean
   name?: boolean
   price?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   group?: boolean | Prisma.ModifierGroupDefaultArgs<ExtArgs>
@@ -528,6 +618,9 @@ export type ModifierOptionSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   groupId?: boolean
   name?: boolean
   price?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   group?: boolean | Prisma.ModifierGroupDefaultArgs<ExtArgs>
@@ -538,6 +631,9 @@ export type ModifierOptionSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   groupId?: boolean
   name?: boolean
   price?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   group?: boolean | Prisma.ModifierGroupDefaultArgs<ExtArgs>
@@ -548,11 +644,14 @@ export type ModifierOptionSelectScalar = {
   groupId?: boolean
   name?: boolean
   price?: boolean
+  isActive?: boolean
+  isDeleted?: boolean
+  deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ModifierOptionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "groupId" | "name" | "price" | "createdAt" | "updatedAt", ExtArgs["result"]["modifierOption"]>
+export type ModifierOptionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "groupId" | "name" | "price" | "isActive" | "isDeleted" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["modifierOption"]>
 export type ModifierOptionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   group?: boolean | Prisma.ModifierGroupDefaultArgs<ExtArgs>
 }
@@ -573,6 +672,9 @@ export type $ModifierOptionPayload<ExtArgs extends runtime.Types.Extensions.Inte
     groupId: string
     name: string
     price: number
+    isActive: boolean
+    isDeleted: boolean
+    deletedAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["modifierOption"]>
@@ -1003,6 +1105,9 @@ export interface ModifierOptionFieldRefs {
   readonly groupId: Prisma.FieldRef<"ModifierOption", 'String'>
   readonly name: Prisma.FieldRef<"ModifierOption", 'String'>
   readonly price: Prisma.FieldRef<"ModifierOption", 'Float'>
+  readonly isActive: Prisma.FieldRef<"ModifierOption", 'Boolean'>
+  readonly isDeleted: Prisma.FieldRef<"ModifierOption", 'Boolean'>
+  readonly deletedAt: Prisma.FieldRef<"ModifierOption", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"ModifierOption", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"ModifierOption", 'DateTime'>
 }
