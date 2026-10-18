@@ -391,6 +391,8 @@ export const ModelName = {
   Category: 'Category',
   ModifierGroup: 'ModifierGroup',
   ModifierOption: 'ModifierOption',
+  Combo: 'Combo',
+  ComboItem: 'ComboItem',
   User: 'User'
 } as const
 
@@ -407,7 +409,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "tenant" | "tenantRole" | "staffMember" | "branch" | "category" | "modifierGroup" | "modifierOption" | "user"
+    modelProps: "tenant" | "tenantRole" | "staffMember" | "branch" | "category" | "modifierGroup" | "modifierOption" | "combo" | "comboItem" | "user"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -929,6 +931,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    Combo: {
+      payload: Prisma.$ComboPayload<ExtArgs>
+      fields: Prisma.ComboFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ComboFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ComboFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboPayload>
+        }
+        findFirst: {
+          args: Prisma.ComboFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ComboFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboPayload>
+        }
+        findMany: {
+          args: Prisma.ComboFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboPayload>[]
+        }
+        create: {
+          args: Prisma.ComboCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboPayload>
+        }
+        createMany: {
+          args: Prisma.ComboCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ComboCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboPayload>[]
+        }
+        delete: {
+          args: Prisma.ComboDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboPayload>
+        }
+        update: {
+          args: Prisma.ComboUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboPayload>
+        }
+        deleteMany: {
+          args: Prisma.ComboDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ComboUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ComboUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboPayload>[]
+        }
+        upsert: {
+          args: Prisma.ComboUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboPayload>
+        }
+        aggregate: {
+          args: Prisma.ComboAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCombo>
+        }
+        groupBy: {
+          args: Prisma.ComboGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ComboGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ComboCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ComboCountAggregateOutputType> | number
+        }
+      }
+    }
+    ComboItem: {
+      payload: Prisma.$ComboItemPayload<ExtArgs>
+      fields: Prisma.ComboItemFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ComboItemFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboItemPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ComboItemFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboItemPayload>
+        }
+        findFirst: {
+          args: Prisma.ComboItemFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboItemPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ComboItemFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboItemPayload>
+        }
+        findMany: {
+          args: Prisma.ComboItemFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboItemPayload>[]
+        }
+        create: {
+          args: Prisma.ComboItemCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboItemPayload>
+        }
+        createMany: {
+          args: Prisma.ComboItemCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ComboItemCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboItemPayload>[]
+        }
+        delete: {
+          args: Prisma.ComboItemDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboItemPayload>
+        }
+        update: {
+          args: Prisma.ComboItemUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboItemPayload>
+        }
+        deleteMany: {
+          args: Prisma.ComboItemDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ComboItemUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ComboItemUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboItemPayload>[]
+        }
+        upsert: {
+          args: Prisma.ComboItemUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ComboItemPayload>
+        }
+        aggregate: {
+          args: Prisma.ComboItemAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateComboItem>
+        }
+        groupBy: {
+          args: Prisma.ComboItemGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ComboItemGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ComboItemCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ComboItemCountAggregateOutputType> | number
+        }
+      }
+    }
     User: {
       payload: Prisma.$UserPayload<ExtArgs>
       fields: Prisma.UserFieldRefs
@@ -1151,6 +1301,34 @@ export const ModifierOptionScalarFieldEnum = {
 } as const
 
 export type ModifierOptionScalarFieldEnum = (typeof ModifierOptionScalarFieldEnum)[keyof typeof ModifierOptionScalarFieldEnum]
+
+
+export const ComboScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  name: 'name',
+  description: 'description',
+  price: 'price',
+  available: 'available',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ComboScalarFieldEnum = (typeof ComboScalarFieldEnum)[keyof typeof ComboScalarFieldEnum]
+
+
+export const ComboItemScalarFieldEnum = {
+  id: 'id',
+  comboId: 'comboId',
+  menuItemId: 'menuItemId',
+  quantity: 'quantity',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ComboItemScalarFieldEnum = (typeof ComboItemScalarFieldEnum)[keyof typeof ComboItemScalarFieldEnum]
 
 
 export const UserScalarFieldEnum = {
@@ -1389,6 +1567,8 @@ export type GlobalOmitConfig = {
   category?: Prisma.CategoryOmit
   modifierGroup?: Prisma.ModifierGroupOmit
   modifierOption?: Prisma.ModifierOptionOmit
+  combo?: Prisma.ComboOmit
+  comboItem?: Prisma.ComboItemOmit
   user?: Prisma.UserOmit
 }
 

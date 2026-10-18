@@ -58,6 +58,8 @@ export const ModelName = {
   Category: 'Category',
   ModifierGroup: 'ModifierGroup',
   ModifierOption: 'ModifierOption',
+  Combo: 'Combo',
+  ComboItem: 'ComboItem',
   User: 'User'
 } as const
 
@@ -186,6 +188,34 @@ export const ModifierOptionScalarFieldEnum = {
 } as const
 
 export type ModifierOptionScalarFieldEnum = (typeof ModifierOptionScalarFieldEnum)[keyof typeof ModifierOptionScalarFieldEnum]
+
+
+export const ComboScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  name: 'name',
+  description: 'description',
+  price: 'price',
+  available: 'available',
+  isDeleted: 'isDeleted',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ComboScalarFieldEnum = (typeof ComboScalarFieldEnum)[keyof typeof ComboScalarFieldEnum]
+
+
+export const ComboItemScalarFieldEnum = {
+  id: 'id',
+  comboId: 'comboId',
+  menuItemId: 'menuItemId',
+  quantity: 'quantity',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ComboItemScalarFieldEnum = (typeof ComboItemScalarFieldEnum)[keyof typeof ComboItemScalarFieldEnum]
 
 
 export const UserScalarFieldEnum = {

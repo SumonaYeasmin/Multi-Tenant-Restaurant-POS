@@ -75,6 +75,16 @@ export type ModifierGroup = Prisma.ModifierGroupModel
  */
 export type ModifierOption = Prisma.ModifierOptionModel
 /**
+ * Model Combo
+ * 
+ */
+export type Combo = Prisma.ComboModel
+/**
+ * Model ComboItem
+ * 
+ */
+export type ComboItem = Prisma.ComboItemModel
+/**
  * Model User
  * 
  */

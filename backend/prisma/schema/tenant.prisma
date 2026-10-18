@@ -19,6 +19,7 @@ model Tenant {
     branches          Branch[]
     categories        Category[]
     modifierGroups    ModifierGroup[]
+    combos            Combo[]
 
     @@map("tenants")
 }
@@ -128,4 +129,37 @@ model ModifierOption {
 
     @@map("modifier_options")
 }
+
+model Combo {
+    id          String      @id @default(uuid())
+    tenantId    String
+    name        String
+    description String?     @default("")
+    price       Float       @default(0.0)
+    available   Boolean     @default(true)
+    isDeleted   Boolean     @default(false)
+    deletedAt   DateTime?
+    createdAt   DateTime    @default(now())
+    updatedAt   DateTime    @updatedAt
+
+    tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    items       ComboItem[]
+
+    @@map("combos")
+}
+
+model ComboItem {
+    id         String   @id @default(uuid())
+    comboId    String
+    menuItemId String
+    quantity   Int      @default(1)
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    combo      Combo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
+
+    @@unique([comboId, menuItemId])
+    @@map("combo_items")
+}
+
 
