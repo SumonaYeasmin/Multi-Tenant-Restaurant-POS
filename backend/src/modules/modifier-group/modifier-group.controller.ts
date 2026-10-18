@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   Post,
   UseGuards,
@@ -55,5 +56,62 @@ export class ModifierGroupController {
       dto,
     );
     return ResponseHelper.created(group, 'Modifier group created successfully');
+  }
+
+  @Get(':tenantSlug/modifier-groups')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all modifier groups for the restaurant',
+    description: 'Retrieves all modifier groups with their nested options.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Modifier groups retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Restaurant not found' })
+  async getAllModifierGroups(@Param('tenantSlug') tenantSlug: string) {
+    const groups = await this.modifierGroupService.getAllModifierGroups(
+      tenantSlug,
+    );
+    return ResponseHelper.success(groups, 'Modifier groups retrieved successfully');
+  }
+
+  @Get(':tenantSlug/modifier-groups/:groupId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get details of a specific modifier group',
+    description: 'Retrieves a single modifier group with its nested options by ID.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'groupId',
+    example: 'uuid',
+    description: 'Modifier Group ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Modifier group retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Modifier group or restaurant not found' })
+  async getModifierGroupById(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('groupId') groupId: string,
+  ) {
+    const group = await this.modifierGroupService.getModifierGroupById(
+      tenantSlug,
+      groupId,
+    );
+    return ResponseHelper.success(group, 'Modifier group retrieved successfully');
   }
 }

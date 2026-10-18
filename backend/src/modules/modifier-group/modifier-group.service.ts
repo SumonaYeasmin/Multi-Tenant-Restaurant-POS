@@ -80,4 +80,56 @@ export class ModifierGroupService {
 
     return group;
   }
+
+  async getAllModifierGroups(tenantSlug: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch all modifier groups with options
+    return this.prisma.modifierGroup.findMany({
+      where: { tenantId: tenant.id },
+      include: {
+        options: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async getModifierGroupById(tenantSlug: string, groupId: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch specific modifier group with options
+    const group = await this.prisma.modifierGroup.findFirst({
+      where: {
+        id: groupId,
+        tenantId: tenant.id,
+      },
+      include: {
+        options: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Modifier group');
+    }
+
+    return group;
+  }
 }
