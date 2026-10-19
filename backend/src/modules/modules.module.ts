@@ -9,6 +9,7 @@ import { ComboModule } from './combo/combo.module';
 import { MenuItemModule } from './menu-item/menu-item.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { RecipeModule } from './recipe/recipe.module';
+import { StockMovementModule } from './stock-movement/stock-movement.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RecipeModule } from './recipe/recipe.module';
     MenuItemModule,
     InventoryModule,
     RecipeModule,
+    StockMovementModule,
   ],
   exports: [
     TenantRoleModule,
@@ -33,6 +35,7 @@ import { RecipeModule } from './recipe/recipe.module';
     MenuItemModule,
     InventoryModule,
     RecipeModule,
+    StockMovementModule,
   ],
 })
 export class ModulesModule {}
