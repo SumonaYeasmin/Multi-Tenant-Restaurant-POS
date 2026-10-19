@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
+import { UpdateIngredientDto } from './dto/update-ingredient.dto';
 import { GetIngredientsQueryDto } from './dto/get-ingredients-query.dto';
 import {
   NotFoundException,
@@ -283,5 +284,127 @@ export class InventoryService {
     }
 
     return ingredient;
+  }
+
+  /**
+   * Update an ingredient and optionally its branch stock settings
+   * (e.g. reorderLevel, idealStock, unitCost).
+   */
+  async updateIngredient(
+    tenantSlug: string,
+    ingredientId: string,
+    dto: UpdateIngredientDto,
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    const existing = await this.prisma.ingredient.findFirst({
+      where: {
+        id: ingredientId,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Ingredient');
+    }
+
+    // If name is being changed, check for conflict with other ingredients
+    if (dto.name) {
+      const trimmedName = dto.name.trim();
+      if (trimmedName.toLowerCase() !== existing.name.toLowerCase()) {
+        const conflict = await this.prisma.ingredient.findFirst({
+          where: {
+            tenantId: tenant.id,
+            name: {
+              equals: trimmedName,
+              mode: 'insensitive',
+            },
+            id: { not: ingredientId },
+            isDeleted: false,
+          },
+        });
+
+        if (conflict) {
+          throw new AlreadyExistsException('An ingredient with this name');
+        }
+      }
+    }
+
+    const unitCost = dto.costPerUnit ?? dto.unitCost;
+
+    return await this.prisma.$transaction(async (tx) => {
+      // 1. Update ingredient master data
+      const ingredientData: Prisma.IngredientUpdateInput = {};
+
+      if (dto.name !== undefined) ingredientData.name = dto.name.trim();
+      if (dto.unit !== undefined) ingredientData.unit = dto.unit.trim();
+      if (unitCost !== undefined) ingredientData.costPerUnit = unitCost;
+      if (dto.code !== undefined) ingredientData.code = dto.code?.trim() || '';
+      if (dto.category !== undefined)
+        ingredientData.category = dto.category?.trim() || '';
+      if (dto.storageType !== undefined)
+        ingredientData.storageType = dto.storageType?.trim() || '';
+      if (dto.isActive !== undefined) ingredientData.isActive = dto.isActive;
+
+      await tx.ingredient.update({
+        where: { id: ingredientId },
+        data: ingredientData,
+      });
+
+      // 2. If branchId is passed and branch settings changed, update BranchStock
+      if (dto.branchId) {
+        const branchStockUpdate: Prisma.BranchStockUpdateInput = {};
+        if (dto.reorderLevel !== undefined)
+          branchStockUpdate.reorderLevel = dto.reorderLevel;
+        if (dto.idealStock !== undefined)
+          branchStockUpdate.idealStock = dto.idealStock;
+        if (unitCost !== undefined) branchStockUpdate.unitCost = unitCost;
+
+        if (Object.keys(branchStockUpdate).length > 0) {
+          await tx.branchStock.upsert({
+            where: {
+              branchId_ingredientId: {
+                branchId: dto.branchId,
+                ingredientId,
+              },
+            },
+            update: branchStockUpdate,
+            create: {
+              tenantId: tenant.id,
+              branchId: dto.branchId,
+              ingredientId,
+              reorderLevel: dto.reorderLevel ?? 0,
+              idealStock: dto.idealStock ?? 0,
+              unitCost: unitCost ?? 0,
+              currentStock: 0,
+            },
+          });
+        }
+      }
+
+      // 3. Return updated ingredient with populated branch stocks
+      return tx.ingredient.findUnique({
+        where: { id: ingredientId },
+        include: {
+          branchStocks: {
+            include: {
+              branch: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    });
   }
 }

@@ -3,7 +3,9 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
+import { UpdateIngredientDto } from './dto/update-ingredient.dto';
 import { GetIngredientsQueryDto } from './dto/get-ingredients-query.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -141,6 +144,56 @@ export class InventoryController {
     return ResponseHelper.success(
       ingredient,
       'Ingredient retrieved successfully',
+    );
+  }
+
+  @Put(':tenantSlug/inventory/ingredients/:ingredientId')
+  @Patch(':tenantSlug/inventory/ingredients/:ingredientId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.INVENTORY_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update an ingredient and optional branch stock parameters',
+    description:
+      'Updates master ingredient fields (name, unit, code, category, storageType, costPerUnit, isActive) and optionally updates branch-specific reorderLevel, idealStock, or unitCost if branchId is provided.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'ingredientId',
+    example: 'uuid',
+    description: 'Ingredient ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Ingredient updated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({ status: 404, description: 'Ingredient or restaurant not found' })
+  @ApiResponse({
+    status: 409,
+    description: 'An ingredient with this name already exists',
+  })
+  async updateIngredient(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('ingredientId') ingredientId: string,
+    @Body() dto: UpdateIngredientDto,
+  ) {
+    const ingredient = await this.inventoryService.updateIngredient(
+      tenantSlug,
+      ingredientId,
+      dto,
+    );
+    return ResponseHelper.success(
+      ingredient,
+      'Ingredient updated successfully',
     );
   }
 }
