@@ -8,6 +8,8 @@ import { ModifierGroupModule } from './modifier-group/modifier-group.module';
 import { ComboModule } from './combo/combo.module';
 import { MenuItemModule } from './menu-item/menu-item.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { RecipeModule } from './recipe/recipe.module';
+import { StockMovementModule } from './stock-movement/stock-movement.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { InventoryModule } from './inventory/inventory.module';
     ComboModule,
     MenuItemModule,
     InventoryModule,
+    RecipeModule,
+    StockMovementModule,
   ],
   exports: [
     TenantRoleModule,
@@ -30,6 +34,8 @@ import { InventoryModule } from './inventory/inventory.module';
     ComboModule,
     MenuItemModule,
     InventoryModule,
+    RecipeModule,
+    StockMovementModule,
   ],
 })
 export class ModulesModule {}
