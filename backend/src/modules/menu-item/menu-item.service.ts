@@ -451,5 +451,110 @@ export class MenuItemService {
       },
     });
   }
+
+  /**
+   * Fetches the complete POS menu bundle (categories, available items,
+   * modifier groups, and combos) in a single optimized query.
+   */
+  async getPosMenuBundle(tenantSlug: string, branchId?: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch categories, items, modifiers, and combos in parallel
+    const [categories, items, modifierGroups, combos] = await Promise.all([
+      // Categories sorted by sort order
+      this.prisma.category.findMany({
+        where: {
+          tenantId: tenant.id,
+          isActive: true,
+        },
+        orderBy: { sort: 'asc' },
+      }),
+
+      // Active menu items with size variants & branch price overrides
+      this.prisma.menuItem.findMany({
+        where: {
+          tenantId: tenant.id,
+          isDeleted: false,
+          available: true,
+        },
+        include: {
+          variants: {
+            orderBy: { createdAt: 'asc' },
+          },
+          branchOverrides: branchId
+            ? {
+                where: { branchId },
+              }
+            : true,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+
+      // Modifier groups (toppings / options) with active options
+      this.prisma.modifierGroup.findMany({
+        where: {
+          tenantId: tenant.id,
+          isDeleted: false,
+          isActive: true,
+        },
+        include: {
+          options: {
+            where: { isDeleted: false, isActive: true },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+
+      // Combos with constituent menu items
+      this.prisma.combo.findMany({
+        where: {
+          tenantId: tenant.id,
+          isDeleted: false,
+          available: true,
+        },
+        include: {
+          items: {
+            include: {
+              menuItem: {
+                select: { id: true, name: true, price: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    // 3. Compute effective price and availability if branchId is specified
+    const formattedItems = items
+      .map((item) => {
+        if (!branchId) return item;
+        const branchOverride = item.branchOverrides.find(
+          (b) => b.branchId === branchId,
+        );
+        return {
+          ...item,
+          price: branchOverride?.price ?? item.price,
+          available: branchOverride?.isAvailable ?? item.available,
+          branchOverride: branchOverride ?? null,
+        };
+      })
+      .filter((item) => item.available);
+
+    return {
+      categories,
+      items: formattedItems,
+      modifierGroups,
+      combos,
+    };
+  }
 }
 

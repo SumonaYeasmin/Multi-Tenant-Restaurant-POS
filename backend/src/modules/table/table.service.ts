@@ -1,0 +1,236 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CreateTableDto } from './dto/create-table.dto';
+import { GetTablesQueryDto } from './dto/get-tables-query.dto';
+import {
+  OrderStatus,
+  Prisma,
+  TableStatus,
+} from '../../../prisma/generated/client';
+import {
+  NotFoundException,
+  AlreadyExistsException,
+} from '../../common/exceptions/business.exception';
+
+@Injectable()
+export class TableService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Create a new dining table for a restaurant branch
+   */
+  async createTable(tenantSlug: string, dto: CreateTableDto) {
+    // 1. Verify tenant exists by slug
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Verify that branch exists and belongs to this tenant
+    const branch = await this.prisma.branch.findFirst({
+      where: {
+        id: dto.branchId,
+        tenantId: tenant.id,
+        isActive: true,
+      },
+    });
+
+    if (!branch) {
+      throw new NotFoundException('Branch');
+    }
+
+    const trimmedName = dto.name.trim();
+
+    // 3. Check if table name already exists in this branch (case-insensitive)
+    const existingTable = await this.prisma.diningTable.findFirst({
+      where: {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        name: {
+          equals: trimmedName,
+          mode: 'insensitive',
+        },
+        isDeleted: false,
+      },
+    });
+
+    if (existingTable) {
+      throw new AlreadyExistsException(`Table with name "${trimmedName}"`);
+    }
+
+    // 4. Create the dining table in the database
+    const table = await this.prisma.diningTable.create({
+      data: {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        name: trimmedName,
+        seats: dto.seats ?? 4,
+        area: dto.area?.trim() || 'Main hall',
+        shape: dto.shape || 'square',
+        status: dto.status || TableStatus.AVAILABLE,
+        x: dto.x ?? 0,
+        y: dto.y ?? 0,
+        isActive: true,
+      },
+    });
+
+    return table;
+  }
+
+  /**
+   * Get all dining tables for a restaurant with optional filters (branch, status, area, search)
+   */
+  async getTables(tenantSlug: string, query: GetTablesQueryDto) {
+    // 1. Verify tenant exists by slug
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. If branchId is specified, verify that the branch belongs to this tenant
+    if (query.branchId) {
+      const branch = await this.prisma.branch.findFirst({
+        where: {
+          id: query.branchId,
+          tenantId: tenant.id,
+          isActive: true,
+        },
+      });
+
+      if (!branch) {
+        throw new NotFoundException('Branch');
+      }
+    }
+
+    // 3. Build dynamic filter criteria
+    const where: Prisma.DiningTableWhereInput = {
+      tenantId: tenant.id,
+      isDeleted: false,
+      isActive: true,
+    };
+
+    if (query.branchId) {
+      where.branchId = query.branchId;
+    }
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.area) {
+      where.area = {
+        equals: query.area.trim(),
+        mode: 'insensitive',
+      };
+    }
+
+    if (query.search) {
+      where.name = {
+        contains: query.search.trim(),
+        mode: 'insensitive',
+      };
+    }
+
+    // 4. Fetch dining tables ordered by floor area and table name
+    const tables = await this.prisma.diningTable.findMany({
+      where,
+      orderBy: [{ area: 'asc' }, { name: 'asc' }],
+      include: {
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        orders: {
+          where: {
+            status: {
+              in: [
+                OrderStatus.IN_KITCHEN,
+                OrderStatus.READY,
+                OrderStatus.SERVED,
+              ],
+            },
+          },
+          take: 1,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            kitchenStatus: true,
+            total: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    return tables;
+  }
+
+  /**
+   * Get a single dining table by ID
+   */
+  async getTableById(tenantSlug: string, tableId: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch table
+    const table = await this.prisma.diningTable.findFirst({
+      where: {
+        id: tableId,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+      include: {
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        orders: {
+          where: {
+            status: {
+              in: [
+                OrderStatus.IN_KITCHEN,
+                OrderStatus.READY,
+                OrderStatus.SERVED,
+              ],
+            },
+          },
+          take: 1,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            kitchenStatus: true,
+            total: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!table) {
+      throw new NotFoundException('Dining table');
+    }
+
+    return table;
+  }
+}
+

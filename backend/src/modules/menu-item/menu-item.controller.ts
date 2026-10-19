@@ -95,6 +95,41 @@ export class MenuItemController {
     return ResponseHelper.success(items, 'Menu items retrieved successfully');
   }
 
+  @Get(':tenantSlug/menu')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get full POS menu bundle',
+    description:
+      'Fetches categories, available items with variants, modifier groups, and combos in a single request for the POS terminal.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description:
+      'Optional branch ID for branch-specific price/availability overrides',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Menu bundle loaded successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Restaurant not found' })
+  async getPosMenuBundle(
+    @Param('tenantSlug') tenantSlug: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    const bundle = await this.menuItemService.getPosMenuBundle(
+      tenantSlug,
+      branchId,
+    );
+    return ResponseHelper.success(bundle, 'Menu loaded successfully');
+  }
+
   @Get(':tenantSlug/menu-items/:itemId')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()

@@ -307,6 +307,42 @@ export async function setTableStatus(tenantId: string, tableId: string, status: 
   return t;
 }
 
+export interface CreateTableInput {
+  branchId: string;
+  name: string;
+  seats: number;
+  area: string;
+  shape: "square" | "round" | "long";
+}
+
+export async function createTable(tenantId: string, input: CreateTableInput): Promise<DiningTable> {
+  await latency(120, 250);
+  const db = tenantDb(tenantId);
+  const trimmedName = input.name.trim();
+  const exists = db.tables.find(
+    (t) => t.branchId === input.branchId && t.name.toLowerCase() === trimmedName.toLowerCase(),
+  );
+  if (exists) {
+    throw new ApiError(409, `Table "${trimmedName}" already exists in this branch.`);
+  }
+  const table: DiningTable = {
+    id: `${input.branchId}_tbl_${uid("tbl")}`,
+    tenantId,
+    branchId: input.branchId,
+    name: trimmedName,
+    seats: input.seats || 4,
+    area: input.area.trim() || "Main hall",
+    status: "available",
+    currentOrderId: null,
+    x: 0,
+    y: 0,
+    shape: input.shape || "square",
+  };
+  db.tables.push(table);
+  commit(tenantId);
+  return table;
+}
+
 // ---------- Inventory ----------
 export async function listIngredients(tenantId: string, branchId: string): Promise<Ingredient[]> {
   await latency();

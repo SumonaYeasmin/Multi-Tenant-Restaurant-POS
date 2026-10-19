@@ -28,7 +28,7 @@ export interface TenantDb extends BackofficeData, PeopleData, Stage4Data {
   orderSeq: number;
 }
 
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 
 interface ItemSpec {
   cat: string;
@@ -302,6 +302,419 @@ export function buildTenantSeed(tenantId: string): TenantDb {
           completedAt: new Date(orderCreatedAt.getTime() + 40 * 60000).toISOString(),
         });
       }
+    }
+
+    // Active demo orders for today: Kitchen tickets, active POS orders, and Delivery tracking
+    const isSaffron = tenantId === "t_saffron";
+    const isHarbor = tenantId === "t_harbor";
+
+    const branchPeople = isSaffron
+      ? {
+          guests: ["Tanvir Hossain", "Nusrat Jahan", "Kamrul Islam", "Farhan Ahmed", "Sadia Rahman", "Anisur Rahman", "Mehnaz Hossain"],
+          phones: ["+8801711998877", "+8801819223344", "+8801911445566", "+8801712334455", "+8801815667788", "+8801912889900", "+8801715443322"],
+          addresses: [
+            "House 42, Road 11, Banani, Dhaka",
+            "Flat 4A, Concord Tower, Gulshan-2, Dhaka",
+            "House 15, Road 7, Dhanmondi, Dhaka",
+            "Road 27, House 88, Dhanmondi, Dhaka",
+          ],
+          riders: ["Babul Mia", "Shohel Rana"],
+        }
+      : isHarbor
+        ? {
+            guests: ["Alex Johnson", "Sarah Connor", "Michael Chang", "Emily Watson", "James Rodriguez", "Chloe Bennett", "Liam Garcia"],
+            phones: ["+14155550211", "+14155550222", "+14155550233", "+14155550244", "+14155550255", "+14155550266", "+14155550277"],
+            addresses: [
+              "450 Valencia St, Apt 3B, San Francisco",
+              "1200 Market St, Suite 500, San Francisco",
+              "789 Mission St, San Francisco",
+              "2100 Chestnut St, San Francisco",
+            ],
+            riders: ["Tom Becker", "Kavita Patel"],
+          }
+        : {
+            guests: ["Max Müller", "Sophie Becker", "Felix Wagner", "Hannah Weber", "Leon Schmidt", "Emma Fischer", "Noah Richter"],
+            phones: ["+4915550201", "+4915550202", "+4915550203", "+4915550204", "+4915550205", "+4915550206", "+4915550207"],
+            addresses: [
+              "Torstraße 12, 10119 Berlin",
+              "Friedrichstraße 44, 10117 Berlin",
+              "Alexanderplatz 5, 10178 Berlin",
+              "Kastanienallee 21, 10435 Berlin",
+            ],
+            riders: ["Lukas Braun", "Mia Fischer"],
+          };
+
+    const makeLines = (specs: { idx: number; qty: number; notes?: string }[]) =>
+      specs.map((spec, lineIdx) => {
+        const item = menuItems[spec.idx % menuItems.length]!;
+        return {
+          id: `l${orderSequence}_${lineIdx}`,
+          itemId: item.id,
+          name: item.name,
+          variantId: null,
+          variantName: null,
+          modifiers: [],
+          qty: spec.qty,
+          unitPrice: item.price,
+          notes: spec.notes ?? "",
+        };
+      });
+
+    // 1. Dine-in: Table 2, Kitchen Status: "new" (Freshly placed)
+    orderSequence++;
+    const lines1 = makeLines([
+      { idx: 0, qty: 2, notes: "Extra spicy" },
+      { idx: 1, qty: 1 },
+    ]);
+    const totals1 = computeTotals({ lines: lines1, discount: null, orderType: "dine_in", taxRate: tenant.taxRate, serviceChargeRate: tenant.serviceChargeRate });
+    const order1Id = `${tenantPrefix}_ord_${orderSequence}`;
+    const activeOrder1: Order = {
+      id: order1Id,
+      tenantId,
+      branchId: branch.id,
+      number: `#${orderSequence}`,
+      type: "dine_in",
+      tableId: `${branch.id}_tbl_2`,
+      tableName: "T2",
+      customerName: branchPeople.guests[0]!,
+      customerPhone: branchPeople.phones[0]!,
+      lines: lines1,
+      discount: null,
+      notes: "Extra napkins requested",
+      totals: totals1,
+      status: "in_kitchen",
+      kitchenStatus: "new",
+      payments: [],
+      paid: 0,
+      refunds: [],
+      refunded: 0,
+      delivery: null,
+      inventoryDeducted: true,
+      createdBy: "seed",
+      createdAt: new Date(currentTimestamp - 4 * 60000).toISOString(),
+      sentToKitchenAt: new Date(currentTimestamp - 4 * 60000).toISOString(),
+      readyAt: null,
+      completedAt: null,
+    };
+    orders.push(activeOrder1);
+
+    // 2. Dine-in: Table 1, Kitchen Status: "preparing" (In preparation)
+    orderSequence++;
+    const lines2 = makeLines([
+      { idx: 1, qty: 1 },
+      { idx: 2, qty: 1 },
+      { idx: 3, qty: 2, notes: "No onions" },
+    ]);
+    const totals2 = computeTotals({ lines: lines2, discount: null, orderType: "dine_in", taxRate: tenant.taxRate, serviceChargeRate: tenant.serviceChargeRate });
+    const order2Id = `${tenantPrefix}_ord_${orderSequence}`;
+    const activeOrder2: Order = {
+      id: order2Id,
+      tenantId,
+      branchId: branch.id,
+      number: `#${orderSequence}`,
+      type: "dine_in",
+      tableId: `${branch.id}_tbl_1`,
+      tableName: "T1",
+      customerName: branchPeople.guests[1]!,
+      customerPhone: branchPeople.phones[1]!,
+      lines: lines2,
+      discount: null,
+      notes: "Serve starters together",
+      totals: totals2,
+      status: "in_kitchen",
+      kitchenStatus: "preparing",
+      payments: [],
+      paid: 0,
+      refunds: [],
+      refunded: 0,
+      delivery: null,
+      inventoryDeducted: true,
+      createdBy: "seed",
+      createdAt: new Date(currentTimestamp - 12 * 60000).toISOString(),
+      sentToKitchenAt: new Date(currentTimestamp - 11 * 60000).toISOString(),
+      readyAt: null,
+      completedAt: null,
+    };
+    orders.push(activeOrder2);
+
+    // 3. Takeaway: Ready for pickup, Kitchen Status: "ready"
+    orderSequence++;
+    const lines3 = makeLines([
+      { idx: 0, qty: 1 },
+      { idx: 2, qty: 2 },
+    ]);
+    const totals3 = computeTotals({ lines: lines3, discount: null, orderType: "takeaway", taxRate: tenant.taxRate, serviceChargeRate: tenant.serviceChargeRate });
+    const activeOrder3: Order = {
+      id: `${tenantPrefix}_ord_${orderSequence}`,
+      tenantId,
+      branchId: branch.id,
+      number: `#${orderSequence}`,
+      type: "takeaway",
+      tableId: null,
+      tableName: null,
+      customerName: branchPeople.guests[2]!,
+      customerPhone: branchPeople.phones[2]!,
+      lines: lines3,
+      discount: null,
+      notes: "Pack sauce separately in paper bag",
+      totals: totals3,
+      status: "ready",
+      kitchenStatus: "ready",
+      payments: [
+        {
+          id: `pay_${orderSequence}`,
+          method: "card",
+          amount: totals3.total,
+          tendered: totals3.total,
+          change: 0,
+          reference: "TXN-88219",
+          at: new Date(currentTimestamp - 20 * 60000).toISOString(),
+        },
+      ],
+      paid: totals3.total,
+      refunds: [],
+      refunded: 0,
+      delivery: null,
+      inventoryDeducted: true,
+      createdBy: "seed",
+      createdAt: new Date(currentTimestamp - 20 * 60000).toISOString(),
+      sentToKitchenAt: new Date(currentTimestamp - 19 * 60000).toISOString(),
+      readyAt: new Date(currentTimestamp - 3 * 60000).toISOString(),
+      completedAt: null,
+    };
+    orders.push(activeOrder3);
+
+    // 4. Delivery: Awaiting rider (status: "pending")
+    orderSequence++;
+    const lines4 = makeLines([
+      { idx: 1, qty: 2 },
+      { idx: 3, qty: 1 },
+    ]);
+    const totals4 = computeTotals({ lines: lines4, discount: null, orderType: "delivery", taxRate: tenant.taxRate, serviceChargeRate: tenant.serviceChargeRate });
+    const activeOrder4: Order = {
+      id: `${tenantPrefix}_ord_${orderSequence}`,
+      tenantId,
+      branchId: branch.id,
+      number: `#${orderSequence}`,
+      type: "delivery",
+      tableId: null,
+      tableName: null,
+      customerName: branchPeople.guests[3]!,
+      customerPhone: branchPeople.phones[3]!,
+      lines: lines4,
+      discount: null,
+      notes: "Ring bell and call on arrival",
+      totals: totals4,
+      status: "in_kitchen",
+      kitchenStatus: "preparing",
+      payments: [
+        {
+          id: `pay_${orderSequence}`,
+          method: "mobile",
+          amount: totals4.total,
+          tendered: totals4.total,
+          change: 0,
+          reference: "BKASH-99120",
+          at: new Date(currentTimestamp - 15 * 60000).toISOString(),
+        },
+      ],
+      paid: totals4.total,
+      refunds: [],
+      refunded: 0,
+      delivery: {
+        address: branchPeople.addresses[0]!,
+        riderId: null,
+        riderName: null,
+        status: "pending",
+        dispatchedAt: null,
+        deliveredAt: null,
+      },
+      inventoryDeducted: true,
+      createdBy: "seed",
+      createdAt: new Date(currentTimestamp - 15 * 60000).toISOString(),
+      sentToKitchenAt: new Date(currentTimestamp - 14 * 60000).toISOString(),
+      readyAt: null,
+      completedAt: null,
+    };
+    orders.push(activeOrder4);
+
+    // 5. Delivery: Rider assigned (status: "assigned"), food ready
+    orderSequence++;
+    const lines5 = makeLines([
+      { idx: 0, qty: 1 },
+      { idx: 1, qty: 1 },
+      { idx: 2, qty: 1 },
+    ]);
+    const totals5 = computeTotals({ lines: lines5, discount: null, orderType: "delivery", taxRate: tenant.taxRate, serviceChargeRate: tenant.serviceChargeRate });
+    const activeOrder5: Order = {
+      id: `${tenantPrefix}_ord_${orderSequence}`,
+      tenantId,
+      branchId: branch.id,
+      number: `#${orderSequence}`,
+      type: "delivery",
+      tableId: null,
+      tableName: null,
+      customerName: branchPeople.guests[4]!,
+      customerPhone: branchPeople.phones[4]!,
+      lines: lines5,
+      discount: null,
+      notes: "Handle with care, hot soup",
+      totals: totals5,
+      status: "ready",
+      kitchenStatus: "ready",
+      payments: [
+        {
+          id: `pay_${orderSequence}`,
+          method: "card",
+          amount: totals5.total,
+          tendered: totals5.total,
+          change: 0,
+          reference: "TXN-77312",
+          at: new Date(currentTimestamp - 26 * 60000).toISOString(),
+        },
+      ],
+      paid: totals5.total,
+      refunds: [],
+      refunded: 0,
+      delivery: {
+        address: branchPeople.addresses[1]!,
+        riderId: `${tenantPrefix}_rider_${branch.id}_0`,
+        riderName: branchPeople.riders[0]!,
+        status: "assigned",
+        dispatchedAt: null,
+        deliveredAt: null,
+      },
+      inventoryDeducted: true,
+      createdBy: "seed",
+      createdAt: new Date(currentTimestamp - 26 * 60000).toISOString(),
+      sentToKitchenAt: new Date(currentTimestamp - 25 * 60000).toISOString(),
+      readyAt: new Date(currentTimestamp - 5 * 60000).toISOString(),
+      completedAt: null,
+    };
+    orders.push(activeOrder5);
+
+    // 6. Delivery: Out for delivery (status: "out")
+    orderSequence++;
+    const lines6 = makeLines([
+      { idx: 2, qty: 1 },
+      { idx: 0, qty: 2 },
+    ]);
+    const totals6 = computeTotals({ lines: lines6, discount: null, orderType: "delivery", taxRate: tenant.taxRate, serviceChargeRate: tenant.serviceChargeRate });
+    const activeOrder6: Order = {
+      id: `${tenantPrefix}_ord_${orderSequence}`,
+      tenantId,
+      branchId: branch.id,
+      number: `#${orderSequence}`,
+      type: "delivery",
+      tableId: null,
+      tableName: null,
+      customerName: branchPeople.guests[5]!,
+      customerPhone: branchPeople.phones[5]!,
+      lines: lines6,
+      discount: null,
+      notes: "Leave with building reception if unreachable",
+      totals: totals6,
+      status: "served",
+      kitchenStatus: "bumped",
+      payments: [
+        {
+          id: `pay_${orderSequence}`,
+          method: "cash",
+          amount: totals6.total,
+          tendered: totals6.total,
+          change: 0,
+          reference: "",
+          at: new Date(currentTimestamp - 38 * 60000).toISOString(),
+        },
+      ],
+      paid: totals6.total,
+      refunds: [],
+      refunded: 0,
+      delivery: {
+        address: branchPeople.addresses[2]!,
+        riderId: `${tenantPrefix}_rider_${branch.id}_1`,
+        riderName: branchPeople.riders[1] ?? branchPeople.riders[0]!,
+        status: "out",
+        dispatchedAt: new Date(currentTimestamp - 12 * 60000).toISOString(),
+        deliveredAt: null,
+      },
+      inventoryDeducted: true,
+      createdBy: "seed",
+      createdAt: new Date(currentTimestamp - 38 * 60000).toISOString(),
+      sentToKitchenAt: new Date(currentTimestamp - 37 * 60000).toISOString(),
+      readyAt: new Date(currentTimestamp - 18 * 60000).toISOString(),
+      completedAt: null,
+    };
+    orders.push(activeOrder6);
+
+    // 7. Delivery: Delivered today (status: "delivered")
+    orderSequence++;
+    const lines7 = makeLines([
+      { idx: 1, qty: 1 },
+      { idx: 0, qty: 1 },
+    ]);
+    const totals7 = computeTotals({ lines: lines7, discount: null, orderType: "delivery", taxRate: tenant.taxRate, serviceChargeRate: tenant.serviceChargeRate });
+    const activeOrder7: Order = {
+      id: `${tenantPrefix}_ord_${orderSequence}`,
+      tenantId,
+      branchId: branch.id,
+      number: `#${orderSequence}`,
+      type: "delivery",
+      tableId: null,
+      tableName: null,
+      customerName: branchPeople.guests[6]!,
+      customerPhone: branchPeople.phones[6]!,
+      lines: lines7,
+      discount: null,
+      notes: "",
+      totals: totals7,
+      status: "completed",
+      kitchenStatus: "bumped",
+      payments: [
+        {
+          id: `pay_${orderSequence}`,
+          method: "card",
+          amount: totals7.total,
+          tendered: totals7.total,
+          change: 0,
+          reference: "TXN-66421",
+          at: new Date(currentTimestamp - 70 * 60000).toISOString(),
+        },
+      ],
+      paid: totals7.total,
+      refunds: [],
+      refunded: 0,
+      delivery: {
+        address: branchPeople.addresses[3]!,
+        riderId: `${tenantPrefix}_rider_${branch.id}_0`,
+        riderName: branchPeople.riders[0]!,
+        status: "delivered",
+        dispatchedAt: new Date(currentTimestamp - 45 * 60000).toISOString(),
+        deliveredAt: new Date(currentTimestamp - 15 * 60000).toISOString(),
+      },
+      inventoryDeducted: true,
+      createdBy: "seed",
+      createdAt: new Date(currentTimestamp - 70 * 60000).toISOString(),
+      sentToKitchenAt: new Date(currentTimestamp - 69 * 60000).toISOString(),
+      readyAt: new Date(currentTimestamp - 50 * 60000).toISOString(),
+      completedAt: new Date(currentTimestamp - 15 * 60000).toISOString(),
+    };
+    orders.push(activeOrder7);
+
+    // Link tables to active dine-in orders
+    const tbl1 = tables.find((t) => t.id === `${branch.id}_tbl_1`);
+    if (tbl1) {
+      tbl1.status = "occupied";
+      tbl1.currentOrderId = order2Id;
+    }
+    const tbl2 = tables.find((t) => t.id === `${branch.id}_tbl_2`);
+    if (tbl2) {
+      tbl2.status = "occupied";
+      tbl2.currentOrderId = order1Id;
+    }
+    const tbl3 = tables.find((t) => t.id === `${branch.id}_tbl_3`);
+    if (tbl3) {
+      tbl3.status = "reserved";
     }
   }
 
