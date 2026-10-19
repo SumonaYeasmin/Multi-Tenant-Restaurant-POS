@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
+import { GetIngredientsQueryDto } from './dto/get-ingredients-query.dto';
 import {
   NotFoundException,
   AlreadyExistsException,
 } from '../../common/exceptions/business.exception';
-import { MovementReason } from '../../../prisma/generated/client';
+import { MovementReason, Prisma } from '../../../prisma/generated/client';
 
 @Injectable()
 export class InventoryService {
@@ -147,5 +148,140 @@ export class InventoryService {
         },
       });
     });
+  }
+
+  /**
+   * Get all ingredients for a tenant with optional branch stock calculation,
+   * search, category filtering, and low stock filtering.
+   */
+  async getIngredients(tenantSlug: string, query: GetIngredientsQueryDto) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    const where: Prisma.IngredientWhereInput = {
+      tenantId: tenant.id,
+      isDeleted: false,
+    };
+
+    if (query.activeOnly !== undefined) {
+      where.isActive = query.activeOnly;
+    }
+
+    if (query.category) {
+      where.category = { equals: query.category, mode: 'insensitive' };
+    }
+
+    if (query.search?.trim()) {
+      where.OR = [
+        { name: { contains: query.search.trim(), mode: 'insensitive' } },
+        { code: { contains: query.search.trim(), mode: 'insensitive' } },
+      ];
+    }
+
+    const branchId = query.branchId;
+
+    if (branchId) {
+      const ingredients = await this.prisma.ingredient.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        include: {
+          branchStocks: {
+            where: { branchId },
+          },
+        },
+      });
+
+      const formatted = ingredients.map((ing) => {
+        const bStock = ing.branchStocks?.[0];
+        const stock = bStock?.currentStock ?? 0;
+        const reorderLevel = bStock?.reorderLevel ?? 0;
+        const unitCost = bStock?.unitCost ?? ing.costPerUnit;
+
+        return {
+          id: ing.id,
+          tenantId: ing.tenantId,
+          branchId,
+          name: ing.name,
+          code: ing.code,
+          category: ing.category,
+          storageType: ing.storageType,
+          unit: ing.unit,
+          stock,
+          reorderLevel,
+          idealStock: bStock?.idealStock ?? 0,
+          unitCost,
+          isActive: ing.isActive,
+          createdAt: ing.createdAt,
+          updatedAt: ing.updatedAt,
+        };
+      });
+
+      if (query.lowStockOnly) {
+        return formatted.filter((item) => item.stock <= item.reorderLevel);
+      }
+
+      return formatted;
+    }
+
+    return await this.prisma.ingredient.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      include: {
+        branchStocks: {
+          include: {
+            branch: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Get a single ingredient by ID with branch stock details.
+   */
+  async getIngredientById(tenantSlug: string, ingredientId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    const ingredient = await this.prisma.ingredient.findFirst({
+      where: {
+        id: ingredientId,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+      include: {
+        branchStocks: {
+          include: {
+            branch: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!ingredient) {
+      throw new NotFoundException('Ingredient');
+    }
+
+    return ingredient;
   }
 }
