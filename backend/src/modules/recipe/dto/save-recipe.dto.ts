@@ -1,6 +1,5 @@
 import {
   IsArray,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -56,7 +55,8 @@ export class RecipeLineItemDto {
   unit?: string;
 
   @ApiPropertyOptional({
-    description: 'Optional variant ID if this line applies only to a specific item variant (e.g. Large / Half)',
+    description:
+      'Optional variant ID if this line applies only to a specific item variant (e.g. Large / Half)',
     example: 'uuid-variant',
   })
   @IsString()
@@ -66,7 +66,8 @@ export class RecipeLineItemDto {
 
 export class SaveRecipeDto {
   @ApiPropertyOptional({
-    description: 'List of ingredients with portion quantities for this menu item',
+    description:
+      'List of ingredients with portion quantities for this menu item',
     type: [RecipeLineItemDto],
   })
   @IsArray({ message: 'lines must be an array' })

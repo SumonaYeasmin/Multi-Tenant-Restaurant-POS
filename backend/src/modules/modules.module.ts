@@ -8,6 +8,7 @@ import { ModifierGroupModule } from './modifier-group/modifier-group.module';
 import { ComboModule } from './combo/combo.module';
 import { MenuItemModule } from './menu-item/menu-item.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { RecipeModule } from './recipe/recipe.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { InventoryModule } from './inventory/inventory.module';
     ComboModule,
     MenuItemModule,
     InventoryModule,
+    RecipeModule,
   ],
   exports: [
     TenantRoleModule,
@@ -30,6 +32,7 @@ import { InventoryModule } from './inventory/inventory.module';
     ComboModule,
     MenuItemModule,
     InventoryModule,
+    RecipeModule,
   ],
 })
 export class ModulesModule {}
