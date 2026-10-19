@@ -7,6 +7,7 @@ import { CategoryModule } from './category/category.module';
 import { ModifierGroupModule } from './modifier-group/modifier-group.module';
 import { ComboModule } from './combo/combo.module';
 import { MenuItemModule } from './menu-item/menu-item.module';
+import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { MenuItemModule } from './menu-item/menu-item.module';
     ModifierGroupModule,
     ComboModule,
     MenuItemModule,
+    InventoryModule,
   ],
   exports: [
     TenantRoleModule,
@@ -27,6 +29,7 @@ import { MenuItemModule } from './menu-item/menu-item.module';
     ModifierGroupModule,
     ComboModule,
     MenuItemModule,
+    InventoryModule,
   ],
 })
 export class ModulesModule {}
