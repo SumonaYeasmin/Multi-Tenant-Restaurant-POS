@@ -72,6 +72,10 @@ export const api = baseApi.injectEndpoints({
       queryFn: ({ tenantId, branchId }) => run(() => ops.listTables(tenantId, branchId)),
       providesTags: ["Table"],
     }),
+    createTable: b.mutation<DiningTable, T<ops.CreateTableInput>>({
+      queryFn: ({ tenantId, ...input }) => run(() => ops.createTable(tenantId, input)),
+      invalidatesTags: ["Table", "Dashboard"],
+    }),
     setTableStatus: b.mutation<DiningTable, T<{ tableId: string; status: TableStatus }>>({
       queryFn: ({ tenantId, tableId, status }) => run(() => ops.setTableStatus(tenantId, tableId, status)),
       invalidatesTags: ["Table", "Dashboard"],
@@ -119,6 +123,7 @@ export const {
   useAddPaymentMutation,
   useCancelOrderMutation,
   useTablesQuery,
+  useCreateTableMutation,
   useSetTableStatusMutation,
   useIngredientsQuery,
   useMovementsQuery,
