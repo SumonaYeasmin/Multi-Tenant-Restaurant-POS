@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTableDto } from './dto/create-table.dto';
+import { UpdateTableDto } from './dto/update-table.dto';
 import { GetTablesQueryDto } from './dto/get-tables-query.dto';
 import {
   OrderStatus,
@@ -10,6 +11,7 @@ import {
 import {
   NotFoundException,
   AlreadyExistsException,
+  ConflictException,
 } from '../../common/exceptions/business.exception';
 
 @Injectable()
@@ -231,6 +233,153 @@ export class TableService {
     }
 
     return table;
+  }
+
+  /**
+   * Update an existing dining table
+   */
+  async updateTable(
+    tenantSlug: string,
+    tableId: string,
+    dto: UpdateTableDto,
+  ) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Verify table exists for this tenant
+    const table = await this.prisma.diningTable.findFirst({
+      where: {
+        id: tableId,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+    });
+
+    if (!table) {
+      throw new NotFoundException('Dining table');
+    }
+
+    // 3. If branchId is being changed, verify target branch exists and belongs to this tenant
+    if (dto.branchId && dto.branchId !== table.branchId) {
+      const branch = await this.prisma.branch.findFirst({
+        where: {
+          id: dto.branchId,
+          tenantId: tenant.id,
+          isActive: true,
+        },
+      });
+
+      if (!branch) {
+        throw new NotFoundException('Branch');
+      }
+    }
+
+    // 4. If table name is being changed, verify uniqueness within the target branch
+    const targetBranchId = dto.branchId || table.branchId;
+    if (dto.name !== undefined) {
+      const trimmedName = dto.name.trim();
+      const existingTable = await this.prisma.diningTable.findFirst({
+        where: {
+          tenantId: tenant.id,
+          branchId: targetBranchId,
+          name: {
+            equals: trimmedName,
+            mode: 'insensitive',
+          },
+          id: { not: tableId },
+          isDeleted: false,
+        },
+      });
+
+      if (existingTable) {
+        throw new AlreadyExistsException(`Table with name "${trimmedName}"`);
+      }
+    }
+
+    // 5. Update the table record
+    const updatedTable = await this.prisma.diningTable.update({
+      where: { id: tableId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.branchId !== undefined && { branchId: dto.branchId }),
+        ...(dto.seats !== undefined && { seats: dto.seats }),
+        ...(dto.area !== undefined && { area: dto.area.trim() }),
+        ...(dto.shape !== undefined && { shape: dto.shape }),
+        ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.x !== undefined && { x: dto.x }),
+        ...(dto.y !== undefined && { y: dto.y }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      },
+    });
+
+    return updatedTable;
+  }
+
+  /**
+   * Soft delete a dining table (sets isDeleted: true, deletedAt: now, isActive: false)
+   */
+  async softDeleteTable(tenantSlug: string, tableId: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Verify table exists
+    const table = await this.prisma.diningTable.findFirst({
+      where: {
+        id: tableId,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+    });
+
+    if (!table) {
+      throw new NotFoundException('Dining table');
+    }
+
+    // 3. Safety check: Cannot delete table if occupied or has active orders
+    const activeOrder = await this.prisma.order.findFirst({
+      where: {
+        tableId,
+        status: {
+          in: [
+            OrderStatus.IN_KITCHEN,
+            OrderStatus.READY,
+            OrderStatus.SERVED,
+          ],
+        },
+      },
+    });
+
+    if (activeOrder || table.status === TableStatus.OCCUPIED) {
+      throw new ConflictException(
+        `Cannot delete table "${table.name}" because it is currently occupied or has an active order`,
+      );
+    }
+
+    // 4. Perform soft delete
+    await this.prisma.diningTable.update({
+      where: { id: tableId },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        isActive: false,
+      },
+    });
+
+    return {
+      message: `Table "${table.name}" deleted successfully`,
+    };
   }
 }
 
