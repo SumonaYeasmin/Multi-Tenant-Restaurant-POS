@@ -28,6 +28,8 @@ model Tenant {
   supplierReturns SupplierReturn[]
   stockMovements  StockMovement[]
   stockCounts     StockCount[]
+  tables          DiningTable[]
+  orders          Order[]
 
   @@map("tenants")
 }
@@ -91,6 +93,8 @@ model Branch {
   stockCounts       StockCount[]
   transfersSent     StockTransfer[]          @relation("TransfersSent")
   transfersReceived StockTransfer[]          @relation("TransfersReceived")
+  tables            DiningTable[]
+  orders            Order[]
 
   @@unique([tenantId, name])
   @@map("branches")
@@ -202,6 +206,7 @@ model MenuItem {
   branchOverrides BranchMenuItemOverride[]
   comboItems      ComboItem[]
   recipeLines     RecipeLine[]
+  orderLines      OrderLine[]
 
   @@map("menu_items")
 }

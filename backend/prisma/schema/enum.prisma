@@ -46,3 +46,46 @@ enum TransferStatus {
   CANCELLED
   REJECTED
 }
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  PICKUP
+  COUNTER
+  DELIVERY
+}
+
+enum OrderStatus {
+  IN_KITCHEN
+  READY
+  SERVED
+  COMPLETED
+  CANCELLED
+}
+
+enum KitchenStatus {
+  NEW
+  PREPARING
+  READY
+  BUMPED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  MOBILE
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  OUT
+  DELIVERED
+}

@@ -1,0 +1,138 @@
+model DiningTable {
+  id             String      @id @default(uuid())
+  tenantId       String
+  branchId       String
+  name           String
+  seats          Int         @default(4)
+  area           String      @default("Main")
+  status         TableStatus @default(AVAILABLE)
+  currentOrderId String?
+  x              Int         @default(0)
+  y              Int         @default(0)
+  shape          String      @default("square")
+  isActive       Boolean     @default(true)
+  isDeleted      Boolean     @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@unique([branchId, name])
+  @@map("dining_tables")
+}
+
+model Order {
+  id                String        @id @default(uuid())
+  tenantId          String
+  branchId          String
+  orderNumber       String
+  type              OrderType     @default(DINE_IN)
+  tableId           String?
+  tableName         String?
+  customerName      String?       @default("")
+  customerPhone     String?       @default("")
+  notes             String?       @default("")
+  status            OrderStatus   @default(IN_KITCHEN)
+  kitchenStatus     KitchenStatus @default(NEW)
+  subtotal          Float         @default(0.0)
+  discount          Float         @default(0.0)
+  discountKind      String?
+  discountReason    String?
+  promoCode         String?
+  serviceCharge     Float         @default(0.0)
+  tax               Float         @default(0.0)
+  total             Float         @default(0.0)
+  paid              Float         @default(0.0)
+  refunded          Float         @default(0.0)
+  inventoryDeducted Boolean       @default(false)
+  createdBy         String?       @default("")
+
+  // Delivery fields
+  deliveryAddress String?
+  deliveryStatus  DeliveryStatus?
+  riderId         String?
+  riderName       String?
+  dispatchedAt    DateTime?
+  deliveredAt     DateTime?
+
+  createdAt       DateTime  @default(now())
+  sentToKitchenAt DateTime  @default(now())
+  readyAt         DateTime?
+  completedAt     DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch   Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  table    DiningTable?   @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  lines    OrderLine[]
+  payments OrderPayment[]
+  refunds  OrderRefund[]
+
+  @@map("orders")
+}
+
+model OrderLine {
+  id          String   @id @default(uuid())
+  orderId     String
+  menuItemId  String?
+  name        String
+  variantId   String?
+  variantName String?
+  qty         Int      @default(1)
+  unitPrice   Float    @default(0.0)
+  notes       String?  @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  order     Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem?           @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  modifiers OrderLineModifier[]
+
+  @@map("order_lines")
+}
+
+model OrderLineModifier {
+  id          String   @id @default(uuid())
+  orderLineId String
+  groupId     String?
+  optionId    String?
+  name        String
+  price       Float    @default(0.0)
+  createdAt   DateTime @default(now())
+
+  orderLine OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+
+  @@map("order_line_modifiers")
+}
+
+model OrderPayment {
+  id        String        @id @default(uuid())
+  orderId   String
+  method    PaymentMethod @default(CASH)
+  amount    Float         @default(0.0)
+  tendered  Float         @default(0.0)
+  change    Float         @default(0.0)
+  reference String?       @default("")
+  createdAt DateTime      @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_payments")
+}
+
+model OrderRefund {
+  id        String        @id @default(uuid())
+  orderId   String
+  amount    Float         @default(0.0)
+  method    PaymentMethod @default(CASH)
+  reason    String?       @default("")
+  by        String?       @default("")
+  createdAt DateTime      @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_refunds")
+}
