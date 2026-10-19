@@ -59,8 +59,8 @@ const EXTRA_STAFF: Record<string, [string, StaffMember["role"], number][]> = {
 
 const RIDERS: Record<string, [string, string][]> = {
   t_saffron: [["Babul Mia", "+8801611000123"], ["Shohel Rana", "+8801611000456"]],
-  t_harbor: [["Tom Becker", "+14155550190"]],
-  t_lumen: [["Lukas Braun", "+4915550190"]],
+  t_harbor: [["Tom Becker", "+14155550190"], ["Kavita Patel", "+14155550191"]],
+  t_lumen: [["Lukas Braun", "+4915550190"], ["Mia Fischer", "+4915550191"]],
 };
 
 const PROMOS: Record<string, [string, string, "percent" | "amount", number, number][]> = {
@@ -99,7 +99,7 @@ export function buildPeople(tenantId: string, orders: Order[]): PeopleData {
     if (m) staff.push({ id: `${p}_stf_${u.id}`, tenantId, userId: u.id, name: u.name, email: u.email, phone: "", role: m.role, branchIds: m.branchIds, hourlyRate: 0, active: true });
   }
   (EXTRA_STAFF[tenantId] ?? []).forEach(([name, role, rate], i) =>
-    staff.push({ id: `${p}_stf_x${i}`, tenantId, userId: null, name, email: "", phone: "", role, branchIds: [first], hourlyRate: rate, active: true }),
+    staff.push({ id: `${p}_stf_x${i}`, tenantId, userId: null, name, email: "", phone: "", role, branchIds: branches.map((b) => b.id), hourlyRate: rate, active: true }),
   );
 
   const shifts: Shift[] = staff
@@ -108,24 +108,47 @@ export function buildPeople(tenantId: string, orders: Order[]): PeopleData {
       [0, 1, 2].map((d) => ({ id: `${p}_sh_${i}_${d}`, tenantId, branchId: first, staffId: s.id, staffName: s.name, date: day(d), start: i % 2 ? "15:00" : "09:00", end: i % 2 ? "23:00" : "17:00", notes: "" })),
     );
 
-  const reservations: Reservation[] = [
-    { name: "Ayesha Siddiqua", size: 4, h: 3 },
-    { name: "Walk-in hold", size: 2, h: 26 },
-  ].map((r, i) => ({
-    id: `${p}_res_${i}`,
-    tenantId,
-    branchId: first,
-    customerName: r.name,
-    phone: customers[0]?.phone ?? "",
-    partySize: r.size,
-    at: new Date(Math.ceil((now + r.h * 3600000) / 1800000) * 1800000).toISOString(),
-    durationMin: 90,
-    tableId: null,
-    tableName: null,
-    status: "booked",
-    notes: i === 0 ? "Window seat if possible" : "",
-    createdAt: new Date(now - 86400000).toISOString(),
-  }));
+  const resSeedByTenant: Record<string, { name: string; phone: string; size: number; hoursAhead: number; status: Reservation["status"]; notes: string; tableNum: number }[]> = {
+    t_saffron: [
+      { name: "Ayesha Siddiqua", phone: "+8801711223344", size: 4, hoursAhead: 1.5, status: "booked", notes: "Window seat preferred", tableNum: 2 },
+      { name: "Rahim Uddin", phone: "+8801819556677", size: 2, hoursAhead: -0.5, status: "seated", notes: "Anniversary dinner", tableNum: 1 },
+      { name: "Farhana Kabir", phone: "+8801915889900", size: 6, hoursAhead: 3, status: "booked", notes: "Family gathering, birthday", tableNum: 4 },
+      { name: "Tarek Hasan", phone: "+8801712001122", size: 3, hoursAhead: 25, status: "booked", notes: "Quiet corner table", tableNum: 3 },
+    ],
+    t_harbor: [
+      { name: "Jamie Chen", phone: "+14155550101", size: 4, hoursAhead: 1.5, status: "booked", notes: "Window booth preferred", tableNum: 2 },
+      { name: "Priya Nair", phone: "+14155550144", size: 2, hoursAhead: -0.5, status: "seated", notes: "Date night dinner", tableNum: 1 },
+      { name: "Marcus Vance", phone: "+14155550188", size: 6, hoursAhead: 3, status: "booked", notes: "Team dinner celebration", tableNum: 4 },
+      { name: "Elena Rostova", phone: "+14155550165", size: 3, hoursAhead: 25, status: "booked", notes: "Quiet table requested", tableNum: 3 },
+    ],
+    t_lumen: [
+      { name: "Jonas Weber", phone: "+4915550101", size: 2, hoursAhead: 1, status: "booked", notes: "Business coffee meeting", tableNum: 1 },
+      { name: "Clara Schmidt", phone: "+4915550102", size: 4, hoursAhead: -0.5, status: "seated", notes: "Afternoon cake gathering", tableNum: 2 },
+      { name: "Felix Wagner", phone: "+4915550103", size: 5, hoursAhead: 4, status: "booked", notes: "Group study meetup", tableNum: 3 },
+    ],
+  };
+
+  const reservations: Reservation[] = [];
+  const templates = resSeedByTenant[tenantId] ?? resSeedByTenant["t_saffron"]!;
+  branches.forEach((b) => {
+    templates.forEach((tpl, i) => {
+      reservations.push({
+        id: `${p}_res_${b.id}_${i}`,
+        tenantId,
+        branchId: b.id,
+        customerName: tpl.name,
+        phone: tpl.phone,
+        partySize: tpl.size,
+        at: new Date(Math.ceil((now + tpl.hoursAhead * 3600000) / 1800000) * 1800000).toISOString(),
+        durationMin: 90,
+        tableId: `${b.id}_tbl_${tpl.tableNum}`,
+        tableName: `T${tpl.tableNum}`,
+        status: tpl.status,
+        notes: tpl.notes,
+        createdAt: new Date(now - 86400000).toISOString(),
+      });
+    });
+  });
 
   const expenses: Expense[] = [
     ["utilities", "Electricity bill", 0.6],
@@ -162,7 +185,9 @@ export function buildPeople(tenantId: string, orders: Order[]): PeopleData {
     maxUses: null,
   }));
 
-  const riders: Rider[] = (RIDERS[tenantId] ?? []).map(([name, phone], i) => ({ id: `${p}_rider_${i}`, tenantId, branchId: first, name, phone }));
+  const riders: Rider[] = (RIDERS[tenantId] ?? []).flatMap(([name, phone], i) =>
+    branches.map((b) => ({ id: `${p}_rider_${b.id}_${i}`, tenantId, branchId: b.id, name, phone })),
+  );
 
   return {
     branches,
