@@ -407,4 +407,40 @@ export class InventoryService {
       });
     });
   }
+
+  /**
+   * Soft delete an ingredient (sets isDeleted: true, deletedAt, isActive: false).
+   */
+  async deleteIngredient(tenantSlug: string, ingredientId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    const ingredient = await this.prisma.ingredient.findFirst({
+      where: {
+        id: ingredientId,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+    });
+
+    if (!ingredient) {
+      throw new NotFoundException('Ingredient');
+    }
+
+    await this.prisma.ingredient.update({
+      where: { id: ingredientId },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        isActive: false,
+      },
+    });
+
+    return { message: 'Ingredient deleted successfully' };
+  }
 }

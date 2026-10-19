@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -194,6 +195,48 @@ export class InventoryController {
     return ResponseHelper.success(
       ingredient,
       'Ingredient updated successfully',
+    );
+  }
+
+  @Delete(':tenantSlug/inventory/ingredients/:ingredientId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.INVENTORY_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Soft delete an ingredient',
+    description:
+      'Marks an ingredient as deleted (isDeleted: true) and deactivates it without deleting historical stock movements or branch stock records.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'ingredientId',
+    example: 'uuid',
+    description: 'Ingredient ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Ingredient deleted successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({ status: 404, description: 'Ingredient or restaurant not found' })
+  async deleteIngredient(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('ingredientId') ingredientId: string,
+  ) {
+    const result = await this.inventoryService.deleteIngredient(
+      tenantSlug,
+      ingredientId,
+    );
+    return ResponseHelper.success(
+      result,
+      'Ingredient deleted successfully',
     );
   }
 }
