@@ -40,6 +40,7 @@ export enum Permission {
   ATTENDANCE_SELF = 'attendance.self',
   BRANCHES_MANAGE = 'branches.manage',
   PROMOTIONS_MANAGE = 'promotions.manage',
+  SETTINGS_MANAGE = 'settings.manage',
 }
 
 export const ALL_PERMISSIONS: Permission[] = Object.values(Permission);

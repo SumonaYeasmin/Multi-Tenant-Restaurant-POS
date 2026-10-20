@@ -1,6 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateReservationDto, GetReservationsQueryDto } from './dto';
+import {
+  CreateReservationDto,
+  GetReservationsQueryDto,
+  UpdateReservationSettingsDto,
+} from './dto';
 import { Prisma, ReservationStatus } from '../../../prisma/generated/client';
 import {
   NotFoundException,
@@ -276,5 +280,118 @@ export class ReservationService {
     }
 
     return reservation;
+  }
+
+  /**
+   * Get reservation settings for a tenant, initializing with defaults if not present
+   */
+  async getReservationSettings(tenantSlug: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    let settings = await this.prisma.reservationSettings.findUnique({
+      where: { tenantId: tenant.id },
+    });
+
+    if (!settings) {
+      settings = await this.prisma.reservationSettings.create({
+        data: {
+          tenantId: tenant.id,
+        },
+      });
+    }
+
+    return settings;
+  }
+
+  /**
+   * Update reservation policy settings (Owner/Manager only)
+   */
+  async updateReservationSettings(
+    tenantSlug: string,
+    dto: UpdateReservationSettingsDto,
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // Logical validation if min and max party size are both provided
+    if (
+      dto.minPartySize !== undefined &&
+      dto.maxPartySize !== undefined &&
+      dto.minPartySize > dto.maxPartySize
+    ) {
+      throw new BadRequestException(
+        'Minimum party size cannot be greater than maximum party size',
+      );
+    }
+
+    const settings = await this.prisma.reservationSettings.upsert({
+      where: { tenantId: tenant.id },
+      update: {
+        ...(dto.defaultDurationMin !== undefined && {
+          defaultDurationMin: dto.defaultDurationMin,
+        }),
+        ...(dto.bufferTimeMin !== undefined && {
+          bufferTimeMin: dto.bufferTimeMin,
+        }),
+        ...(dto.earlyArrivalWindowMin !== undefined && {
+          earlyArrivalWindowMin: dto.earlyArrivalWindowMin,
+        }),
+        ...(dto.noShowGracePeriodMin !== undefined && {
+          noShowGracePeriodMin: dto.noShowGracePeriodMin,
+        }),
+        ...(dto.minPartySize !== undefined && {
+          minPartySize: dto.minPartySize,
+        }),
+        ...(dto.maxPartySize !== undefined && {
+          maxPartySize: dto.maxPartySize,
+        }),
+        ...(dto.maxAdvanceDays !== undefined && {
+          maxAdvanceDays: dto.maxAdvanceDays,
+        }),
+        ...(dto.minAdvanceHours !== undefined && {
+          minAdvanceHours: dto.minAdvanceHours,
+        }),
+      },
+      create: {
+        tenantId: tenant.id,
+        ...(dto.defaultDurationMin !== undefined && {
+          defaultDurationMin: dto.defaultDurationMin,
+        }),
+        ...(dto.bufferTimeMin !== undefined && {
+          bufferTimeMin: dto.bufferTimeMin,
+        }),
+        ...(dto.earlyArrivalWindowMin !== undefined && {
+          earlyArrivalWindowMin: dto.earlyArrivalWindowMin,
+        }),
+        ...(dto.noShowGracePeriodMin !== undefined && {
+          noShowGracePeriodMin: dto.noShowGracePeriodMin,
+        }),
+        ...(dto.minPartySize !== undefined && {
+          minPartySize: dto.minPartySize,
+        }),
+        ...(dto.maxPartySize !== undefined && {
+          maxPartySize: dto.maxPartySize,
+        }),
+        ...(dto.maxAdvanceDays !== undefined && {
+          maxAdvanceDays: dto.maxAdvanceDays,
+        }),
+        ...(dto.minAdvanceHours !== undefined && {
+          minAdvanceHours: dto.minAdvanceHours,
+        }),
+      },
+    });
+
+    return settings;
   }
 }

@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -15,7 +16,11 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { ReservationService } from './reservation.service';
-import { CreateReservationDto, GetReservationsQueryDto } from './dto';
+import {
+  CreateReservationDto,
+  GetReservationsQueryDto,
+  UpdateReservationSettingsDto,
+} from './dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -145,6 +150,73 @@ export class ReservationController {
     return ResponseHelper.success(
       reservation,
       'Reservation retrieved successfully',
+    );
+  }
+
+  @Get(':tenantSlug/reservation-settings')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.RESERVATIONS_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get reservation policy settings',
+    description:
+      'Retrieves the current table reservation rules (dining duration, buffer time, early check-in, no-show grace period) for the restaurant.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reservation settings retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Restaurant not found' })
+  async getReservationSettings(@Param('tenantSlug') tenantSlug: string) {
+    const settings =
+      await this.reservationService.getReservationSettings(tenantSlug);
+    return ResponseHelper.success(
+      settings,
+      'Reservation settings retrieved successfully',
+    );
+  }
+
+  @Put(':tenantSlug/reservation-settings')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.SETTINGS_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update reservation policy settings',
+    description:
+      'Updates table reservation policies and rules. Accessible only by restaurant Owners and Managers.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reservation settings updated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden - Insufficient permissions (Requires Owner or Manager)',
+  })
+  @ApiResponse({ status: 404, description: 'Restaurant not found' })
+  async updateReservationSettings(
+    @Param('tenantSlug') tenantSlug: string,
+    @Body() dto: UpdateReservationSettingsDto,
+  ) {
+    const settings = await this.reservationService.updateReservationSettings(
+      tenantSlug,
+      dto,
+    );
+    return ResponseHelper.success(
+      settings,
+      'Reservation settings updated successfully',
     );
   }
 }
