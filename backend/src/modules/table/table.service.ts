@@ -381,5 +381,52 @@ export class TableService {
       message: `Table "${table.name}" deleted successfully`,
     };
   }
+
+  /**
+   * Update table status (AVAILABLE, OCCUPIED, RESERVED, CLEANING)
+   */
+  async updateTableStatus(
+    tenantSlug: string,
+    tableId: string,
+    status: TableStatus,
+  ) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Verify table exists for this tenant
+    const table = await this.prisma.diningTable.findFirst({
+      where: {
+        id: tableId,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+    });
+
+    if (!table) {
+      throw new NotFoundException('Dining table');
+    }
+
+    // 3. Update the table status
+    const updatedTable = await this.prisma.diningTable.update({
+      where: { id: tableId },
+      data: { status },
+      include: {
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return updatedTable;
+  }
 }
 
