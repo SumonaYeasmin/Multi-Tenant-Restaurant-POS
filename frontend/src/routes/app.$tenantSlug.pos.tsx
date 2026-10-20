@@ -6,7 +6,7 @@ import { RequirePermission } from "@/features/tenant/require-permission";
 import { useValidatePromotionMutation } from "@/features/people/api";
 import { useTenant } from "@/features/tenant/tenant-context";
 import { useMoney } from "@/features/tenant/use-money";
-import { useCreateOrderMutation, useMenuQuery, useTablesQuery } from "@/app/api";
+import { useAddOrderLinesMutation, useCreateOrderMutation, useMenuQuery, useOrdersQuery, useTablesQuery } from "@/app/api";
 import { errorMessage } from "@/app/base-api";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { cartActions, cartLineSelectors } from "@/features/pos/cart.slice";
@@ -44,7 +44,9 @@ function PosPage() {
   const lines = cartLineSelectors.selectAll(cart.lines);
   const menu = useMenuQuery(tenant.id);
   const tables = useTablesQuery({ tenantId: tenant.id, branchId: branch.id });
+  const activeOrders = useOrdersQuery({ tenantId: tenant.id, branchId: branch.id, status: "active" }, { pollingInterval: 6000 });
   const [createOrder, { isLoading: creating }] = useCreateOrderMutation();
+  const [addOrderLines, { isLoading: addingLines }] = useAddOrderLinesMutation();
   const [category, setCategory] = useState<string>("all");
   const [q, setQ] = useState("");
   const [configuring, setConfiguring] = useState<MenuItem | null>(null);
@@ -75,8 +77,15 @@ function PosPage() {
     );
 
   const totals = computeTotals({ lines, discount: cart.discount, orderType: cart.orderType, taxRate: tenant.taxRate, serviceChargeRate: tenant.serviceChargeRate });
-  const freeTables = (tables.data ?? []).filter((t) => t.status === "available" || t.status === "reserved");
   const selectedTable = tables.data?.find((t) => t.id === cart.tableId);
+
+  // Running order detection for the selected table
+  const activeOrderForTable = useMemo(() => {
+    if (!cart.tableId || cart.orderType !== "dine_in") return null;
+    return (activeOrders.data ?? []).find(
+      (o) => o.tableId === cart.tableId && o.status !== "completed" && o.status !== "cancelled",
+    );
+  }, [cart.tableId, cart.orderType, activeOrders.data]);
 
   const pick = (item: MenuItem) => {
     if (!item.available) return;
@@ -116,6 +125,25 @@ function PosPage() {
       dispatch(cartActions.clearCart());
       toast.success(`Order ${order.number} sent to kitchen`);
       if (pay) navigate({ to: "/app/$tenantSlug/orders/$orderId", params: { tenantSlug: tenant.slug, orderId: order.id }, search: { pay: true } });
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  };
+
+  const submitAddItems = async () => {
+    if (!lines.length) {
+      toast.error("Add at least one item from the menu.");
+      return;
+    }
+    if (!activeOrderForTable) return;
+    try {
+      await addOrderLines({
+        tenantId: tenant.id,
+        orderId: activeOrderForTable.id,
+        lines,
+      }).unwrap();
+      dispatch(cartActions.clearCart());
+      toast.success(`Added ${lines.length} items to Order ${activeOrderForTable.number}! Sent to kitchen.`);
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -213,17 +241,59 @@ function PosPage() {
           {cart.orderType === "dine_in" && (
             <Select value={cart.tableId ?? ""} onValueChange={(v) => dispatch(cartActions.setTable(v))}>
               <SelectTrigger aria-label="Table">
-                <SelectValue placeholder={tables.isLoading ? "Loading tables…" : "Choose a table"}>{selectedTable ? `${selectedTable.name} · ${selectedTable.seats} seats` : undefined}</SelectValue>
+                <SelectValue placeholder={tables.isLoading ? "Loading tables…" : "Choose a table"}>
+                  {selectedTable ? (
+                    <span className="flex items-center gap-2">
+                      <span>{selectedTable.name} · {selectedTable.seats} seats</span>
+                      {activeOrderForTable && (
+                        <Badge variant="outline" className="border-amber-500/60 bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[10px] font-semibold">
+                          Active {activeOrderForTable.number}
+                        </Badge>
+                      )}
+                    </span>
+                  ) : undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {freeTables.length === 0 && <div className="px-2 py-3 text-sm text-muted-foreground">No free tables</div>}
-                {freeTables.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name} · {t.seats} seats · {t.area}{t.status === "reserved" ? " (reserved)" : ""}
-                  </SelectItem>
-                ))}
+                {(tables.data ?? []).length === 0 && <div className="px-2 py-3 text-sm text-muted-foreground">No tables found</div>}
+                {(tables.data ?? []).map((t) => {
+                  const occOrder = (activeOrders.data ?? []).find(
+                    (o) => o.tableId === t.id && o.status !== "completed" && o.status !== "cancelled",
+                  );
+                  const isOcc = t.status === "occupied" || !!occOrder;
+                  return (
+                    <SelectItem key={t.id} value={t.id}>
+                      <span className="flex items-center gap-2">
+                        <span className={cn("size-2 rounded-full shrink-0", isOcc ? "bg-amber-500" : "bg-emerald-500")} />
+                        <span>{t.name} · {t.seats} seats · {t.area}</span>
+                        {isOcc && (
+                          <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                            (Running {occOrder ? occOrder.number : ""})
+                          </span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
+          )}
+
+          {activeOrderForTable && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs">
+              <div className="flex items-center justify-between font-semibold text-amber-900 dark:text-amber-200">
+                <span className="flex items-center gap-1.5">
+                  <ChefHat className="size-3.5" /> Table {selectedTable?.name} · Order {activeOrderForTable.number}
+                </span>
+                <Badge variant="outline" className="border-amber-500/50 bg-amber-500/20 text-amber-900 dark:text-amber-200 text-[10px]">
+                  Running Tab
+                </Badge>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-muted-foreground">
+                <span>Already ordered: {activeOrderForTable.lines.reduce((s, l) => s + l.qty, 0)} items</span>
+                <span className="font-semibold text-foreground">{money(activeOrderForTable.totals.total)}</span>
+              </div>
+            </div>
           )}
           <div className="grid grid-cols-2 gap-2">
             <Input aria-label="Guest name" placeholder="Guest name" value={cart.customerName} maxLength={60} onChange={(e) => dispatch(cartActions.setCustomer({ name: e.target.value, phone: cart.customerPhone }))} />
@@ -275,14 +345,41 @@ function PosPage() {
               <dd className="tabular">{money(totals.total)}</dd>
             </div>
           </dl>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" size="lg" disabled={creating || !lines.length} onClick={() => submit(false)}>
-              {creating ? <Loader2 className="size-4 animate-spin" /> : <ChefHat className="size-4" />} Send
-            </Button>
-            <Button size="lg" disabled={creating || !lines.length || !can("payments.process")} onClick={() => submit(true)}>
-              <CreditCard className="size-4" /> Send & pay
-            </Button>
-          </div>
+          {activeOrderForTable ? (
+            <div className="space-y-2">
+              <Button
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-sm"
+                size="lg"
+                disabled={addingLines || !lines.length}
+                onClick={submitAddItems}
+              >
+                {addingLines ? <Loader2 className="size-4 animate-spin mr-1.5" /> : <Plus className="size-4 mr-1.5" />}
+                Send to Kitchen (Add to {activeOrderForTable.number})
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs text-muted-foreground"
+                onClick={() =>
+                  navigate({
+                    to: "/app/$tenantSlug/orders/$orderId",
+                    params: { tenantSlug: tenant.slug, orderId: activeOrderForTable.id },
+                  })
+                }
+              >
+                View Full Bill ({money(activeOrderForTable.totals.total)})
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" size="lg" disabled={creating || !lines.length} onClick={() => submit(false)}>
+                {creating ? <Loader2 className="size-4 animate-spin" /> : <ChefHat className="size-4" />} Send
+              </Button>
+              <Button size="lg" disabled={creating || !lines.length || !can("payments.process")} onClick={() => submit(true)}>
+                <CreditCard className="size-4" /> Send & pay
+              </Button>
+            </div>
+          )}
         </div>
       </aside>
 

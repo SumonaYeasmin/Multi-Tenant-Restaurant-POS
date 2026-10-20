@@ -133,7 +133,26 @@ function TablesPage() {
                       </div>
                       <p className="mt-1 text-muted-foreground">{orderFor(selected)!.lines.reduce((s, l) => s + l.qty, 0)} items · {money(orderFor(selected)!.totals.total)}</p>
                     </div>
-                    <Button className="w-full" onClick={() => navigate({ to: "/app/$tenantSlug/orders/$orderId", params: { tenantSlug: tenant.slug, orderId: selected.currentOrderId! } })}>Open order</Button>
+                    <div className="grid grid-cols-2 gap-2">
+                      {can("pos.use") && (
+                        <Button
+                          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium"
+                          onClick={() => {
+                            dispatch(cartActions.setTable(selected.id));
+                            navigate({ to: "/app/$tenantSlug/pos", params: { tenantSlug: tenant.slug } });
+                          }}
+                        >
+                          <Plus className="mr-1.5 size-4" /> Add items
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => navigate({ to: "/app/$tenantSlug/orders/$orderId", params: { tenantSlug: tenant.slug, orderId: selected.currentOrderId! } })}
+                      >
+                        Open order
+                      </Button>
+                    </div>
                   </>
                 ) : (
                   can("pos.use") && (
