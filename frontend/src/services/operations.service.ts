@@ -148,6 +148,28 @@ export async function createOrder(tenantId: string, input: CreateOrderInput): Pr
   return order;
 }
 
+export async function addOrderLines(tenantId: string, orderId: string, lines: OrderLine[]): Promise<Order> {
+  await latency(200, 400);
+  const tenant = tenantOf(tenantId);
+  const db = tenantDb(tenantId);
+  const order = findOrder(tenantId, orderId);
+  if (order.status === "completed" || order.status === "cancelled") {
+    throw new ApiError(400, "Cannot add items to a completed or cancelled order.");
+  }
+  order.lines.push(...structuredClone(lines));
+  order.totals = computeTotals({
+    lines: order.lines,
+    discount: order.discount,
+    orderType: order.type,
+    taxRate: tenant.taxRate,
+    serviceChargeRate: tenant.serviceChargeRate,
+  });
+  order.sentToKitchenAt = new Date().toISOString();
+  order.kitchenStatus = "new";
+  commit(tenantId);
+  return order;
+}
+
 function maybeComplete(tenantId: string, order: Order) {
   const db = tenantDb(tenantId);
   if (order.status === "served" && order.paid >= order.totals.total) {

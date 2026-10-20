@@ -1,7 +1,7 @@
 import { baseApi, run } from "./base-api";
 import * as platform from "@/services/platform.service";
 import * as ops from "@/services/operations.service";
-import type { Activation, Branch, DiningTable, Ingredient, Notification, Order, StockMovement, TableStatus, Tenant, User } from "@/types/domain";
+import type { Activation, Branch, DiningTable, Ingredient, Notification, Order, OrderLine, StockMovement, TableStatus, Tenant, User } from "@/types/domain";
 
 type T<A> = { tenantId: string } & A;
 
@@ -49,6 +49,10 @@ export const api = baseApi.injectEndpoints({
     createOrder: b.mutation<Order, T<ops.CreateOrderInput>>({
       queryFn: ({ tenantId, ...input }) => run(() => ops.createOrder(tenantId, input)),
       invalidatesTags: [{ type: "Order", id: "LIST" }, "Table", "Dashboard"],
+    }),
+    addOrderLines: b.mutation<Order, T<{ orderId: string; lines: OrderLine[] }>>({
+      queryFn: ({ tenantId, orderId, lines }) => run(() => ops.addOrderLines(tenantId, orderId, lines)),
+      invalidatesTags: (_r, _e, a) => [{ type: "Order", id: a.orderId }, { type: "Order", id: "LIST" }, "Table", "Dashboard"],
     }),
     advanceKitchen: b.mutation<Order, T<{ orderId: string }>>({
       queryFn: ({ tenantId, orderId }) => run(() => ops.advanceKitchen(tenantId, orderId)),
@@ -118,6 +122,7 @@ export const {
   useOrdersQuery,
   useOrderQuery,
   useCreateOrderMutation,
+  useAddOrderLinesMutation,
   useAdvanceKitchenMutation,
   useMarkServedMutation,
   useAddPaymentMutation,

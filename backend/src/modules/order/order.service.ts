@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateOrderLineDto } from './dto/create-order-line.dto';
 import { GetOrdersQueryDto } from './dto/get-orders-query.dto';
 import {
   KitchenStatus,
@@ -398,5 +399,147 @@ export class OrderService {
     }
 
     return order;
+  }
+
+  /**
+   * Add new items/lines to an existing active order (Running Order / Add-on)
+   */
+  async addOrderLines(
+    tenantSlug: string,
+    orderId: string,
+    newLines: CreateOrderLineDto[],
+  ) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch existing order
+    const existingOrder = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        tenantId: tenant.id,
+      },
+      include: {
+        lines: {
+          include: {
+            modifiers: true,
+          },
+        },
+      },
+    });
+
+    if (!existingOrder) {
+      throw new NotFoundException('Order');
+    }
+
+    if (
+      existingOrder.status === OrderStatus.COMPLETED ||
+      existingOrder.status === OrderStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        'Cannot add items to a completed or cancelled order',
+      );
+    }
+
+    if (!newLines || newLines.length === 0) {
+      throw new BadRequestException('At least one line item is required');
+    }
+
+    // 3. Compute cost of new lines
+    const addedSubtotal = this.round2(
+      newLines.reduce((total, line) => {
+        const modifiersCost = (line.modifiers || []).reduce(
+          (mSum, m) => mSum + Number(m.price || 0),
+          0,
+        );
+        return (
+          total +
+          (Number(line.unitPrice) + modifiersCost) * Number(line.qty)
+        );
+      }, 0),
+    );
+
+    const newSubtotal = this.round2(existingOrder.subtotal + addedSubtotal);
+
+    let discountAmount = existingOrder.discount;
+    discountAmount = this.round2(Math.min(discountAmount, newSubtotal));
+
+    const netAmount = newSubtotal - discountAmount;
+    const serviceCharge =
+      existingOrder.type === OrderType.DINE_IN
+        ? this.round2(netAmount * (tenant.serviceChargeRate || 0))
+        : 0;
+
+    const tax = this.round2(
+      (netAmount + serviceCharge) * (tenant.taxRate || 0),
+    );
+
+    const grandTotal = this.round2(netAmount + serviceCharge + tax);
+
+    // 4. Save new lines and update order totals in a transaction
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      // Create new lines and their modifiers
+      for (const line of newLines) {
+        await tx.orderLine.create({
+          data: {
+            orderId: existingOrder.id,
+            menuItemId: line.menuItemId || line.itemId || null,
+            name: line.name,
+            variantId: line.variantId || null,
+            variantName: line.variantName || null,
+            qty: line.qty,
+            unitPrice: line.unitPrice,
+            notes: line.notes || '',
+            modifiers: line.modifiers?.length
+              ? {
+                  create: line.modifiers.map((m) => ({
+                    groupId: m.groupId || null,
+                    optionId: m.optionId || null,
+                    name: m.name,
+                    price: m.price,
+                  })),
+                }
+              : undefined,
+          },
+        });
+      }
+
+      // Update Order totals and set kitchenStatus to NEW
+      return tx.order.update({
+        where: { id: existingOrder.id },
+        data: {
+          subtotal: newSubtotal,
+          discount: discountAmount,
+          serviceCharge,
+          tax,
+          total: grandTotal,
+          kitchenStatus: KitchenStatus.NEW,
+          sentToKitchenAt: new Date(),
+        },
+        include: {
+          lines: {
+            include: {
+              modifiers: true,
+            },
+          },
+          payments: true,
+          refunds: true,
+          table: true,
+          branch: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+    });
+
+    return updatedOrder;
   }
 }
