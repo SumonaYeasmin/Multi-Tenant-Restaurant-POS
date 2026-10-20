@@ -4,8 +4,14 @@ import {
   CreateReservationDto,
   GetReservationsQueryDto,
   UpdateReservationSettingsDto,
+  UpdateReservationStatusDto,
 } from './dto';
-import { Prisma, ReservationStatus } from '../../../prisma/generated/client';
+import {
+  OrderStatus,
+  Prisma,
+  ReservationStatus,
+  TableStatus,
+} from '../../../prisma/generated/client';
 import {
   NotFoundException,
   ConflictException,
@@ -393,5 +399,161 @@ export class ReservationService {
     });
 
     return settings;
+  }
+
+  /**
+   * Update reservation status (Seat, Complete, Cancel, No-Show) and synchronize table status
+   */
+  async updateReservationStatus(
+    tenantSlug: string,
+    reservationId: string,
+    dto: UpdateReservationStatusDto,
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    const reservation = await this.prisma.reservation.findFirst({
+      where: {
+        id: reservationId,
+        tenantId: tenant.id,
+      },
+      include: {
+        table: true,
+      },
+    });
+
+    if (!reservation) {
+      throw new NotFoundException('Reservation');
+    }
+
+    const currentStatus = reservation.status;
+    const newStatus = dto.status;
+
+    // Validate lifecycle transitions
+    const allowedTransitions: Record<ReservationStatus, ReservationStatus[]> = {
+      [ReservationStatus.BOOKED]: [
+        ReservationStatus.SEATED,
+        ReservationStatus.CANCELLED,
+        ReservationStatus.NO_SHOW,
+      ],
+      [ReservationStatus.SEATED]: [ReservationStatus.COMPLETED],
+      [ReservationStatus.COMPLETED]: [],
+      [ReservationStatus.CANCELLED]: [],
+      [ReservationStatus.NO_SHOW]: [],
+    };
+
+    if (!allowedTransitions[currentStatus]?.includes(newStatus)) {
+      throw new BadRequestException(
+        `Cannot transition reservation status from ${currentStatus} to ${newStatus}.`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      let targetTableId = dto.tableId ?? reservation.tableId;
+      let targetTableName = reservation.tableName;
+
+      // If a new table is being assigned or table is being switched
+      if (dto.tableId && dto.tableId !== reservation.tableId) {
+        const newTable = await tx.diningTable.findFirst({
+          where: {
+            id: dto.tableId,
+            tenantId: tenant.id,
+            branchId: reservation.branchId,
+            isDeleted: false,
+          },
+        });
+
+        if (!newTable) {
+          throw new NotFoundException('Dining table in this branch');
+        }
+
+        if (newTable.seats < reservation.partySize) {
+          throw new BadRequestException(
+            `${newTable.name} seats only ${newTable.seats} (party size is ${reservation.partySize}).`,
+          );
+        }
+
+        targetTableId = newTable.id;
+        targetTableName = newTable.name;
+
+        // If previous table was occupied/reserved by this reservation, release it
+        if (reservation.tableId) {
+          await tx.diningTable.update({
+            where: { id: reservation.tableId },
+            data: { status: TableStatus.AVAILABLE },
+          });
+        }
+      }
+
+      // Synchronize dining table status
+      if (targetTableId) {
+        if (newStatus === ReservationStatus.SEATED) {
+          await tx.diningTable.update({
+            where: { id: targetTableId },
+            data: { status: TableStatus.OCCUPIED },
+          });
+        } else if (
+          newStatus === ReservationStatus.COMPLETED ||
+          newStatus === ReservationStatus.CANCELLED ||
+          newStatus === ReservationStatus.NO_SHOW
+        ) {
+          // If no active orders currently running on this table, set to AVAILABLE
+          const activeOrder = await tx.order.findFirst({
+            where: {
+              tableId: targetTableId,
+              tenantId: tenant.id,
+              status: {
+                in: [
+                  OrderStatus.IN_KITCHEN,
+                  OrderStatus.READY,
+                  OrderStatus.SERVED,
+                ],
+              },
+            },
+          });
+
+          if (!activeOrder) {
+            await tx.diningTable.update({
+              where: { id: targetTableId },
+              data: { status: TableStatus.AVAILABLE },
+            });
+          }
+        }
+      }
+
+      // Update reservation record
+      const updatedReservation = await tx.reservation.update({
+        where: { id: reservation.id },
+        data: {
+          status: newStatus,
+          tableId: targetTableId,
+          tableName: targetTableName,
+        },
+        include: {
+          table: {
+            select: {
+              id: true,
+              name: true,
+              seats: true,
+              area: true,
+              status: true,
+            },
+          },
+          branch: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      return updatedReservation;
+    });
   }
 }

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -20,6 +21,7 @@ import {
   CreateReservationDto,
   GetReservationsQueryDto,
   UpdateReservationSettingsDto,
+  UpdateReservationStatusDto,
 } from './dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -217,6 +219,53 @@ export class ReservationController {
     return ResponseHelper.success(
       settings,
       'Reservation settings updated successfully',
+    );
+  }
+
+  @Patch(':tenantSlug/reservations/:reservationId/status')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.RESERVATIONS_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update reservation status (Seat, Complete, Cancel, No-Show)',
+    description:
+      'Advances reservation lifecycle (e.g. from BOOKED to SEATED, or to CANCELLED/NO_SHOW, or from SEATED to COMPLETED) and automatically synchronizes dining table occupancy.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'reservationId',
+    example: 'uuid',
+    description: 'Reservation ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reservation status updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid status transition or table capacity exceeded',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Reservation, restaurant or table not found',
+  })
+  async updateReservationStatus(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('reservationId') reservationId: string,
+    @Body() dto: UpdateReservationStatusDto,
+  ) {
+    const reservation = await this.reservationService.updateReservationStatus(
+      tenantSlug,
+      reservationId,
+      dto,
+    );
+    return ResponseHelper.success(
+      reservation,
+      'Reservation status updated successfully',
     );
   }
 }
