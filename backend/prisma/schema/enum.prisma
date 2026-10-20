@@ -89,3 +89,11 @@ enum DeliveryStatus {
   OUT
   DELIVERED
 }
+
+enum ReservationStatus {
+  BOOKED
+  SEATED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}

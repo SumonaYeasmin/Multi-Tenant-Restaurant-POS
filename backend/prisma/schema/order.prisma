@@ -16,9 +16,10 @@ model DiningTable {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  orders Order[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  orders       Order[]
+  reservations Reservation[]
 
   @@unique([branchId, name])
   @@map("dining_tables")

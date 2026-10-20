@@ -12,6 +12,7 @@ import { RecipeModule } from './recipe/recipe.module';
 import { StockMovementModule } from './stock-movement/stock-movement.module';
 import { TableModule } from './table/table.module';
 import { OrderModule } from './order/order.module';
+import { ReservationModule } from './reservation/reservation.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { OrderModule } from './order/order.module';
     StockMovementModule,
     TableModule,
     OrderModule,
+    ReservationModule,
   ],
   exports: [
     TenantRoleModule,
@@ -42,6 +44,7 @@ import { OrderModule } from './order/order.module';
     StockMovementModule,
     TableModule,
     OrderModule,
+    ReservationModule,
   ],
 })
 export class ModulesModule {}

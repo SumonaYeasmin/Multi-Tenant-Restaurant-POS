@@ -30,6 +30,7 @@ model Tenant {
   stockCounts     StockCount[]
   tables          DiningTable[]
   orders          Order[]
+  reservations    Reservation[]
 
   @@map("tenants")
 }
@@ -95,6 +96,7 @@ model Branch {
   transfersReceived StockTransfer[]          @relation("TransfersReceived")
   tables            DiningTable[]
   orders            Order[]
+  reservations      Reservation[]
 
   @@unique([tenantId, name])
   @@map("branches")
