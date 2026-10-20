@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { GetOrdersQueryDto } from './dto/get-orders-query.dto';
 import {
   KitchenStatus,
   OrderStatus,
   OrderType,
+  Prisma,
   TableStatus,
 } from '../../../prisma/generated/client';
 import { NotFoundException } from '../../common/exceptions/business.exception';
@@ -224,6 +226,176 @@ export class OrderService {
 
       return createdOrder;
     });
+
+    return order;
+  }
+
+  /**
+   * Get all orders with flexible filters (branch, status, kitchenStatus, type, search, date)
+   */
+  async getOrders(tenantSlug: string, query?: GetOrdersQueryDto) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Build where filter
+    const where: Prisma.OrderWhereInput = {
+      tenantId: tenant.id,
+    };
+
+    if (query?.branchId) {
+      where.branchId = query.branchId;
+    }
+
+    // 3. Status handling (active, all, in_kitchen, ready, served, completed, cancelled)
+    if (query?.status) {
+      const s = query.status.toLowerCase().trim();
+      if (s === 'active') {
+        // "active" orders for POS & Floor management
+        where.status = {
+          in: [OrderStatus.IN_KITCHEN, OrderStatus.READY, OrderStatus.SERVED],
+        };
+      } else if (s !== 'all') {
+        // Map string to OrderStatus enum (case-insensitive & handles hyphen/underscore)
+        const upper = s.toUpperCase().replace('-', '_');
+        if (Object.values(OrderStatus).includes(upper as OrderStatus)) {
+          where.status = upper as OrderStatus;
+        }
+      }
+    }
+
+    // 4. Kitchen status handling (NEW, PREPARING, READY, BUMPED)
+    if (query?.kitchenStatus) {
+      const ks = query.kitchenStatus.toUpperCase().replace('-', '_');
+      if (Object.values(KitchenStatus).includes(ks as KitchenStatus)) {
+        where.kitchenStatus = ks as KitchenStatus;
+      }
+    }
+
+    // 5. Order Type handling (DINE_IN, TAKEAWAY, PICKUP, COUNTER, DELIVERY)
+    if (query?.type) {
+      const ot = query.type.toUpperCase().replace('-', '_');
+      if (Object.values(OrderType).includes(ot as OrderType)) {
+        where.type = ot as OrderType;
+      }
+    }
+
+    // 6. Dining Table filter
+    if (query?.tableId) {
+      where.tableId = query.tableId;
+    }
+
+    // 7. Search query across order number, customer name, customer phone, table name
+    if (query?.search?.trim()) {
+      const term = query.search.trim();
+      where.OR = [
+        { orderNumber: { contains: term, mode: 'insensitive' } },
+        { customerName: { contains: term, mode: 'insensitive' } },
+        { customerPhone: { contains: term, mode: 'insensitive' } },
+        { tableName: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+
+    // 8. Date range filters
+    if (query?.startDate || query?.endDate) {
+      where.createdAt = {};
+      if (query.startDate) {
+        where.createdAt.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        const end = new Date(query.endDate);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
+    }
+
+    // 9. Fetch orders with all necessary relations ordered newest to oldest
+    const orders = await this.prisma.order.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: query?.limit ? Number(query.limit) : undefined,
+      include: {
+        lines: {
+          include: {
+            modifiers: true,
+          },
+        },
+        payments: true,
+        refunds: true,
+        table: {
+          select: {
+            id: true,
+            name: true,
+            area: true,
+            seats: true,
+            status: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return orders;
+  }
+
+  /**
+   * Get single order by ID with complete details
+   */
+  async getOrderById(tenantSlug: string, orderId: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch order with lines, modifiers, payments, refunds and table
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        tenantId: tenant.id,
+      },
+      include: {
+        lines: {
+          include: {
+            modifiers: true,
+          },
+        },
+        payments: true,
+        refunds: true,
+        table: {
+          select: {
+            id: true,
+            name: true,
+            area: true,
+            seats: true,
+            status: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order');
+    }
 
     return order;
   }
