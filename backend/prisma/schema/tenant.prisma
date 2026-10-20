@@ -14,23 +14,24 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  roles           TenantRole[]
-  staff           StaffMember[]
-  branches        Branch[]
-  categories      Category[]
-  modifierGroups  ModifierGroup[]
-  combos          Combo[]
-  menuItems       MenuItem[]
-  ingredients     Ingredient[]
-  suppliers       Supplier[]
-  purchaseOrders  PurchaseOrder[]
-  goodsReceipts   GoodsReceipt[]
-  supplierReturns SupplierReturn[]
-  stockMovements  StockMovement[]
-  stockCounts     StockCount[]
-  tables          DiningTable[]
-  orders          Order[]
-  reservations    Reservation[]
+  roles               TenantRole[]
+  staff               StaffMember[]
+  branches            Branch[]
+  categories          Category[]
+  modifierGroups      ModifierGroup[]
+  combos              Combo[]
+  menuItems           MenuItem[]
+  ingredients         Ingredient[]
+  suppliers           Supplier[]
+  purchaseOrders      PurchaseOrder[]
+  goodsReceipts       GoodsReceipt[]
+  supplierReturns     SupplierReturn[]
+  stockMovements      StockMovement[]
+  stockCounts         StockCount[]
+  tables              DiningTable[]
+  orders              Order[]
+  reservations        Reservation[]
+  reservationSettings ReservationSettings?
 
   @@map("tenants")
 }

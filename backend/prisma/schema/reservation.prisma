@@ -21,3 +21,22 @@ model Reservation {
   @@index([tenantId, branchId, at])
   @@map("reservations")
 }
+
+model ReservationSettings {
+  id                    String   @id @default(uuid())
+  tenantId              String   @unique
+  defaultDurationMin    Int      @default(90)
+  bufferTimeMin         Int      @default(30)
+  earlyArrivalWindowMin Int      @default(15)
+  noShowGracePeriodMin  Int      @default(15)
+  minPartySize          Int      @default(1)
+  maxPartySize          Int      @default(20)
+  maxAdvanceDays        Int      @default(30)
+  minAdvanceHours       Int      @default(2)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("reservation_settings")
+}
