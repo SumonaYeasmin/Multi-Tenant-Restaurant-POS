@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -161,6 +162,80 @@ export class OrderController {
     return ResponseHelper.success(
       order,
       `Items added to order ${order.orderNumber} successfully`,
+    );
+  }
+
+  @Patch(':tenantSlug/orders/:orderId/kitchen/advance')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.KITCHEN_VIEW)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Advance kitchen ticket workflow status',
+    description:
+      'Advances order through kitchen workflow: NEW -> PREPARING -> READY -> BUMPED. When set to READY, updates order status to READY and sets readyAt timestamp.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'orderId',
+    example: 'uuid',
+    description: 'Order ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Kitchen status advanced successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Order cancelled or already bumped' })
+  @ApiResponse({ status: 404, description: 'Order or restaurant not found' })
+  async advanceKitchen(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('orderId') orderId: string,
+  ) {
+    const order = await this.orderService.advanceKitchenStatus(
+      tenantSlug,
+      orderId,
+    );
+    return ResponseHelper.success(
+      order,
+      `Kitchen ticket advanced to ${order.kitchenStatus}`,
+    );
+  }
+
+  @Patch(':tenantSlug/orders/:orderId/serve')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.ORDERS_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Mark order as served',
+    description:
+      'Marks order status as SERVED (food delivered to table). If order was fully prepaid, marks it COMPLETED and releases dining table to CLEANING.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'orderId',
+    example: 'uuid',
+    description: 'Order ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Order marked as served successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Order or restaurant not found' })
+  async markServed(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('orderId') orderId: string,
+  ) {
+    const order = await this.orderService.markOrderServed(tenantSlug, orderId);
+    return ResponseHelper.success(
+      order,
+      `Order ${order.orderNumber} marked as served`,
     );
   }
 }

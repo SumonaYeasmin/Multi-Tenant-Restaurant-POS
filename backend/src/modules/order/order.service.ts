@@ -542,4 +542,104 @@ export class OrderService {
 
     return updatedOrder;
   }
+
+  /**
+   * Advance kitchen ticket status (NEW -> PREPARING -> READY -> BUMPED)
+   */
+  async advanceKitchenStatus(tenantSlug: string, orderId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+    if (!tenant) throw new NotFoundException('Restaurant');
+
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, tenantId: tenant.id },
+    });
+    if (!order) throw new NotFoundException('Order');
+
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException('Cannot update status of a cancelled order');
+    }
+
+    const KITCHEN_FLOW: Record<KitchenStatus, KitchenStatus | null> = {
+      [KitchenStatus.NEW]: KitchenStatus.PREPARING,
+      [KitchenStatus.PREPARING]: KitchenStatus.READY,
+      [KitchenStatus.READY]: KitchenStatus.BUMPED,
+      [KitchenStatus.BUMPED]: null,
+    };
+
+    const nextStatus = KITCHEN_FLOW[order.kitchenStatus];
+    if (!nextStatus) {
+      throw new BadRequestException('Kitchen ticket already bumped');
+    }
+
+    const updateData: Prisma.OrderUpdateInput = {
+      kitchenStatus: nextStatus,
+    };
+
+    if (nextStatus === KitchenStatus.READY) {
+      updateData.readyAt = new Date();
+      if (order.status === OrderStatus.IN_KITCHEN) {
+        updateData.status = OrderStatus.READY;
+      }
+    }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: updateData,
+      include: {
+        lines: { include: { modifiers: true } },
+        table: true,
+        branch: { select: { id: true, name: true } },
+      },
+    });
+  }
+
+  /**
+   * Mark order as SERVED (Food delivered to table by waiter)
+   */
+  async markOrderServed(tenantSlug: string, orderId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+    if (!tenant) throw new NotFoundException('Restaurant');
+
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, tenantId: tenant.id },
+    });
+    if (!order) throw new NotFoundException('Order');
+
+    const updateData: Prisma.OrderUpdateInput = {
+      status: OrderStatus.SERVED,
+    };
+
+    if (order.kitchenStatus === KitchenStatus.READY) {
+      updateData.kitchenStatus = KitchenStatus.BUMPED;
+    }
+
+    if (order.paid >= order.total && order.total > 0) {
+      updateData.status = OrderStatus.COMPLETED;
+      updateData.completedAt = new Date();
+
+      if (order.tableId) {
+        await this.prisma.diningTable.update({
+          where: { id: order.tableId },
+          data: {
+            status: TableStatus.CLEANING,
+            currentOrderId: null,
+          },
+        });
+      }
+    }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: updateData,
+      include: {
+        lines: { include: { modifiers: true } },
+        table: true,
+        branch: { select: { id: true, name: true } },
+      },
+    });
+  }
 }
