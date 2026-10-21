@@ -112,7 +112,7 @@ function ReportsPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <PageHeader
         title="Reports & Analytics"
         description="Monitor sales performance, profit margins, inventory health, and kitchen velocity."
@@ -242,10 +242,19 @@ function ReportsPage() {
                               <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                          <XAxis dataKey="date" stroke="#888888" fontSize={12} />
-                          <YAxis stroke="#888888" fontSize={12} tickFormatter={(val) => `${val}`} />
-                          <Tooltip formatter={(val: any) => [money(Number(val)), "Sales"]} />
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.2} stroke="var(--border)" />
+                          <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} />
+                          <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} tickFormatter={(val) => `${val}`} />
+                          <Tooltip
+                            contentStyle={{
+                              background: "var(--popover)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              color: "var(--foreground)",
+                            }}
+                            formatter={(val: any) => [money(Number(val)), "Sales"]}
+                          />
                           <Area type="monotone" dataKey="sales" stroke="var(--primary)" fill="url(#salesGrad)" />
                         </AreaChart>
                       </ResponsiveContainer>
@@ -262,11 +271,20 @@ function ReportsPage() {
                     <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={sales.data.hourlySales}>
-                          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                          <XAxis dataKey="hour" stroke="#888888" fontSize={12} />
-                          <YAxis stroke="#888888" fontSize={12} />
-                          <Tooltip formatter={(val: any) => [val, "Orders"]} />
-                          <Bar dataKey="orders" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.2} stroke="var(--border)" />
+                          <XAxis dataKey="hour" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} />
+                          <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} />
+                          <Tooltip
+                            contentStyle={{
+                              background: "var(--popover)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              color: "var(--foreground)",
+                            }}
+                            formatter={(val: any) => [val, "Orders"]}
+                          />
+                          <Bar dataKey="orders" fill="var(--primary)" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -323,7 +341,16 @@ function ReportsPage() {
                               <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(val: any) => [money(Number(val)), "Revenue"]} />
+                          <Tooltip
+                            contentStyle={{
+                              background: "var(--popover)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              color: "var(--foreground)",
+                            }}
+                            formatter={(val: any) => [money(Number(val)), "Revenue"]}
+                          />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>

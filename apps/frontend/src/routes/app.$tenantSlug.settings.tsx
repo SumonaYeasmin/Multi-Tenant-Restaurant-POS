@@ -17,6 +17,15 @@ import {
 import { RequirePermission } from "@/features/tenant/require-permission";
 import { useTenant } from "@/features/tenant/tenant-context";
 import { useIntegrationsQuery, useToggleIntegrationMutation, useUpdateSettingsMutation } from "@/features/stage4/api";
+import { useAppDispatch, useAppSelector } from "@/app/hooks";
+import {
+  RESTAURANT_THEMES,
+  type RestaurantThemePreset,
+  getThemePreset,
+  applyRestaurantTheme,
+} from "@/features/theme/restaurant-themes";
+import { RestaurantThemeModal } from "@/features/theme/restaurant-theme-modal";
+import { setThemePreset } from "@/features/ui/ui.slice";
 import { PageHeader, SkeletonCard } from "@/components/common/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +43,7 @@ export const Route = createFileRoute("/app/$tenantSlug/settings")({
   head: () => ({
     meta: [
       { title: "Settings & Branding — Tablewise POS" },
-      { name: "description", content: "Configure restaurant branding, theme colors, taxes, and third-party integrations." },
+      { name: "description", content: "Configure restaurant branding, theme atmosphere, taxes, and third-party integrations." },
     ],
   }),
   component: () => (
@@ -44,17 +53,13 @@ export const Route = createFileRoute("/app/$tenantSlug/settings")({
   ),
 });
 
-const ACCENT_PRESETS = [
-  { name: "Saffron Amber", value: "oklch(0.62 0.17 42)" },
-  { name: "Harbor Ocean", value: "oklch(0.55 0.11 205)" },
-  { name: "Café Emerald", value: "oklch(0.52 0.12 150)" },
-  { name: "Royal Purple", value: "oklch(0.58 0.18 290)" },
-  { name: "Crimson Rose", value: "oklch(0.57 0.20 25)" },
-  { name: "Modern Slate", value: "oklch(0.48 0.05 240)" },
-];
-
 function SettingsPage() {
   const { tenant } = useTenant();
+  const dispatch = useAppDispatch();
+  const themePresetId = useAppSelector((s) => s.ui.themePresetId);
+  const themeStyle = useAppSelector((s) => s.ui.themeStyle);
+  const activePreset = getThemePreset(themePresetId);
+
   const [updateSettings, { isLoading: saving }] = useUpdateSettingsMutation();
   const { data: integrations = [], isLoading: loadingIntegrations } = useIntegrationsQuery(tenant.id);
   const [toggleIntegration, { isLoading: toggling }] = useToggleIntegrationMutation();
@@ -63,27 +68,39 @@ function SettingsPage() {
   const [name, setName] = useState(tenant.name);
   const [tagline, setTagline] = useState(tenant.tagline ?? "");
   const [initials, setInitials] = useState(tenant.initials ?? "");
-  const [accent, setAccent] = useState(tenant.accent ?? "oklch(0.62 0.17 42)");
+  const [accent, setAccent] = useState(tenant.accent ?? activePreset.colors.accent);
   const [currency, setCurrency] = useState(tenant.currency);
   const [locale, setLocale] = useState(tenant.locale);
   const [taxRate, setTaxRate] = useState((tenant.taxRate * 100).toString());
   const [serviceChargeRate, setServiceChargeRate] = useState((tenant.serviceChargeRate * 100).toString());
   const [receiptFooter, setReceiptFooter] = useState(tenant.receiptFooter ?? "");
 
-  // Configure modal for integration
+  // Configure modal for theme & integration
+  const [themeModalOpen, setThemeModalOpen] = useState(false);
   const [editingIntegration, setEditingIntegration] = useState<Integration | null>(null);
 
   useEffect(() => {
     setName(tenant.name);
     setTagline(tenant.tagline ?? "");
     setInitials(tenant.initials ?? "");
-    setAccent(tenant.accent ?? "oklch(0.62 0.17 42)");
+    setAccent(tenant.accent ?? activePreset.colors.accent);
     setCurrency(tenant.currency);
     setLocale(tenant.locale);
     setTaxRate((tenant.taxRate * 100).toString());
     setServiceChargeRate((tenant.serviceChargeRate * 100).toString());
     setReceiptFooter(tenant.receiptFooter ?? "");
   }, [tenant]);
+
+  const handleSelectPreset = (preset: RestaurantThemePreset) => {
+    dispatch(setThemePreset(preset.id));
+    setAccent(preset.colors.accent);
+    applyRestaurantTheme(preset, preset.style);
+    toast.success(`Switched ambience to ${preset.name}`);
+  };
+
+  const handleThemeModalSaved = (preset: RestaurantThemePreset) => {
+    setAccent(preset.colors.accent);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,7 +143,7 @@ function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 p-6 max-w-5xl mx-auto">
+    <div className="space-y-6">
       <PageHeader
         title="Settings & Branding"
         description="Customize your restaurant identity, receipt styling, tax rates, and connect external services."
@@ -183,55 +200,188 @@ function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Brand Theme Color</CardTitle>
-                <CardDescription>
-                  Customizes the primary accent color across all buttons, highlights, badges, and headers.
-                </CardDescription>
+            <Card className="border border-border/80 shadow-xs">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">Restaurant Ambience & Theme Studio</CardTitle>
+                    <Badge variant="secondary" className="font-mono text-xs">POS Curated</Badge>
+                  </div>
+                  <CardDescription className="mt-1">
+                    Harmonized atmospheric palettes designed specifically for restaurant concepts, dining rooms, and service shifts.
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => setThemeModalOpen(true)}
+                  className="gap-2 shrink-0 self-start sm:self-auto shadow-sm"
+                >
+                  <Palette className="size-4" /> Open Theme Studio
+                </Button>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Color Presets</Label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {ACCENT_PRESETS.map((preset) => (
-                      <button
-                        type="button"
-                        key={preset.name}
-                        onClick={() => setAccent(preset.value)}
-                        className={`flex items-center gap-3 p-3 rounded-lg border text-left text-sm transition-all ${
-                          accent === preset.value
-                            ? "border-foreground ring-2 ring-primary/40 bg-accent/40 font-semibold"
-                            : "hover:bg-muted/50"
-                        }`}
+              <CardContent className="space-y-6">
+                {/* Active Concept Banner */}
+                <div
+                  className="rounded-xl border p-4.5 transition-all relative overflow-hidden"
+                  style={{
+                    background:
+                      themeStyle === "gradient"
+                        ? activePreset.previewGradient
+                        : activePreset.colors.card,
+                    borderColor: activePreset.colors.border,
+                  }}
+                >
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="size-3.5 rounded-full shadow-sm ring-2 ring-black/30 shrink-0"
+                          style={{ backgroundColor: activePreset.accentDot }}
+                        />
+                        <h4
+                          className="font-bold text-base tracking-tight"
+                          style={{ color: activePreset.colors.foreground }}
+                        >
+                          {activePreset.name}
+                        </h4>
+                        <Badge
+                          variant="outline"
+                          className="text-[11px] font-semibold uppercase px-2 py-0.5 border"
+                          style={{
+                            borderColor: activePreset.colors.border,
+                            color: activePreset.colors.foreground,
+                            backgroundColor: "rgba(0, 0, 0, 0.2)",
+                          }}
+                        >
+                          {activePreset.mode === "dark" ? "Night Shift" : "Day Shift"}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="text-[11px] font-semibold uppercase px-2 py-0.5 border"
+                          style={{
+                            borderColor: activePreset.colors.border,
+                            color: activePreset.colors.foreground,
+                            backgroundColor: "rgba(0, 0, 0, 0.2)",
+                          }}
+                        >
+                          {themeStyle === "gradient" ? "Gradient Ambient" : "Solid High-Contrast"}
+                        </Badge>
+                      </div>
+                      <p
+                        className="text-xs max-w-lg"
+                        style={{ color: activePreset.colors.mutedForeground }}
+                      >
+                        {activePreset.concept}
+                      </p>
+                    </div>
+
+                    {/* Active colors swatch strip */}
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.25)",
+                          borderColor: activePreset.colors.border,
+                          color: activePreset.colors.foreground,
+                        }}
                       >
                         <span
-                          className="size-5 rounded-full border shadow-sm shrink-0"
-                          style={{ backgroundColor: preset.value }}
+                          className="size-3 rounded-full shrink-0"
+                          style={{ backgroundColor: activePreset.colors.accent }}
                         />
-                        <span className="truncate">{preset.name}</span>
-                      </button>
-                    ))}
+                        <span className="font-mono text-[11px]">Primary</span>
+                      </div>
+                      <div
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.25)",
+                          borderColor: activePreset.colors.border,
+                          color: activePreset.colors.foreground,
+                        }}
+                      >
+                        <span
+                          className="size-3 rounded-full shrink-0"
+                          style={{ backgroundColor: activePreset.colors.background }}
+                        />
+                        <span className="font-mono text-[11px]">Canvas</span>
+                      </div>
+                      <div
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.25)",
+                          borderColor: activePreset.colors.border,
+                          color: activePreset.colors.foreground,
+                        }}
+                      >
+                        <span
+                          className="size-3 rounded-full shrink-0"
+                          style={{ backgroundColor: activePreset.colors.card }}
+                        />
+                        <span className="font-mono text-[11px]">Cards</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="custom-accent">Custom Accent Code (CSS Color / OKLCH / Hex)</Label>
-                  <div className="flex gap-3 items-center">
-                    <div
-                      className="size-10 rounded-md border shadow-sm shrink-0"
-                      style={{ backgroundColor: accent }}
-                    />
-                    <Input
-                      id="custom-accent"
-                      value={accent}
-                      onChange={(e) => setAccent(e.target.value)}
-                      className="font-mono text-sm"
-                    />
+                {/* Restaurant Presets Grid */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">
+                      Curated Restaurant Atmospheres ({activePreset.mode === "dark" ? "Night Shift" : "Day Shift"})
+                    </Label>
+                    <span className="text-xs text-muted-foreground">
+                      Click any concept to instantly adapt the POS
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {RESTAURANT_THEMES.filter((p) => p.mode === activePreset.mode).map((preset) => {
+                      const isSelected = preset.id === activePreset.id;
+                      return (
+                        <button
+                          type="button"
+                          key={preset.id}
+                          onClick={() => handleSelectPreset(preset)}
+                          className={`flex flex-col gap-2 p-3 rounded-xl border text-left transition-all ${
+                            isSelected
+                              ? "border-primary bg-primary/10 ring-2 ring-primary/40 shadow-sm font-semibold"
+                              : "border-border/70 hover:bg-muted/40 hover:border-border"
+                          }`}
+                        >
+                          <div
+                            className="w-full h-8 rounded-lg relative overflow-hidden flex items-center justify-between px-2.5 shadow-inner"
+                            style={{ background: preset.previewGradient }}
+                          >
+                            {isSelected ? (
+                              <div className="flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                                <Check className="size-3 stroke-[3]" />
+                              </div>
+                            ) : (
+                              <div />
+                            )}
+                            <span
+                              className="size-3 rounded-full shadow-sm ring-2 ring-black/20 shrink-0"
+                              style={{ backgroundColor: preset.accentDot }}
+                            />
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium">{preset.name}</div>
+                            <div className="truncate text-[11px] text-muted-foreground">{preset.concept}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+            <RestaurantThemeModal
+              open={themeModalOpen}
+              onOpenChange={setThemeModalOpen}
+              onSaved={handleThemeModalSaved}
+            />
 
             <div className="flex justify-end">
               <Button type="submit" disabled={saving} className="gap-2">

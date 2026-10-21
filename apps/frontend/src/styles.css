@@ -162,3 +162,23 @@
     width: 80mm;
   }
 }
+
+/* ==================== RESTAURANT POS THEME ENGINE ==================== */
+html[data-theme-style="gradient"] body {
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 20% -10%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 85% 100%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 65%);
+  background-attachment: fixed;
+}
+
+html[data-theme-style="gradient"] .bg-card,
+html[data-theme-style="gradient"] .bg-sidebar,
+html[data-theme-style="gradient"] .bg-popover {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+html[data-theme-style="gradient"] .theme-glow {
+  box-shadow: 0 0 25px -5px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
