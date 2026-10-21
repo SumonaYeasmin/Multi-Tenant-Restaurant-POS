@@ -9,6 +9,7 @@ import { setActiveTenant, setBranch } from "@/features/tenant/tenant.slice";
 import { cartActions } from "@/features/pos/cart.slice";
 import { readJson, storageKey, writeJson } from "@/lib/persistence";
 import { AppShell } from "@/components/layout/app-shell";
+import { getThemePreset } from "@/features/theme/restaurant-themes";
 import type { User } from "@/types/domain";
 
 export const Route = createFileRoute("/app/$tenantSlug")({
@@ -33,6 +34,7 @@ function TenantGate({ user }: { user: User }) {
   const activation = useActivationQuery(tenant?.id ?? "", { skip: !tenant });
   const branches = useBranchesQuery({ tenantId: tenant?.id ?? "", userId: user.id }, { skip: !tenant });
   const storedBranch = useAppSelector((s) => (tenant ? s.tenant.branchByTenant[tenant.id] : undefined));
+  const themePresetId = useAppSelector((s) => s.ui.themePresetId);
 
   useEffect(() => {
     if (!tenant) return;
@@ -62,7 +64,9 @@ function TenantGate({ user }: { user: User }) {
   if (activation.isError) return <ErrorState message="Couldn't verify restaurant access." onRetry={activation.refetch} />;
   if (!value) return <FullPageSpinner label="Opening restaurant…" />;
 
-  const style = { "--primary": tenant.accent } as CSSProperties;
+  const activePreset = getThemePreset(themePresetId);
+  const effectivePrimary = activePreset?.colors.accent ?? tenant.accent;
+  const style = { "--primary": effectivePrimary } as CSSProperties;
   return (
     <TenantContext.Provider value={value}>
       <div style={style} className="min-h-screen bg-background text-foreground">

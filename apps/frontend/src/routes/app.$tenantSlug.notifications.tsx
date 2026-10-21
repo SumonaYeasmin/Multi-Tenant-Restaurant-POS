@@ -64,7 +64,7 @@ function NotificationsPage() {
   };
 
   return (
-    <div className="space-y-6 p-6 max-w-4xl mx-auto">
+    <div className="space-y-6">
       <PageHeader
         title="Notifications Center"
         description={`Stay updated with real-time alerts across ${tenant.name}.`}
