@@ -10,6 +10,7 @@ import { MenuItemModule } from './menu-item/menu-item.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { RecipeModule } from './recipe/recipe.module';
 import { StockMovementModule } from './stock-movement/stock-movement.module';
+import { StockCountModule } from './stock-count/stock-count.module';
 import { TableModule } from './table/table.module';
 import { OrderModule } from './order/order.module';
 import { ReservationModule } from './reservation/reservation.module';
@@ -27,6 +28,7 @@ import { ReservationModule } from './reservation/reservation.module';
     InventoryModule,
     RecipeModule,
     StockMovementModule,
+    StockCountModule,
     TableModule,
     OrderModule,
     ReservationModule,
@@ -42,6 +44,7 @@ import { ReservationModule } from './reservation/reservation.module';
     InventoryModule,
     RecipeModule,
     StockMovementModule,
+    StockCountModule,
     TableModule,
     OrderModule,
     ReservationModule,
