@@ -22,6 +22,8 @@ import { InventoryService } from './inventory.service';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
 import { GetIngredientsQueryDto } from './dto/get-ingredients-query.dto';
+import { SubmitStockCountDto } from './dto/submit-stock-count.dto';
+import { GetStockCountsQueryDto } from './dto/get-stock-counts-query.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -238,6 +240,125 @@ export class InventoryController {
     return ResponseHelper.success(
       result,
       'Ingredient deleted successfully',
+    );
+  }
+
+  @Post(':tenantSlug/inventory/stock-counts')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.INVENTORY_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Submit physical stock count and reconcile inventory',
+    description:
+      'Creates a stock count record, calculates variances, updates live BranchStock, and creates audit StockMovement logs for any discrepancies.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Stock count submitted and inventory reconciled successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation failed or invalid ingredient quantity',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({ status: 404, description: 'Restaurant or branch not found' })
+  async submitStockCount(
+    @Param('tenantSlug') tenantSlug: string,
+    @Body() dto: SubmitStockCountDto,
+    @CurrentUser() user: any,
+  ) {
+    const result = await this.inventoryService.submitStockCount(
+      tenantSlug,
+      dto,
+      user,
+    );
+    return ResponseHelper.created(
+      result,
+      'Stock count submitted and inventory reconciled successfully',
+    );
+  }
+
+  @Get(':tenantSlug/inventory/stock-counts')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.INVENTORY_VIEW)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get stock counts history for a tenant with optional branch filter',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Stock counts retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({ status: 404, description: 'Restaurant not found' })
+  async getStockCounts(
+    @Param('tenantSlug') tenantSlug: string,
+    @Query() query: GetStockCountsQueryDto,
+  ) {
+    const result = await this.inventoryService.getStockCounts(
+      tenantSlug,
+      query,
+    );
+    return ResponseHelper.success(
+      result.items,
+      'Stock counts retrieved successfully',
+      200,
+    );
+  }
+
+  @Get(':tenantSlug/inventory/stock-counts/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.INVENTORY_VIEW)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get details of a single stock count by ID',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'id',
+    example: 'uuid',
+    description: 'Stock count ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Stock count retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({ status: 404, description: 'Stock count not found' })
+  async getStockCountById(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('id') id: string,
+  ) {
+    const result = await this.inventoryService.getStockCountById(
+      tenantSlug,
+      id,
+    );
+    return ResponseHelper.success(
+      result,
+      'Stock count retrieved successfully',
     );
   }
 }
