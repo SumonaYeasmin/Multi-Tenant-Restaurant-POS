@@ -1,0 +1,11 @@
+{
+  "name": "@pos/tsconfig",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared TypeScript configurations for POS monorepo",
+  "files": [
+    "base.json",
+    "react.json",
+    "node.json"
+  ]
+}
