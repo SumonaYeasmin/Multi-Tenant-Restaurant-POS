@@ -8,6 +8,7 @@ import {
   LogOut,
   Menu,
   Moon,
+  Palette,
   Plus,
   Repeat,
   Search,
@@ -15,6 +16,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { RestaurantThemeModal } from "@/features/theme/restaurant-theme-modal";
 import { NAVIGATION, type AppPath } from "@/config/navigation.config";
 import { ROLE_LABELS } from "@/config/permissions.config";
 import { useTenant } from "@/features/tenant/tenant-context";
@@ -167,6 +169,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
   const mode = useAppSelector((s) => s.ui.colorMode);
   const signOut = useSignOut();
   const [q, setQ] = useState("");
+  const [themeOpen, setThemeOpen] = useState(false);
   const segs = location.pathname.split("/").slice(3);
   const first = segs[0] ?? "";
   const two = segs.slice(0, 2).join("/");
@@ -216,6 +219,15 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
             </Button>
           )}
           <Notifications />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Customize restaurant theme atmosphere"
+            title="Theme & Atmosphere"
+            onClick={() => setThemeOpen(true)}
+          >
+            <Palette className="size-4" />
+          </Button>
           <Button variant="ghost" size="icon" aria-label="Toggle dark mode" onClick={() => dispatch(setColorMode(mode === "dark" ? "light" : "dark"))}>
             {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </Button>
@@ -246,6 +258,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
           </DropdownMenu>
         </div>
       </header>
+      <RestaurantThemeModal open={themeOpen} onOpenChange={setThemeOpen} />
     </>
   );
 }
