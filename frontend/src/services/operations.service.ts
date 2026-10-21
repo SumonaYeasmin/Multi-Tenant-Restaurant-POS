@@ -148,6 +148,28 @@ export async function createOrder(tenantId: string, input: CreateOrderInput): Pr
   return order;
 }
 
+export async function addOrderLines(tenantId: string, orderId: string, lines: OrderLine[]): Promise<Order> {
+  await latency(200, 400);
+  const tenant = tenantOf(tenantId);
+  const db = tenantDb(tenantId);
+  const order = findOrder(tenantId, orderId);
+  if (order.status === "completed" || order.status === "cancelled") {
+    throw new ApiError(400, "Cannot add items to a completed or cancelled order.");
+  }
+  order.lines.push(...structuredClone(lines));
+  order.totals = computeTotals({
+    lines: order.lines,
+    discount: order.discount,
+    orderType: order.type,
+    taxRate: tenant.taxRate,
+    serviceChargeRate: tenant.serviceChargeRate,
+  });
+  order.sentToKitchenAt = new Date().toISOString();
+  order.kitchenStatus = "new";
+  commit(tenantId);
+  return order;
+}
+
 function maybeComplete(tenantId: string, order: Order) {
   const db = tenantDb(tenantId);
   if (order.status === "served" && order.paid >= order.totals.total) {
@@ -305,6 +327,42 @@ export async function setTableStatus(tenantId: string, tableId: string, status: 
   t.status = status;
   commit(tenantId);
   return t;
+}
+
+export interface CreateTableInput {
+  branchId: string;
+  name: string;
+  seats: number;
+  area: string;
+  shape: "square" | "round" | "long";
+}
+
+export async function createTable(tenantId: string, input: CreateTableInput): Promise<DiningTable> {
+  await latency(120, 250);
+  const db = tenantDb(tenantId);
+  const trimmedName = input.name.trim();
+  const exists = db.tables.find(
+    (t) => t.branchId === input.branchId && t.name.toLowerCase() === trimmedName.toLowerCase(),
+  );
+  if (exists) {
+    throw new ApiError(409, `Table "${trimmedName}" already exists in this branch.`);
+  }
+  const table: DiningTable = {
+    id: `${input.branchId}_tbl_${uid("tbl")}`,
+    tenantId,
+    branchId: input.branchId,
+    name: trimmedName,
+    seats: input.seats || 4,
+    area: input.area.trim() || "Main hall",
+    status: "available",
+    currentOrderId: null,
+    x: 0,
+    y: 0,
+    shape: input.shape || "square",
+  };
+  db.tables.push(table);
+  commit(tenantId);
+  return table;
 }
 
 // ---------- Inventory ----------

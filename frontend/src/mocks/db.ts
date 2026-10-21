@@ -13,31 +13,13 @@ export function tenantDb(tenantId: string): TenantDb {
   if (hit) return hit;
   const stored = readJson<TenantDb>(storageKey("db", tenantId));
   let db: TenantDb;
-  if (stored && stored.version === DB_VERSION) db = stored;
-  else if (stored && (stored.version === 1 || stored.version === 2 || stored.version === 3)) {
-    // Migrate older data in steps, keeping every existing order and stock record.
-    let next: any = stored;
-    if (next.version === 1) {
-      // v1 -> v2: add back-office collections.
-      const branchIds = [...new Set(next.ingredients.map((i: any) => i.branchId))];
-      next = { ...buildBackoffice(tenantId, next.menuItems, next.ingredients, branchIds as string[]), ...next, version: 2 };
-    }
-    if (next.version === 2) {
-      // v2 -> v3: add people & money collections; orders gain refunds + delivery.
-      for (const o of next.orders) {
-        o.refunds ??= [];
-        o.refunded ??= 0;
-        o.delivery ??= null;
-      }
-      next = { ...buildPeople(tenantId, next.orders), ...next, version: 3 };
-    }
-    if (next.version === 3) {
-      // v3 -> v4: add stage 4 reports, audit logs, integrations, and tenant settings.
-      const stage4 = buildStage4(tenantId);
-      next = { ...next, ...stage4, version: DB_VERSION };
-    }
-    db = next as TenantDb;
-  } else db = buildTenantSeed(tenantId);
+  const hasActiveOrders = stored?.orders?.some((o) => ["in_kitchen", "ready", "served"].includes(o.status));
+  if (stored && stored.version === DB_VERSION && hasActiveOrders) {
+    db = stored;
+  } else {
+    db = buildTenantSeed(tenantId);
+    writeJson(storageKey("db", tenantId), db);
+  }
 
   // Guarantee Stage 4 data and notifications exist even if an existing cache was loaded
   if (db) {

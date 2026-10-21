@@ -1,7 +1,7 @@
 import { baseApi, run } from "./base-api";
 import * as platform from "@/services/platform.service";
 import * as ops from "@/services/operations.service";
-import type { Activation, Branch, DiningTable, Ingredient, Notification, Order, StockMovement, TableStatus, Tenant, User } from "@/types/domain";
+import type { Activation, Branch, DiningTable, Ingredient, Notification, Order, OrderLine, StockMovement, TableStatus, Tenant, User } from "@/types/domain";
 
 type T<A> = { tenantId: string } & A;
 
@@ -50,6 +50,10 @@ export const api = baseApi.injectEndpoints({
       queryFn: ({ tenantId, ...input }) => run(() => ops.createOrder(tenantId, input)),
       invalidatesTags: [{ type: "Order", id: "LIST" }, "Table", "Dashboard"],
     }),
+    addOrderLines: b.mutation<Order, T<{ orderId: string; lines: OrderLine[] }>>({
+      queryFn: ({ tenantId, orderId, lines }) => run(() => ops.addOrderLines(tenantId, orderId, lines)),
+      invalidatesTags: (_r, _e, a) => [{ type: "Order", id: a.orderId }, { type: "Order", id: "LIST" }, "Table", "Dashboard"],
+    }),
     advanceKitchen: b.mutation<Order, T<{ orderId: string }>>({
       queryFn: ({ tenantId, orderId }) => run(() => ops.advanceKitchen(tenantId, orderId)),
       invalidatesTags: (_r, _e, a) => [{ type: "Order", id: a.orderId }, { type: "Order", id: "LIST" }, "Dashboard"],
@@ -71,6 +75,10 @@ export const api = baseApi.injectEndpoints({
     tables: b.query<DiningTable[], T<{ branchId: string }>>({
       queryFn: ({ tenantId, branchId }) => run(() => ops.listTables(tenantId, branchId)),
       providesTags: ["Table"],
+    }),
+    createTable: b.mutation<DiningTable, T<ops.CreateTableInput>>({
+      queryFn: ({ tenantId, ...input }) => run(() => ops.createTable(tenantId, input)),
+      invalidatesTags: ["Table", "Dashboard"],
     }),
     setTableStatus: b.mutation<DiningTable, T<{ tableId: string; status: TableStatus }>>({
       queryFn: ({ tenantId, tableId, status }) => run(() => ops.setTableStatus(tenantId, tableId, status)),
@@ -114,11 +122,13 @@ export const {
   useOrdersQuery,
   useOrderQuery,
   useCreateOrderMutation,
+  useAddOrderLinesMutation,
   useAdvanceKitchenMutation,
   useMarkServedMutation,
   useAddPaymentMutation,
   useCancelOrderMutation,
   useTablesQuery,
+  useCreateTableMutation,
   useSetTableStatusMutation,
   useIngredientsQuery,
   useMovementsQuery,

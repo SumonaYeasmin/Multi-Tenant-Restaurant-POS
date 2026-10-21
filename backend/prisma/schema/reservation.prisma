@@ -1,0 +1,42 @@
+model Reservation {
+  id           String            @id @default(uuid())
+  tenantId     String
+  branchId     String
+  customerName String
+  phone        String?           @default("")
+  partySize    Int               @default(2)
+  at           DateTime
+  durationMin  Int               @default(90)
+  tableId      String?
+  tableName    String?
+  status       ReservationStatus @default(BOOKED)
+  notes        String?           @default("")
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  table  DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, branchId, at])
+  @@map("reservations")
+}
+
+model ReservationSettings {
+  id                    String   @id @default(uuid())
+  tenantId              String   @unique
+  defaultDurationMin    Int      @default(90)
+  bufferTimeMin         Int      @default(30)
+  earlyArrivalWindowMin Int      @default(15)
+  noShowGracePeriodMin  Int      @default(15)
+  minPartySize          Int      @default(1)
+  maxPartySize          Int      @default(20)
+  maxAdvanceDays        Int      @default(30)
+  minAdvanceHours       Int      @default(2)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("reservation_settings")
+}

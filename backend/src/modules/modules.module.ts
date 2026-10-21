@@ -7,6 +7,12 @@ import { CategoryModule } from './category/category.module';
 import { ModifierGroupModule } from './modifier-group/modifier-group.module';
 import { ComboModule } from './combo/combo.module';
 import { MenuItemModule } from './menu-item/menu-item.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { RecipeModule } from './recipe/recipe.module';
+import { StockMovementModule } from './stock-movement/stock-movement.module';
+import { TableModule } from './table/table.module';
+import { OrderModule } from './order/order.module';
+import { ReservationModule } from './reservation/reservation.module';
 
 @Module({
   imports: [
@@ -18,6 +24,12 @@ import { MenuItemModule } from './menu-item/menu-item.module';
     ModifierGroupModule,
     ComboModule,
     MenuItemModule,
+    InventoryModule,
+    RecipeModule,
+    StockMovementModule,
+    TableModule,
+    OrderModule,
+    ReservationModule,
   ],
   exports: [
     TenantRoleModule,
@@ -27,6 +39,12 @@ import { MenuItemModule } from './menu-item/menu-item.module';
     ModifierGroupModule,
     ComboModule,
     MenuItemModule,
+    InventoryModule,
+    RecipeModule,
+    StockMovementModule,
+    TableModule,
+    OrderModule,
+    ReservationModule,
   ],
 })
 export class ModulesModule {}

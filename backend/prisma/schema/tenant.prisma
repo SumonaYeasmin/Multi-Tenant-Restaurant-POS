@@ -5,8 +5,8 @@ model Tenant {
   tagline           String? @default("")
   initials          String? @default("")
   accent            String? @default("oklch(0.6 0.2 240)")
-  currency          String  @default("USD")
-  locale            String  @default("en-US")
+  currency          String  @default("BDT")
+  locale            String  @default("en-BD")
   taxRate           Float   @default(0.1)
   serviceChargeRate Float   @default(0.0)
   receiptFooter     String? @default("Thank you for dining with us!")
@@ -14,20 +14,24 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  roles           TenantRole[]
-  staff           StaffMember[]
-  branches        Branch[]
-  categories      Category[]
-  modifierGroups  ModifierGroup[]
-  combos          Combo[]
-  menuItems       MenuItem[]
-  ingredients     Ingredient[]
-  suppliers       Supplier[]
-  purchaseOrders  PurchaseOrder[]
-  goodsReceipts   GoodsReceipt[]
-  supplierReturns SupplierReturn[]
-  stockMovements  StockMovement[]
-  stockCounts     StockCount[]
+  roles               TenantRole[]
+  staff               StaffMember[]
+  branches            Branch[]
+  categories          Category[]
+  modifierGroups      ModifierGroup[]
+  combos              Combo[]
+  menuItems           MenuItem[]
+  ingredients         Ingredient[]
+  suppliers           Supplier[]
+  purchaseOrders      PurchaseOrder[]
+  goodsReceipts       GoodsReceipt[]
+  supplierReturns     SupplierReturn[]
+  stockMovements      StockMovement[]
+  stockCounts         StockCount[]
+  tables              DiningTable[]
+  orders              Order[]
+  reservations        Reservation[]
+  reservationSettings ReservationSettings?
 
   @@map("tenants")
 }
@@ -91,6 +95,9 @@ model Branch {
   stockCounts       StockCount[]
   transfersSent     StockTransfer[]          @relation("TransfersSent")
   transfersReceived StockTransfer[]          @relation("TransfersReceived")
+  tables            DiningTable[]
+  orders            Order[]
+  reservations      Reservation[]
 
   @@unique([tenantId, name])
   @@map("branches")
@@ -202,6 +209,7 @@ model MenuItem {
   branchOverrides BranchMenuItemOverride[]
   comboItems      ComboItem[]
   recipeLines     RecipeLine[]
+  orderLines      OrderLine[]
 
   @@map("menu_items")
 }
