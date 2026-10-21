@@ -1,0 +1,22 @@
+{
+  "name": "multi-tenant-restaurant-pos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-Tenant Restaurant POS Monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "format": "turbo run format",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4"
+  },
+  "packageManager": "npm@11.13.0"
+}
