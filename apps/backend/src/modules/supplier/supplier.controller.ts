@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { SupplierService } from './supplier.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { GetSuppliersQueryDto } from './dto/get-suppliers-query.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -139,5 +142,96 @@ export class SupplierController {
       supplier,
       'Supplier retrieved successfully',
     );
+  }
+
+  @Put(':tenantSlug/suppliers/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.PURCHASING_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update an existing supplier',
+    description:
+      'Updates supplier information such as contact, supplies, payment terms, or active status.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'id',
+    example: 'uuid',
+    description: 'Supplier ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Supplier updated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Supplier or restaurant not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Supplier with this name already exists',
+  })
+  async updateSupplier(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateSupplierDto,
+  ) {
+    const supplier = await this.supplierService.updateSupplier(
+      tenantSlug,
+      id,
+      dto,
+    );
+    return ResponseHelper.success(
+      supplier,
+      'Supplier updated successfully',
+    );
+  }
+
+  @Delete(':tenantSlug/suppliers/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.PURCHASING_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Soft-delete a supplier',
+    description:
+      'Soft-deletes a supplier by setting isDeleted to true and active to false.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'id',
+    example: 'uuid',
+    description: 'Supplier ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Supplier deleted successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Supplier or restaurant not found',
+  })
+  async deleteSupplier(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('id') id: string,
+  ) {
+    const result = await this.supplierService.deleteSupplier(tenantSlug, id);
+    return ResponseHelper.success(result, 'Supplier deleted successfully');
   }
 }
