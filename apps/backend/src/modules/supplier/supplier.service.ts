@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { GetSuppliersQueryDto } from './dto/get-suppliers-query.dto';
 import {
   NotFoundException,
   AlreadyExistsException,
 } from '../../common/exceptions/business.exception';
+import { Prisma } from '../../../prisma/generated/client';
 
 @Injectable()
 export class SupplierService {
@@ -55,6 +57,97 @@ export class SupplierService {
         active: dto.active !== undefined ? dto.active : true,
       },
     });
+
+    return supplier;
+  }
+
+  /**
+   * Get all suppliers for a tenant with optional filtering and search
+   */
+  async getSuppliers(tenantSlug: string, query?: GetSuppliersQueryDto) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Build where filter conditions
+    const where: Prisma.SupplierWhereInput = {
+      tenantId: tenant.id,
+      isDeleted: false,
+    };
+
+    if (query?.activeOnly !== undefined) {
+      where.active = query.activeOnly;
+    }
+
+    if (query?.search?.trim()) {
+      const searchTerm = query.search.trim();
+      where.OR = [
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { contact: { contains: searchTerm, mode: 'insensitive' } },
+        { phone: { contains: searchTerm, mode: 'insensitive' } },
+        { email: { contains: searchTerm, mode: 'insensitive' } },
+        { supplies: { contains: searchTerm, mode: 'insensitive' } },
+        { address: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+    }
+
+    // 3. Fetch suppliers ordered by creation time descending
+    const suppliers = await this.prisma.supplier.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: {
+          select: {
+            purchaseOrders: true,
+            goodsReceipts: true,
+            supplierReturns: true,
+          },
+        },
+      },
+    });
+
+    return suppliers;
+  }
+
+  /**
+   * Get a single supplier by ID
+   */
+  async getSupplierById(tenantSlug: string, supplierId: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch specific supplier
+    const supplier = await this.prisma.supplier.findFirst({
+      where: {
+        id: supplierId,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+      include: {
+        _count: {
+          select: {
+            purchaseOrders: true,
+            goodsReceipts: true,
+            supplierReturns: true,
+          },
+        },
+      },
+    });
+
+    if (!supplier) {
+      throw new NotFoundException('Supplier');
+    }
 
     return supplier;
   }
