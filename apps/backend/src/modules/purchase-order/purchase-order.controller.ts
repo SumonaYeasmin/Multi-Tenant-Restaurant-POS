@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { PurchaseOrderService } from './purchase-order.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
+import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { GetPurchaseOrdersQueryDto } from './dto/get-purchase-orders-query.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -160,6 +162,61 @@ export class PurchaseOrderController {
     return ResponseHelper.success(
       order,
       'Purchase order retrieved successfully',
+    );
+  }
+
+  @Put(':tenantSlug/purchase-orders/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.PURCHASING_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update an existing purchase order',
+    description:
+      'Updates purchase order details (only draft orders can have items/supplier edited) or updates order status.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'id',
+    example: 'cuid',
+    description: 'Purchase Order ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase order updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation failed or inactive supplier / invalid items',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Purchase order, branch, or supplier not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - Cannot edit non-draft order or invalid status transition',
+  })
+  async updatePurchaseOrder(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('id') id: string,
+    @Body() dto: UpdatePurchaseOrderDto,
+  ) {
+    const order = await this.purchaseOrderService.updatePurchaseOrder(
+      tenantSlug,
+      id,
+      dto,
+    );
+    return ResponseHelper.success(
+      order,
+      'Purchase order updated successfully',
     );
   }
 }
