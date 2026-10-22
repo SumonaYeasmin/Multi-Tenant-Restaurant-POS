@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -14,6 +16,7 @@ import {
 } from '@nestjs/swagger';
 import { PurchaseOrderService } from './purchase-order.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
+import { GetPurchaseOrdersQueryDto } from './dto/get-purchase-orders-query.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -75,6 +78,88 @@ export class PurchaseOrderController {
     return ResponseHelper.created(
       order,
       'Purchase order created successfully',
+    );
+  }
+
+  @Get(':tenantSlug/purchase-orders')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.PURCHASING_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all purchase orders for a restaurant',
+    description:
+      'Retrieves purchase orders with optional filtering by branch, supplier, status, or search term.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase orders retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({ status: 404, description: 'Restaurant not found' })
+  async getPurchaseOrders(
+    @Param('tenantSlug') tenantSlug: string,
+    @Query() query: GetPurchaseOrdersQueryDto,
+  ) {
+    const orders = await this.purchaseOrderService.getPurchaseOrders(
+      tenantSlug,
+      query,
+    );
+    return ResponseHelper.success(
+      orders,
+      'Purchase orders retrieved successfully',
+    );
+  }
+
+  @Get(':tenantSlug/purchase-orders/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.PURCHASING_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get details of a single purchase order by ID',
+    description:
+      'Retrieves details of a purchase order, including supplier, branch, items with ingredients, and goods receipts.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'id',
+    example: 'cuid',
+    description: 'Purchase Order ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase order retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Purchase order or restaurant not found',
+  })
+  async getPurchaseOrderById(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('id') id: string,
+  ) {
+    const order = await this.purchaseOrderService.getPurchaseOrderById(
+      tenantSlug,
+      id,
+    );
+    return ResponseHelper.success(
+      order,
+      'Purchase order retrieved successfully',
     );
   }
 }

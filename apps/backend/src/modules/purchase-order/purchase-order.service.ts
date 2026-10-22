@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
+import { GetPurchaseOrdersQueryDto } from './dto/get-purchase-orders-query.dto';
 import {
   NotFoundException,
   AlreadyExistsException,
@@ -13,6 +14,38 @@ import { Prisma, PurchaseOrderStatus } from '../../../prisma/generated/client';
 @Injectable()
 export class PurchaseOrderService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Helper: Format a PurchaseOrder for response including computed totalAmount
+   * and compatibility aliases for frontend
+   */
+  private formatPurchaseOrder(po: any) {
+    const totalAmount = (po.items ?? []).reduce(
+      (sum: number, item: any) =>
+        sum + (item.quantity ?? 0) * (item.unitCost ?? 0),
+      0,
+    );
+    const roundedTotal = Math.round(totalAmount * 100) / 100;
+
+    return {
+      ...po,
+      totalAmount: roundedTotal,
+      // Compatibility fields for UI / frontend
+      number: po.poNumber,
+      supplierName: po.supplier?.name || '',
+      expectedDate: po.expectedAt ? po.expectedAt.toISOString() : null,
+      total: roundedTotal,
+      lines: (po.items ?? []).map((item: any) => ({
+        id: item.id,
+        ingredientId: item.ingredientId,
+        name: item.ingredient?.name || '',
+        unit: item.ingredient?.unit || '',
+        qty: item.quantity,
+        unitCost: item.unitCost,
+        receivedQty: item.receivedQty ?? 0,
+      })),
+    };
+  }
 
   /**
    * Helper: Generate unique, sequential PO number per restaurant
@@ -241,15 +274,160 @@ export class PurchaseOrderService {
       });
     });
 
-    // 8. Calculate total order value
-    const totalAmount = purchaseOrder.items.reduce(
-      (sum, item) => sum + item.quantity * item.unitCost,
-      0,
-    );
+    return this.formatPurchaseOrder(purchaseOrder);
+  }
 
-    return {
-      ...purchaseOrder,
-      totalAmount: Math.round(totalAmount * 100) / 100,
+  /**
+   * Get all purchase orders for a tenant with optional branch, supplier, status, or search filters
+   */
+  async getPurchaseOrders(
+    tenantSlug: string,
+    query?: GetPurchaseOrdersQueryDto,
+  ) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Build where conditions
+    const where: Prisma.PurchaseOrderWhereInput = {
+      restaurantId: tenant.id,
     };
+
+    if (query?.branchId) {
+      where.branchId = query.branchId;
+    }
+
+    if (query?.supplierId) {
+      where.supplierId = query.supplierId;
+    }
+
+    if (query?.status) {
+      where.status = query.status;
+    }
+
+    if (query?.search?.trim()) {
+      const searchTerm = query.search.trim();
+      where.OR = [
+        { poNumber: { contains: searchTerm, mode: 'insensitive' } },
+        { notes: { contains: searchTerm, mode: 'insensitive' } },
+        { supplier: { name: { contains: searchTerm, mode: 'insensitive' } } },
+      ];
+    }
+
+    // 3. Fetch purchase orders ordered by creation descending
+    const orders = await this.prisma.purchaseOrder.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            contact: true,
+            phone: true,
+            email: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        items: {
+          include: {
+            ingredient: {
+              select: {
+                id: true,
+                name: true,
+                unit: true,
+                category: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            items: true,
+            goodsReceipts: true,
+          },
+        },
+      },
+    });
+
+    return orders.map((o) => this.formatPurchaseOrder(o));
+  }
+
+  /**
+   * Get single purchase order details by ID
+   */
+  async getPurchaseOrderById(tenantSlug: string, id: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch specific purchase order
+    const order = await this.prisma.purchaseOrder.findFirst({
+      where: {
+        id,
+        restaurantId: tenant.id,
+      },
+      include: {
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            contact: true,
+            phone: true,
+            email: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        items: {
+          include: {
+            ingredient: {
+              select: {
+                id: true,
+                name: true,
+                unit: true,
+                category: true,
+              },
+            },
+          },
+        },
+        goodsReceipts: {
+          include: {
+            lines: true,
+          },
+        },
+        _count: {
+          select: {
+            items: true,
+            goodsReceipts: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Purchase order');
+    }
+
+    return this.formatPurchaseOrder(order);
   }
 }
