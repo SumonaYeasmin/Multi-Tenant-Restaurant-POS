@@ -29,8 +29,19 @@ export class PurchaseOrderService {
     );
     const roundedTotal = Math.round(totalAmount * 100) / 100;
 
+    const statusMap: Record<string, string> = {
+      DRAFT: 'draft',
+      SENT: 'sent',
+      PARTIALLY_RECEIVED: 'partial',
+      RECEIVED: 'received',
+      CANCELLED: 'cancelled',
+    };
+
     return {
       ...po,
+      tenantId: po.restaurantId ?? po.tenantId,
+      rawStatus: po.status,
+      status: statusMap[po.status] || po.status?.toLowerCase(),
       totalAmount: roundedTotal,
       // Compatibility fields for UI / frontend
       number: po.poNumber,
@@ -482,12 +493,29 @@ export class PurchaseOrderService {
       );
     }
 
+    // Normalize status if passed (support lowercase like 'sent', 'cancelled')
+    let resolvedStatus: PurchaseOrderStatus | undefined = undefined;
+    if (dto.status) {
+      const s = String(dto.status).toUpperCase();
+      if (s === 'PARTIAL' || s === 'PARTIALLY_RECEIVED') {
+        resolvedStatus = PurchaseOrderStatus.PARTIALLY_RECEIVED;
+      } else if (s === 'SENT') {
+        resolvedStatus = PurchaseOrderStatus.SENT;
+      } else if (s === 'DRAFT') {
+        resolvedStatus = PurchaseOrderStatus.DRAFT;
+      } else if (s === 'RECEIVED') {
+        resolvedStatus = PurchaseOrderStatus.RECEIVED;
+      } else if (s === 'CANCELLED') {
+        resolvedStatus = PurchaseOrderStatus.CANCELLED;
+      }
+    }
+
     // If status is being transitioned:
-    if (dto.status && dto.status !== existing.status) {
+    if (resolvedStatus && resolvedStatus !== existing.status) {
       if (
         (existing.status === PurchaseOrderStatus.RECEIVED ||
           existing.status === PurchaseOrderStatus.PARTIALLY_RECEIVED) &&
-        dto.status === PurchaseOrderStatus.CANCELLED
+        resolvedStatus === PurchaseOrderStatus.CANCELLED
       ) {
         throw new ConflictException(
           'Orders with received goods cannot be cancelled.',
@@ -495,7 +523,7 @@ export class PurchaseOrderService {
       }
       if (
         existing.status === PurchaseOrderStatus.CANCELLED &&
-        dto.status !== PurchaseOrderStatus.CANCELLED
+        resolvedStatus !== PurchaseOrderStatus.CANCELLED
       ) {
         throw new ConflictException('Cancelled orders cannot be reopened.');
       }
@@ -634,7 +662,7 @@ export class PurchaseOrderService {
           branchId,
           expectedAt: expectedAtDate,
           ...(dto.notes !== undefined && { notes: dto.notes?.trim() || null }),
-          ...(dto.status !== undefined && { status: dto.status }),
+          ...(resolvedStatus !== undefined && { status: resolvedStatus }),
         },
         include: {
           supplier: {
