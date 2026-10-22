@@ -29,6 +29,7 @@ enum PurchaseOrderStatus {
   DRAFT
   SENT
   PARTIAL
+  PARTIALLY_RECEIVED
   RECEIVED
   CANCELLED
 }

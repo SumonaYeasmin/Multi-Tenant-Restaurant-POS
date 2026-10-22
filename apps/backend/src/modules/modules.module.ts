@@ -13,6 +13,8 @@ import { StockMovementModule } from './stock-movement/stock-movement.module';
 import { TableModule } from './table/table.module';
 import { OrderModule } from './order/order.module';
 import { ReservationModule } from './reservation/reservation.module';
+import { SupplierModule } from './supplier/supplier.module';
+import { PurchaseOrderModule } from './purchase-order/purchase-order.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { ReservationModule } from './reservation/reservation.module';
     TableModule,
     OrderModule,
     ReservationModule,
+    SupplierModule,
+    PurchaseOrderModule,
   ],
   exports: [
     TenantRoleModule,
@@ -45,6 +49,8 @@ import { ReservationModule } from './reservation/reservation.module';
     TableModule,
     OrderModule,
     ReservationModule,
+    SupplierModule,
+    PurchaseOrderModule,
   ],
 })
 export class ModulesModule {}
