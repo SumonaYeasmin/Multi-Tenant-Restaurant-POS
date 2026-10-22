@@ -16,6 +16,7 @@ import { ReservationModule } from './reservation/reservation.module';
 import { SupplierModule } from './supplier/supplier.module';
 import { PurchaseOrderModule } from './purchase-order/purchase-order.module';
 import { GoodsReceiptModule } from './goods-receipt/goods-receipt.module';
+import { SupplierReturnModule } from './supplier-return/supplier-return.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { GoodsReceiptModule } from './goods-receipt/goods-receipt.module';
     SupplierModule,
     PurchaseOrderModule,
     GoodsReceiptModule,
+    SupplierReturnModule,
   ],
   exports: [
     TenantRoleModule,
@@ -54,6 +56,7 @@ import { GoodsReceiptModule } from './goods-receipt/goods-receipt.module';
     SupplierModule,
     PurchaseOrderModule,
     GoodsReceiptModule,
+    SupplierReturnModule,
   ],
 })
 export class ModulesModule {}
