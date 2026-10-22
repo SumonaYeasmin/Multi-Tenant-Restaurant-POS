@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ReceiveGoodsDto } from './dto/receive-goods.dto';
+import { GetGoodsReceiptsQueryDto } from './dto/get-goods-receipts-query.dto';
 import { NotFoundException } from '../../common/exceptions/business.exception';
 import {
   MovementReason,
@@ -327,4 +328,262 @@ export class GoodsReceiptService {
       })),
     };
   }
+
+  /**
+   * Get all goods receipts for a tenant restaurant with optional filtering.
+   */
+  async getGoodsReceipts(tenantSlug: string, query: GetGoodsReceiptsQueryDto) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    const where: Prisma.GoodsReceiptWhereInput = {
+      tenantId: tenant.id,
+    };
+
+    if (query.branchId) {
+      where.branchId = query.branchId;
+    }
+
+    if (query.supplierId) {
+      where.supplierId = query.supplierId;
+    }
+
+    if (query.poId) {
+      where.poId = query.poId;
+    }
+
+    if (query.startDate || query.endDate) {
+      where.receivedAt = {};
+      if (query.startDate) {
+        where.receivedAt.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        where.receivedAt.lte = new Date(query.endDate);
+      }
+    }
+
+    if (query.search?.trim()) {
+      const s = query.search.trim();
+      where.OR = [
+        { number: { contains: s, mode: 'insensitive' } },
+        { receivedBy: { contains: s, mode: 'insensitive' } },
+        { notes: { contains: s, mode: 'insensitive' } },
+        { purchaseOrder: { poNumber: { contains: s, mode: 'insensitive' } } },
+        { supplier: { name: { contains: s, mode: 'insensitive' } } },
+      ];
+    }
+
+    const receipts = await this.prisma.goodsReceipt.findMany({
+      where,
+      include: {
+        branch: { select: { id: true, name: true } },
+        supplier: { select: { id: true, name: true, phone: true } },
+        purchaseOrder: {
+          select: { id: true, poNumber: true, status: true, expectedAt: true },
+        },
+        lines: {
+          include: {
+            ingredient: {
+              select: { id: true, name: true, unit: true, category: true },
+            },
+          },
+        },
+      },
+      orderBy: { receivedAt: 'desc' },
+    });
+
+    return receipts.map((r) => {
+      const totalValue = r.lines.reduce(
+        (sum, l) => sum + l.qty * l.unitCost,
+        0,
+      );
+
+      return {
+        id: r.id,
+        number: r.number,
+        poId: r.poId,
+        poNumber: r.purchaseOrder?.poNumber || '',
+        poStatus: r.purchaseOrder?.status || null,
+        supplierId: r.supplierId,
+        supplierName: r.supplier?.name || '',
+        branchId: r.branchId,
+        branchName: r.branch?.name || '',
+        receivedBy: r.receivedBy || 'Staff',
+        receivedAt: r.receivedAt.toISOString(),
+        notes: r.notes || '',
+        lines: r.lines.map((l) => ({
+          id: l.id,
+          ingredientId: l.ingredientId,
+          name: l.ingredient?.name || '',
+          unit: l.ingredient?.unit || '',
+          qty: l.qty,
+          unitCost: l.unitCost,
+          subtotal: Math.round(l.qty * l.unitCost * 100) / 100,
+        })),
+        totalValue: Math.round(totalValue * 100) / 100,
+        createdAt: r.createdAt.toISOString(),
+      };
+    });
+  }
+
+  /**
+   * Get all purchase orders awaiting delivery (status SENT or PARTIALLY_RECEIVED)
+   * for the Receiving page.
+   */
+  async getAwaitingOrders(tenantSlug: string, branchId?: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    const where: Prisma.PurchaseOrderWhereInput = {
+      restaurantId: tenant.id,
+      status: {
+        in: [PurchaseOrderStatus.SENT, PurchaseOrderStatus.PARTIALLY_RECEIVED],
+      },
+    };
+
+    if (branchId) {
+      where.branchId = branchId;
+    }
+
+    const orders = await this.prisma.purchaseOrder.findMany({
+      where,
+      include: {
+        supplier: {
+          select: { id: true, name: true, phone: true, email: true },
+        },
+        branch: { select: { id: true, name: true } },
+        items: {
+          include: {
+            ingredient: {
+              select: { id: true, name: true, unit: true, category: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return orders.map((o) => {
+      const lines = o.items.map((item) => {
+        const remaining = Math.max(0, item.quantity - item.receivedQty);
+        return {
+          id: item.id,
+          ingredientId: item.ingredientId,
+          name: item.ingredient?.name || '',
+          unit: item.ingredient?.unit || '',
+          qty: item.quantity,
+          receivedQty: item.receivedQty,
+          remainingQty: Math.round(remaining * 1000) / 1000,
+          unitCost: item.unitCost,
+          subtotal: Math.round(item.quantity * item.unitCost * 100) / 100,
+        };
+      });
+
+      const total = lines.reduce((sum, l) => sum + l.subtotal, 0);
+
+      return {
+        id: o.id,
+        number: o.poNumber,
+        status: o.status === PurchaseOrderStatus.SENT ? 'sent' : 'partial',
+        rawStatus: o.status,
+        branchId: o.branchId,
+        branchName: o.branch?.name || '',
+        supplierId: o.supplierId,
+        supplierName: o.supplier?.name || '',
+        expectedDate: o.expectedAt ? o.expectedAt.toISOString() : null,
+        notes: o.notes || '',
+        lines,
+        total: Math.round(total * 100) / 100,
+        createdAt: o.createdAt.toISOString(),
+      };
+    });
+  }
+
+  /**
+   * Get details of a single goods receipt by ID.
+   */
+  async getGoodsReceiptById(tenantSlug: string, id: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    const receipt = await this.prisma.goodsReceipt.findFirst({
+      where: {
+        id,
+        tenantId: tenant.id,
+      },
+      include: {
+        branch: { select: { id: true, name: true } },
+        supplier: {
+          select: { id: true, name: true, phone: true, email: true },
+        },
+        purchaseOrder: {
+          select: {
+            id: true,
+            poNumber: true,
+            status: true,
+            expectedAt: true,
+            notes: true,
+          },
+        },
+        lines: {
+          include: {
+            ingredient: {
+              select: { id: true, name: true, unit: true, category: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!receipt) {
+      throw new NotFoundException('Goods receipt');
+    }
+
+    const totalValue = receipt.lines.reduce(
+      (sum, l) => sum + l.qty * l.unitCost,
+      0,
+    );
+
+    return {
+      id: receipt.id,
+      number: receipt.number,
+      poId: receipt.poId,
+      poNumber: receipt.purchaseOrder?.poNumber || '',
+      poStatus: receipt.purchaseOrder?.status || null,
+      supplierId: receipt.supplierId,
+      supplierName: receipt.supplier?.name || '',
+      branchId: receipt.branchId,
+      branchName: receipt.branch?.name || '',
+      receivedBy: receipt.receivedBy || 'Staff',
+      receivedAt: receipt.receivedAt.toISOString(),
+      notes: receipt.notes || '',
+      lines: receipt.lines.map((l) => ({
+        id: l.id,
+        ingredientId: l.ingredientId,
+        name: l.ingredient?.name || '',
+        unit: l.ingredient?.unit || '',
+        qty: l.qty,
+        unitCost: l.unitCost,
+        subtotal: Math.round(l.qty * l.unitCost * 100) / 100,
+      })),
+      totalValue: Math.round(totalValue * 100) / 100,
+      createdAt: receipt.createdAt.toISOString(),
+    };
+  }
 }
+
