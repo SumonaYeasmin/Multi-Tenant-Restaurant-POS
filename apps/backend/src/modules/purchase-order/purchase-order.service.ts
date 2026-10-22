@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
+import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { GetPurchaseOrdersQueryDto } from './dto/get-purchase-orders-query.dto';
 import {
   NotFoundException,
@@ -429,5 +431,243 @@ export class PurchaseOrderService {
     }
 
     return this.formatPurchaseOrder(order);
+  }
+
+  /**
+   * Update an existing purchase order (only draft orders can be fully edited)
+   */
+  async updatePurchaseOrder(
+    tenantSlug: string,
+    id: string,
+    dto: UpdatePurchaseOrderDto,
+  ) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch existing purchase order
+    const existing = await this.prisma.purchaseOrder.findFirst({
+      where: {
+        id,
+        restaurantId: tenant.id,
+      },
+      include: {
+        goodsReceipts: true,
+        items: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Purchase order');
+    }
+
+    // 3. Status rule verification:
+    // If order is not in DRAFT status, items/supplier/branch cannot be changed
+    const isEditingContent =
+      dto.items !== undefined ||
+      dto.lines !== undefined ||
+      dto.supplierId !== undefined ||
+      dto.branchId !== undefined ||
+      dto.expectedAt !== undefined ||
+      dto.expectedDate !== undefined;
+
+    if (existing.status !== PurchaseOrderStatus.DRAFT && isEditingContent) {
+      throw new ConflictException(
+        `Only draft purchase orders can be edited. Current status is ${existing.status}.`,
+      );
+    }
+
+    // If status is being transitioned:
+    if (dto.status && dto.status !== existing.status) {
+      if (
+        (existing.status === PurchaseOrderStatus.RECEIVED ||
+          existing.status === PurchaseOrderStatus.PARTIALLY_RECEIVED) &&
+        dto.status === PurchaseOrderStatus.CANCELLED
+      ) {
+        throw new ConflictException(
+          'Orders with received goods cannot be cancelled.',
+        );
+      }
+      if (
+        existing.status === PurchaseOrderStatus.CANCELLED &&
+        dto.status !== PurchaseOrderStatus.CANCELLED
+      ) {
+        throw new ConflictException('Cancelled orders cannot be reopened.');
+      }
+    }
+
+    // 4. If supplierId changed, verify supplier
+    let supplierId = existing.supplierId;
+    if (dto.supplierId && dto.supplierId !== existing.supplierId) {
+      const supplier = await this.prisma.supplier.findFirst({
+        where: {
+          id: dto.supplierId,
+          tenantId: tenant.id,
+          isDeleted: false,
+        },
+      });
+
+      if (!supplier) {
+        throw new NotFoundException('Supplier');
+      }
+
+      if (!supplier.active) {
+        throw new BadRequestException('This supplier is inactive');
+      }
+      supplierId = supplier.id;
+    }
+
+    // 5. If branchId changed, verify branch
+    let branchId = existing.branchId;
+    if (dto.branchId && dto.branchId !== existing.branchId) {
+      const branch = await this.prisma.branch.findFirst({
+        where: {
+          id: dto.branchId,
+          tenantId: tenant.id,
+        },
+      });
+
+      if (!branch) {
+        throw new NotFoundException('Branch');
+      }
+      branchId = branch.id;
+    }
+
+    // 6. Validate items if provided
+    const rawItems = dto.items ?? dto.lines;
+    let itemsToUpdate:
+      | { ingredientId: string; quantity: number; unitCost: number }[]
+      | null = null;
+
+    if (rawItems !== undefined) {
+      if (!rawItems.length) {
+        throw new BadRequestException(
+          'Purchase order must have at least one item',
+        );
+      }
+
+      itemsToUpdate = rawItems.map((item) => ({
+        ingredientId: item.ingredientId,
+        quantity: Number(item.quantity ?? item.qty ?? 0),
+        unitCost: Number(item.unitCost ?? 0),
+      }));
+
+      for (const item of itemsToUpdate) {
+        if (!item.ingredientId) {
+          throw new BadRequestException(
+            'Each item must specify an ingredientId',
+          );
+        }
+        if (item.quantity <= 0) {
+          throw new BadRequestException(
+            'Each item quantity must be greater than zero',
+          );
+        }
+        if (item.unitCost < 0) {
+          throw new BadRequestException(
+            'Each item unit cost must be zero or positive',
+          );
+        }
+      }
+
+      const ingredientIds = itemsToUpdate.map((i) => i.ingredientId);
+      if (new Set(ingredientIds).size !== itemsToUpdate.length) {
+        throw new BadRequestException(
+          'Each ingredient can appear only once in a purchase order',
+        );
+      }
+
+      const existingIngredients = await this.prisma.ingredient.findMany({
+        where: {
+          id: { in: ingredientIds },
+          tenantId: tenant.id,
+          isDeleted: false,
+        },
+      });
+
+      if (existingIngredients.length !== itemsToUpdate.length) {
+        throw new BadRequestException(
+          'One or more ingredients do not exist or have been deleted',
+        );
+      }
+    }
+
+    // Resolve expected date
+    const expectedAtDate =
+      dto.expectedAt !== undefined
+        ? dto.expectedAt
+          ? new Date(dto.expectedAt)
+          : null
+        : dto.expectedDate !== undefined
+          ? dto.expectedDate
+            ? new Date(dto.expectedDate)
+            : null
+          : existing.expectedAt;
+
+    // 7. Execute update in transaction
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // If items updated, replace them
+      if (itemsToUpdate !== null) {
+        await tx.purchaseOrderItem.deleteMany({
+          where: { purchaseOrderId: id },
+        });
+
+        await tx.purchaseOrderItem.createMany({
+          data: itemsToUpdate.map((item) => ({
+            purchaseOrderId: id,
+            ingredientId: item.ingredientId,
+            quantity: item.quantity,
+            unitCost: item.unitCost,
+          })),
+        });
+      }
+
+      return tx.purchaseOrder.update({
+        where: { id },
+        data: {
+          supplierId,
+          branchId,
+          expectedAt: expectedAtDate,
+          ...(dto.notes !== undefined && { notes: dto.notes?.trim() || null }),
+          ...(dto.status !== undefined && { status: dto.status }),
+        },
+        include: {
+          supplier: {
+            select: {
+              id: true,
+              name: true,
+              contact: true,
+              phone: true,
+              email: true,
+            },
+          },
+          branch: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          items: {
+            include: {
+              ingredient: {
+                select: {
+                  id: true,
+                  name: true,
+                  unit: true,
+                  category: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    });
+
+    return this.formatPurchaseOrder(updated);
   }
 }
