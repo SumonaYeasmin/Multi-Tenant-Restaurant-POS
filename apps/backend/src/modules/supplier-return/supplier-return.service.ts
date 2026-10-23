@@ -69,8 +69,10 @@ export class SupplierReturnService {
     user?: any,
   ) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
     if (!tenant) {
       throw new NotFoundException('Restaurant');
@@ -289,8 +291,10 @@ export class SupplierReturnService {
     tenantSlug: string,
     query: GetSupplierReturnsQueryDto,
   ) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
     if (!tenant) {
       throw new NotFoundException('Restaurant');
@@ -371,8 +375,10 @@ export class SupplierReturnService {
    * Get single supplier return by ID
    */
   async getSupplierReturnById(tenantSlug: string, id: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
     if (!tenant) {
       throw new NotFoundException('Restaurant');

@@ -109,8 +109,10 @@ export class PurchaseOrderService {
     user?: any,
   ) {
     // 1. Verify tenant / restaurant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -298,8 +300,10 @@ export class PurchaseOrderService {
     query?: GetPurchaseOrdersQueryDto,
   ) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -381,8 +385,10 @@ export class PurchaseOrderService {
    */
   async getPurchaseOrderById(tenantSlug: string, id: string) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -453,8 +459,10 @@ export class PurchaseOrderService {
     dto: UpdatePurchaseOrderDto,
   ) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -698,4 +706,55 @@ export class PurchaseOrderService {
 
     return this.formatPurchaseOrder(updated);
   }
+
+  /**
+   * Soft-delete / cancel a purchase order
+   */
+  async deletePurchaseOrder(tenantSlug: string, id: string) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    // 2. Fetch existing purchase order
+    const existing = await this.prisma.purchaseOrder.findFirst({
+      where: {
+        id,
+        restaurantId: tenant.id,
+      },
+      include: {
+        goodsReceipts: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Purchase order');
+    }
+
+    // 3. Validation: Orders with received goods cannot be cancelled
+    if (existing.goodsReceipts && existing.goodsReceipts.length > 0) {
+      throw new ConflictException(
+        'Orders with received goods cannot be cancelled or deleted.',
+      );
+    }
+
+    if (existing.status === PurchaseOrderStatus.CANCELLED) {
+      return { message: 'Purchase order is already cancelled' };
+    }
+
+    // 4. Mark status as CANCELLED
+    await this.prisma.purchaseOrder.update({
+      where: { id },
+      data: { status: PurchaseOrderStatus.CANCELLED },
+    });
+
+    return { message: 'Purchase order cancelled successfully' };
+  }
 }
+
