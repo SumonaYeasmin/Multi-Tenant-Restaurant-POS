@@ -2,6 +2,7 @@ import { ApiError, commit, latency, tenantDb, uid } from "@/mocks/db";
 import { TENANTS } from "@/mocks/platform";
 import { computeTotals, round2 } from "@/lib/pricing";
 import { awardLoyalty, checkPromotion } from "./people.service";
+import { backendFetch } from "./api-client";
 import type {
   Category,
   Combo,
@@ -44,6 +45,24 @@ export interface MenuBundle {
 }
 
 export async function getMenu(tenantId: string): Promise<MenuBundle> {
+  try {
+    const backendCategories = await backendFetch<Category[]>(`/tenants/${tenantId}/categories?activeOnly=true`);
+    if (Array.isArray(backendCategories)) {
+      const db = tenantDb(tenantId);
+      db.categories = backendCategories.map((c, idx) => ({
+        id: c.id,
+        tenantId: c.tenantId || tenantId,
+        name: c.name,
+        sort: c.sort ?? idx,
+      }));
+      commit(tenantId);
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch categories from backend, using local store:", err);
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   return { categories: [...db.categories].sort((a, b) => a.sort - b.sort), items: db.menuItems, modifierGroups: db.modifierGroups, combos: db.combos };

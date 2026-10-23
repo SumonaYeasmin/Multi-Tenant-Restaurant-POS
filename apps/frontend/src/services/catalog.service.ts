@@ -1,5 +1,6 @@
 import { ApiError, commit, latency, tenantDb, uid } from "@/mocks/db";
 import { round2 } from "@/lib/pricing";
+import { backendFetch } from "./api-client";
 import type { Category, Combo, Ingredient, MenuItem, ModifierGroup, RecipeLine } from "@/types/domain";
 
 // Menu catalog: categories, items (variants/modifiers), modifier groups, combos, recipes.
@@ -16,9 +17,65 @@ const nonNegative = (n: number, field: string) => {
 
 // ---------- Categories ----------
 export async function saveCategory(tenantId: string, input: { id?: string | undefined; name: string }): Promise<Category> {
+  const name = nonEmpty(input.name, "Name");
+
+  // Call backend API when creating a new category
+  if (!input.id) {
+    try {
+      const saved = await backendFetch<Category>(`/tenants/${tenantId}/categories`, {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+
+      if (saved && saved.id) {
+        const db = tenantDb(tenantId);
+        const mapped: Category = {
+          id: saved.id,
+          tenantId: saved.tenantId || tenantId,
+          name: saved.name,
+          sort: saved.sort ?? db.categories.length,
+        };
+        db.categories.push(mapped);
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for saving category, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // Call backend API when updating an existing category
+  if (input.id) {
+    try {
+      const updated = await backendFetch<Category>(`/tenants/${tenantId}/categories/${input.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name }),
+      });
+
+      if (updated) {
+        const db = tenantDb(tenantId);
+        const c = db.categories.find((x) => x.id === input.id);
+        if (c) {
+          c.name = updated.name || name;
+          commit(tenantId);
+          return c;
+        }
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for updating category, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
-  const name = nonEmpty(input.name, "Name");
   if (db.categories.some((c) => c.name.toLowerCase() === name.toLowerCase() && c.id !== input.id)) throw new ApiError(409, "A category with this name already exists.");
   if (input.id) {
     const c = db.categories.find((x) => x.id === input.id);
@@ -47,6 +104,18 @@ export async function moveCategory(tenantId: string, id: string, dir: -1 | 1): P
 }
 
 export async function deleteCategory(tenantId: string, id: string): Promise<{ ok: true }> {
+  try {
+    await backendFetch<{ message: string }>(`/tenants/${tenantId}/categories/${id}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for deleting category, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   const count = db.menuItems.filter((m) => m.categoryId === id).length;
