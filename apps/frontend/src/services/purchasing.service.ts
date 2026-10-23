@@ -1,5 +1,6 @@
 import { ApiError, commit, latency, tenantDb, uid } from "@/mocks/db";
 import { round2 } from "@/lib/pricing";
+import { backendFetch } from "./api-client";
 import { applyMovement } from "./stock.service";
 import type { GoodsReceipt, PurchaseOrder, Supplier, SupplierReturn } from "@/types/domain";
 
@@ -8,6 +9,31 @@ import type { GoodsReceipt, PurchaseOrder, Supplier, SupplierReturn } from "@/ty
 
 // ---------- Suppliers ----------
 export async function listSuppliers(tenantId: string): Promise<Supplier[]> {
+  try {
+    const backendSuppliers = await backendFetch<any[]>(`/tenants/${tenantId}/suppliers`);
+    if (Array.isArray(backendSuppliers)) {
+      const mappedList: Supplier[] = backendSuppliers.map((s) => ({
+        id: s.id,
+        tenantId: s.tenantId || tenantId,
+        name: s.name,
+        contact: s.contact ?? "",
+        phone: s.phone ?? "",
+        email: s.email ?? "",
+        supplies: s.supplies ?? "",
+        paymentTerms: s.paymentTerms ?? "Net 14",
+        active: s.active ?? true,
+      }));
+      const db = tenantDb(tenantId);
+      db.suppliers = mappedList;
+      commit(tenantId);
+      return mappedList;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch suppliers from backend, using local store:", err);
+    }
+  }
+
   await latency();
   return tenantDb(tenantId).suppliers;
 }
@@ -15,10 +41,101 @@ export async function listSuppliers(tenantId: string): Promise<Supplier[]> {
 export type SupplierInput = Omit<Supplier, "id" | "tenantId"> & { id?: string | undefined };
 
 export async function saveSupplier(tenantId: string, input: SupplierInput): Promise<Supplier> {
-  await latency();
-  const db = tenantDb(tenantId);
   const name = input.name.trim();
   if (!name) throw new ApiError(422, "Name is required.");
+
+  // Call backend API when creating a new supplier
+  if (!input.id) {
+    try {
+      const saved = await backendFetch<any>(`/tenants/${tenantId}/suppliers`, {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          contact: input.contact?.trim() || "",
+          phone: input.phone?.trim() || "",
+          email: input.email?.trim() || undefined,
+          supplies: input.supplies?.trim() || "",
+          paymentTerms: input.paymentTerms?.trim() || "Net 14",
+          active: input.active !== undefined ? input.active : true,
+        }),
+      });
+
+      if (saved && saved.id) {
+        const mapped: Supplier = {
+          id: saved.id,
+          tenantId: saved.tenantId || tenantId,
+          name: saved.name,
+          contact: saved.contact ?? "",
+          phone: saved.phone ?? "",
+          email: saved.email ?? "",
+          supplies: saved.supplies ?? "",
+          paymentTerms: saved.paymentTerms ?? "Net 14",
+          active: saved.active ?? true,
+        };
+
+        const db = tenantDb(tenantId);
+        const idx = db.suppliers.findIndex((x) => x.id === saved.id);
+        if (idx >= 0) db.suppliers[idx] = mapped;
+        else db.suppliers.push(mapped);
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for creating supplier, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // Call backend API when updating an existing supplier
+  if (input.id) {
+    try {
+      const updated = await backendFetch<any>(`/tenants/${tenantId}/suppliers/${input.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name,
+          contact: input.contact?.trim() || "",
+          phone: input.phone?.trim() || "",
+          email: input.email?.trim() || undefined,
+          supplies: input.supplies?.trim() || "",
+          paymentTerms: input.paymentTerms?.trim() || "Net 14",
+          active: input.active !== undefined ? input.active : true,
+        }),
+      });
+
+      if (updated && updated.id) {
+        const mapped: Supplier = {
+          id: updated.id,
+          tenantId: updated.tenantId || tenantId,
+          name: updated.name || name,
+          contact: updated.contact ?? "",
+          phone: updated.phone ?? "",
+          email: updated.email ?? "",
+          supplies: updated.supplies ?? "",
+          paymentTerms: updated.paymentTerms ?? "Net 14",
+          active: updated.active ?? true,
+        };
+
+        const db = tenantDb(tenantId);
+        const idx = db.suppliers.findIndex((x) => x.id === input.id);
+        if (idx >= 0) db.suppliers[idx] = mapped;
+        else db.suppliers.push(mapped);
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for updating supplier, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  await latency();
+  const db = tenantDb(tenantId);
   if (db.suppliers.some((s) => s.name.toLowerCase() === name.toLowerCase() && s.id !== input.id)) throw new ApiError(409, "A supplier with this name already exists.");
   const { id: _id, ...rest } = input;
   void _id;
