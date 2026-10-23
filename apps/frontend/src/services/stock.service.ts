@@ -115,17 +115,28 @@ export async function saveIngredient(tenantId: string, input: IngredientInput): 
 
       if (updated && updated.id) {
         const db = tenantDb(tenantId);
-        const ing = db.ingredients.find((i) => i.id === input.id && i.branchId === input.branchId);
-        if (ing) {
-          Object.assign(ing, {
-            name: updated.name || name,
-            unit: updated.unit || input.unit.trim(),
-            reorderLevel: input.reorderLevel,
-            unitCost: round2(input.unitCost),
-          });
-          commit(tenantId);
-          return ing;
-        }
+        const bStock = updated.branchStocks?.find((b: any) => b.branchId === input.branchId) ?? updated.branchStocks?.[0];
+        const stock = bStock?.currentStock ?? 0;
+        const reorderLevel = bStock?.reorderLevel ?? input.reorderLevel ?? 0;
+        const unitCost = bStock?.unitCost ?? updated.costPerUnit ?? input.unitCost ?? 0;
+
+        const mapped: Ingredient = {
+          id: updated.id,
+          tenantId: updated.tenantId || tenantId,
+          branchId: input.branchId,
+          key: updated.id,
+          name: updated.name || name,
+          unit: updated.unit || input.unit.trim(),
+          stock: Number(stock) || 0,
+          reorderLevel: Number(reorderLevel) || 0,
+          unitCost: Number(unitCost) || 0,
+        };
+
+        const idx = db.ingredients.findIndex((i) => i.id === input.id && i.branchId === input.branchId);
+        if (idx >= 0) db.ingredients[idx] = mapped;
+        else db.ingredients.push(mapped);
+        commit(tenantId);
+        return mapped;
       }
     } catch (err) {
       if (err instanceof ApiError && err.status === 503) {
@@ -151,6 +162,26 @@ export async function saveIngredient(tenantId: string, input: IngredientInput): 
   if (input.openingStock && input.openingStock > 0) applyMovement(db, ing, input.openingStock, "adjustment", "Opening stock");
   commit(tenantId);
   return ing;
+}
+
+export async function deleteIngredient(tenantId: string, id: string, branchId?: string): Promise<{ ok: true }> {
+  try {
+    await backendFetch<any>(`/tenants/${tenantId}/inventory/ingredients/${id}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for deleting ingredient, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
+  await latency();
+  const db = tenantDb(tenantId);
+  db.ingredients = db.ingredients.filter((i) => !(i.id === id && (!branchId || i.branchId === branchId)));
+  commit(tenantId);
+  return { ok: true };
 }
 
 export interface AdjustmentInput {

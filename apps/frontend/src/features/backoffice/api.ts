@@ -89,6 +89,10 @@ export const backofficeApi = api2.injectEndpoints({
       queryFn: ({ tenantId, ...i }) => run(() => stock.saveIngredient(tenantId, i)),
       invalidatesTags: [...STOCK, "Recipe"],
     }),
+    deleteIngredient: b.mutation<{ ok: true }, T<{ id: string; branchId?: string }>>({
+      queryFn: ({ tenantId, id, branchId }) => run(() => stock.deleteIngredient(tenantId, id, branchId)),
+      invalidatesTags: [...STOCK, "Recipe"],
+    }),
     adjustStock: b.mutation<Ingredient, T<stock.AdjustmentInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => stock.adjustStock(tenantId, i)),
       invalidatesTags: [...STOCK],
@@ -160,6 +164,7 @@ export const {
   useRecipeCostsQuery,
   useSaveRecipeMutation,
   useSaveIngredientMutation,
+  useDeleteIngredientMutation,
   useAdjustStockMutation,
   useStockCountsQuery,
   useSubmitStockCountMutation,
