@@ -25,6 +25,10 @@ export const backofficeApi = api2.injectEndpoints({
       queryFn: ({ tenantId, id }) => run(() => catalog.deleteCategory(tenantId, id)),
       invalidatesTags: [...MENU],
     }),
+    menuItems: b.query<MenuItem[], string>({
+      queryFn: (tenantId) => run(() => catalog.listMenuItems(tenantId)),
+      providesTags: [...MENU],
+    }),
     saveMenuItem: b.mutation<MenuItem, T<catalog.MenuItemInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => catalog.saveMenuItem(tenantId, i)),
       invalidatesTags: [...MENU, "Recipe"],
@@ -134,6 +138,7 @@ export const {
   useSaveCategoryMutation,
   useMoveCategoryMutation,
   useDeleteCategoryMutation,
+  useMenuItemsQuery,
   useSaveMenuItemMutation,
   useSetItemAvailabilityMutation,
   useDeleteMenuItemMutation,

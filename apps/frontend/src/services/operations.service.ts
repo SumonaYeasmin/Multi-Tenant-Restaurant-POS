@@ -111,6 +111,35 @@ export async function getMenu(tenantId: string): Promise<MenuBundle> {
     }
   }
 
+  try {
+    const backendItems = await backendFetch<any[]>(`/tenants/${tenantId}/menu-items`);
+    if (Array.isArray(backendItems)) {
+      const db = tenantDb(tenantId);
+      db.menuItems = backendItems.map((item) => ({
+        id: item.id,
+        tenantId: item.tenantId || tenantId,
+        categoryId: item.categoryId,
+        name: item.name,
+        description: item.description ?? "",
+        price: Number(item.price) || 0,
+        available: item.available ?? true,
+        tags: item.tags ?? [],
+        modifierGroupIds: item.modifierGroupIds ?? [],
+        variants: (item.variants || []).map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          priceDelta: Number(v.priceDelta) || 0,
+        })),
+        recipe: [],
+      }));
+      commit(tenantId);
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch menu items from backend, using local store:", err);
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   return { categories: [...db.categories].sort((a, b) => a.sort - b.sort), items: db.menuItems, modifierGroups: db.modifierGroups, combos: db.combos };
