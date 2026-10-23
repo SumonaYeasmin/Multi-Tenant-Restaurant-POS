@@ -37,6 +37,10 @@ export const backofficeApi = api2.injectEndpoints({
       queryFn: ({ tenantId, id }) => run(() => catalog.deleteMenuItem(tenantId, id)),
       invalidatesTags: [...MENU, "Recipe"],
     }),
+    modifierGroups: b.query<ModifierGroup[], string>({
+      queryFn: (tenantId) => run(() => catalog.listModifierGroups(tenantId)),
+      providesTags: [...MENU],
+    }),
     saveModifierGroup: b.mutation<ModifierGroup, T<catalog.ModifierGroupInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => catalog.saveModifierGroup(tenantId, i)),
       invalidatesTags: [...MENU],
@@ -44,6 +48,10 @@ export const backofficeApi = api2.injectEndpoints({
     deleteModifierGroup: b.mutation<{ ok: true }, T<{ id: string }>>({
       queryFn: ({ tenantId, id }) => run(() => catalog.deleteModifierGroup(tenantId, id)),
       invalidatesTags: [...MENU],
+    }),
+    combos: b.query<Combo[], string>({
+      queryFn: (tenantId) => run(() => catalog.listCombos(tenantId)),
+      providesTags: [...MENU],
     }),
     saveCombo: b.mutation<Combo, T<catalog.ComboInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => catalog.saveCombo(tenantId, i)),
@@ -129,8 +137,10 @@ export const {
   useSaveMenuItemMutation,
   useSetItemAvailabilityMutation,
   useDeleteMenuItemMutation,
+  useModifierGroupsQuery,
   useSaveModifierGroupMutation,
   useDeleteModifierGroupMutation,
+  useCombosQuery,
   useSaveComboMutation,
   useDeleteComboMutation,
   useRecipeCostsQuery,
