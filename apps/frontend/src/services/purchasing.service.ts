@@ -526,22 +526,190 @@ export async function deletePurchaseOrder(tenantId: string, id: string): Promise
 }
 
 // ---------- Receiving ----------
-export async function listReceipts(tenantId: string, branchId: string): Promise<GoodsReceipt[]> {
+export interface GoodsReceiptFilters {
+  branchId?: string;
+  supplierId?: string;
+  poId?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface ReceiveGoodsInput {
+  poId: string;
+  lines: { ingredientId: string; qty: number; unitCost: number }[];
+  receivedBy: string;
+  notes?: string;
+}
+
+function mapBackendGoodsReceipt(r: any, tenantId: string, fallbackBranchId = ""): GoodsReceipt {
+  return {
+    id: r.id,
+    tenantId: r.tenantId || tenantId,
+    branchId: r.branchId || fallbackBranchId,
+    number: r.number || "",
+    poId: r.poId || "",
+    poNumber: r.poNumber || r.purchaseOrder?.poNumber || "",
+    supplierName: r.supplierName || r.supplier?.name || "",
+    lines: (r.lines || []).map((l: any) => ({
+      ingredientId: l.ingredientId,
+      name: l.name || l.ingredient?.name || "",
+      unit: l.unit || l.ingredient?.unit || "",
+      qty: Number(l.qty ?? 0),
+      unitCost: Number(l.unitCost ?? 0),
+    })),
+    receivedBy: r.receivedBy || "Staff",
+    receivedAt: r.receivedAt ? new Date(r.receivedAt).toISOString() : new Date().toISOString(),
+  };
+}
+
+export async function listReceipts(
+  tenantId: string,
+  branchIdOrFilters?: string | GoodsReceiptFilters,
+): Promise<GoodsReceipt[]> {
+  const filters: GoodsReceiptFilters =
+    typeof branchIdOrFilters === "string"
+      ? { branchId: branchIdOrFilters }
+      : (branchIdOrFilters ?? {});
+
+  try {
+    const params = new URLSearchParams();
+    if (filters.branchId) params.append("branchId", filters.branchId);
+    if (filters.supplierId) params.append("supplierId", filters.supplierId);
+    if (filters.poId) params.append("poId", filters.poId);
+    if (filters.search) params.append("search", filters.search);
+    if (filters.startDate) params.append("startDate", filters.startDate);
+    if (filters.endDate) params.append("endDate", filters.endDate);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+
+    const backendReceipts = await backendFetch<any[]>(`/tenants/${tenantId}/goods-receipts${qs}`);
+    if (Array.isArray(backendReceipts)) {
+      const mappedList = backendReceipts.map((r) => mapBackendGoodsReceipt(r, tenantId, filters.branchId));
+      const db = tenantDb(tenantId);
+      for (const grn of mappedList) {
+        const idx = db.receipts.findIndex((x) => x.id === grn.id);
+        if (idx >= 0) db.receipts[idx] = grn;
+        else db.receipts.unshift(grn);
+      }
+      commit(tenantId);
+      return mappedList;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch goods receipts from backend, using local store:", err);
+    }
+  }
+
   await latency();
-  return tenantDb(tenantId).receipts.filter((r) => r.branchId === branchId);
+  return tenantDb(tenantId).receipts.filter((r) => !filters.branchId || r.branchId === filters.branchId);
+}
+
+export async function getGoodsReceipt(tenantId: string, id: string): Promise<GoodsReceipt> {
+  try {
+    const r = await backendFetch<any>(`/tenants/${tenantId}/goods-receipts/${id}`);
+    if (r && r.id) {
+      const mapped = mapBackendGoodsReceipt(r, tenantId);
+      const db = tenantDb(tenantId);
+      const idx = db.receipts.findIndex((x) => x.id === id);
+      if (idx >= 0) db.receipts[idx] = mapped;
+      else db.receipts.unshift(mapped);
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch goods receipt from backend, using local store:", err);
+    }
+  }
+
+  await latency();
+  const receipt = tenantDb(tenantId).receipts.find((r) => r.id === id);
+  if (!receipt) throw new ApiError(404, "Goods receipt not found.");
+  return receipt;
+}
+
+export async function listAwaitingOrders(tenantId: string, branchId?: string): Promise<any[]> {
+  try {
+    const qs = branchId ? `?branchId=${branchId}` : "";
+    const backendAwaiting = await backendFetch<any[]>(`/tenants/${tenantId}/goods-receipts/awaiting-orders${qs}`);
+    if (Array.isArray(backendAwaiting)) {
+      return backendAwaiting;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch awaiting orders from backend, using local store:", err);
+    }
+  }
+
+  await latency();
+  return tenantDb(tenantId)
+    .purchaseOrders.filter((p) => (!branchId || p.branchId === branchId) && ["sent", "partial"].includes(p.status));
 }
 
 export async function receiveGoods(
   tenantId: string,
-  input: { poId: string; lines: { ingredientId: string; qty: number; unitCost: number }[]; receivedBy: string },
+  input: ReceiveGoodsInput,
 ): Promise<GoodsReceipt> {
+  const lines = input.lines.filter((l) => l.qty > 0);
+  if (!lines.length) throw new ApiError(422, "Enter a received quantity for at least one line.");
+
+  try {
+    const created = await backendFetch<any>(`/tenants/${tenantId}/goods-receipts`, {
+      method: "POST",
+      body: JSON.stringify({
+        poId: input.poId,
+        receivedBy: input.receivedBy,
+        notes: input.notes?.trim() || undefined,
+        lines: lines.map((l) => ({
+          ingredientId: l.ingredientId,
+          qty: Number(l.qty),
+          unitCost: Number(l.unitCost),
+        })),
+      }),
+    });
+
+    if (created && created.id) {
+      const mapped = mapBackendGoodsReceipt(created, tenantId);
+      const db = tenantDb(tenantId);
+      const idx = db.receipts.findIndex((x) => x.id === created.id);
+      if (idx >= 0) db.receipts[idx] = mapped;
+      else db.receipts.unshift(mapped);
+
+      // Also update local purchase order state if cached in db
+      const localPo = db.purchaseOrders.find((p) => p.id === input.poId);
+      if (localPo) {
+        for (const line of lines) {
+          const pl = localPo.lines.find((x) => x.ingredientId === line.ingredientId);
+          if (pl) pl.receivedQty = Math.round((pl.receivedQty + line.qty) * 1000) / 1000;
+        }
+        localPo.status = localPo.lines.every((l) => l.receivedQty >= l.qty) ? "received" : "partial";
+      }
+
+      // Also sync local ingredient unitCost & movement
+      for (const line of lines) {
+        const ing = db.ingredients.find((i) => i.id === line.ingredientId && (!localPo || i.branchId === localPo.branchId));
+        if (ing) {
+          ing.unitCost = round2(line.unitCost);
+          applyMovement(db, ing, line.qty, "purchase", `${mapped.number} / ${mapped.poNumber}`);
+        }
+      }
+
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for receiving goods, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency(300, 600);
   const db = tenantDb(tenantId);
   const po = db.purchaseOrders.find((p) => p.id === input.poId);
   if (!po) throw new ApiError(404, "Purchase order not found.");
   if (!["sent", "partial"].includes(po.status)) throw new ApiError(409, "Only sent orders can be received.");
-  const lines = input.lines.filter((l) => l.qty > 0);
-  if (!lines.length) throw new ApiError(422, "Enter a received quantity for at least one line.");
   db.docSeq += 1;
   const number = `GRN-${db.docSeq}`;
   const received = lines.map((l) => {

@@ -147,11 +147,19 @@ export const backofficeApi = api2.injectEndpoints({
       queryFn: ({ tenantId, id }) => run(() => purchasing.deletePurchaseOrder(tenantId, id)),
       invalidatesTags: ["PurchaseOrder"],
     }),
-    receipts: b.query<GoodsReceipt[], T<{ branchId: string }>>({
-      queryFn: ({ tenantId, branchId }) => run(() => purchasing.listReceipts(tenantId, branchId)),
+    receipts: b.query<GoodsReceipt[], T<{ branchId?: string } & purchasing.GoodsReceiptFilters>>({
+      queryFn: ({ tenantId, ...filters }) => run(() => purchasing.listReceipts(tenantId, filters)),
       providesTags: ["Receipt"],
     }),
-    receiveGoods: b.mutation<GoodsReceipt, T<{ poId: string; lines: { ingredientId: string; qty: number; unitCost: number }[]; receivedBy: string }>>({
+    receipt: b.query<GoodsReceipt, T<{ id: string }>>({
+      queryFn: ({ tenantId, id }) => run(() => purchasing.getGoodsReceipt(tenantId, id)),
+      providesTags: (_r, _e, a) => [{ type: "Receipt" as const, id: a.id }],
+    }),
+    awaitingOrders: b.query<any[], T<{ branchId?: string }>>({
+      queryFn: ({ tenantId, branchId }) => run(() => purchasing.listAwaitingOrders(tenantId, branchId)),
+      providesTags: ["PurchaseOrder", "Receipt"],
+    }),
+    receiveGoods: b.mutation<GoodsReceipt, T<purchasing.ReceiveGoodsInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => purchasing.receiveGoods(tenantId, i)),
       invalidatesTags: ["PurchaseOrder", "Receipt", "Recipe", ...STOCK],
     }),
@@ -198,6 +206,8 @@ export const {
   useSetPurchaseOrderStatusMutation,
   useDeletePurchaseOrderMutation,
   useReceiptsQuery,
+  useReceiptQuery,
+  useAwaitingOrdersQuery,
   useReceiveGoodsMutation,
   useSupplierReturnsQuery,
   useCreateSupplierReturnMutation,

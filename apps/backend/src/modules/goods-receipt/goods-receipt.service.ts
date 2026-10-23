@@ -68,8 +68,10 @@ export class GoodsReceiptService {
    */
   async receiveGoods(tenantSlug: string, dto: ReceiveGoodsDto, user?: any) {
     // 1. Verify tenant / restaurant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -333,8 +335,10 @@ export class GoodsReceiptService {
    * Get all goods receipts for a tenant restaurant with optional filtering.
    */
   async getGoodsReceipts(tenantSlug: string, query: GetGoodsReceiptsQueryDto) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -436,8 +440,10 @@ export class GoodsReceiptService {
    * for the Receiving page.
    */
   async getAwaitingOrders(tenantSlug: string, branchId?: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -513,8 +519,10 @@ export class GoodsReceiptService {
    * Get details of a single goods receipt by ID.
    */
   async getGoodsReceiptById(tenantSlug: string, id: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
