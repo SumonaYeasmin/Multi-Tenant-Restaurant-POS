@@ -63,6 +63,30 @@ export async function getMenu(tenantId: string): Promise<MenuBundle> {
     }
   }
 
+  try {
+    const backendGroups = await backendFetch<any[]>(`/tenants/${tenantId}/modifier-groups`);
+    if (Array.isArray(backendGroups)) {
+      const db = tenantDb(tenantId);
+      db.modifierGroups = backendGroups.map((g) => ({
+        id: g.id,
+        tenantId: g.tenantId || tenantId,
+        name: g.name,
+        min: g.min ?? 0,
+        max: g.max ?? 1,
+        options: (g.options || []).map((o: any) => ({
+          id: o.id,
+          name: o.name,
+          price: Number(o.price) || 0,
+        })),
+      }));
+      commit(tenantId);
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch modifier groups from backend, using local store:", err);
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   return { categories: [...db.categories].sort((a, b) => a.sort - b.sort), items: db.menuItems, modifierGroups: db.modifierGroups, combos: db.combos };

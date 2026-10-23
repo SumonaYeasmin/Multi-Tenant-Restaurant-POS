@@ -178,8 +178,37 @@ export async function deleteMenuItem(tenantId: string, id: string): Promise<{ ok
 // ---------- Modifier groups ----------
 export type ModifierGroupInput = Omit<ModifierGroup, "id" | "tenantId"> & { id?: string | undefined };
 
-export async function saveModifierGroup(tenantId: string, input: ModifierGroupInput): Promise<ModifierGroup> {
+export async function listModifierGroups(tenantId: string): Promise<ModifierGroup[]> {
+  try {
+    const backendGroups = await backendFetch<any[]>(`/tenants/${tenantId}/modifier-groups`);
+    if (Array.isArray(backendGroups)) {
+      const db = tenantDb(tenantId);
+      db.modifierGroups = backendGroups.map((g) => ({
+        id: g.id,
+        tenantId: g.tenantId || tenantId,
+        name: g.name,
+        min: g.min ?? 0,
+        max: g.max ?? 1,
+        options: (g.options || []).map((o: any) => ({
+          id: o.id,
+          name: o.name,
+          price: Number(o.price) || 0,
+        })),
+      }));
+      commit(tenantId);
+      return db.modifierGroups;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch modifier groups from backend, using local store:", err);
+    }
+  }
+
   await latency();
+  return tenantDb(tenantId).modifierGroups;
+}
+
+export async function saveModifierGroup(tenantId: string, input: ModifierGroupInput): Promise<ModifierGroup> {
   const db = tenantDb(tenantId);
   if (input.options.length === 0) throw new ApiError(422, "Add at least one option.");
   if (input.min > input.max) throw new ApiError(422, "Minimum can't be more than maximum.");
@@ -190,6 +219,55 @@ export async function saveModifierGroup(tenantId: string, input: ModifierGroupIn
     max: Math.max(1, Math.floor(input.max)),
     options: input.options.map((o) => ({ id: o.id || uid("opt"), name: nonEmpty(o.name, "Option name"), price: nonNegative(o.price, "Option price") })),
   };
+
+  // Call backend API when creating a new modifier group
+  if (!input.id) {
+    try {
+      const saved = await backendFetch<any>(`/tenants/${tenantId}/modifier-groups`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: data.name,
+          min: data.min,
+          max: data.max,
+          options: data.options.map((o) => ({
+            name: o.name,
+            price: o.price,
+          })),
+        }),
+      });
+
+      if (saved && saved.id) {
+        const mapped: ModifierGroup = {
+          id: saved.id,
+          tenantId: saved.tenantId || tenantId,
+          name: saved.name,
+          min: saved.min ?? data.min,
+          max: saved.max ?? data.max,
+          options: (saved.options || []).map((o: any) => ({
+            id: o.id,
+            name: o.name,
+            price: Number(o.price) || 0,
+          })),
+        };
+        const idx = db.modifierGroups.findIndex((x) => x.id === saved.id);
+        if (idx >= 0) {
+          db.modifierGroups[idx] = mapped;
+        } else {
+          db.modifierGroups.push(mapped);
+        }
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for saving modifier group, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  await latency();
   if (input.id) {
     const g = db.modifierGroups.find((x) => x.id === input.id);
     if (!g) throw new ApiError(404, "Modifier group not found.");
