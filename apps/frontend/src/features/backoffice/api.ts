@@ -25,6 +25,18 @@ export const backofficeApi = api2.injectEndpoints({
       queryFn: ({ tenantId, id }) => run(() => catalog.deleteCategory(tenantId, id)),
       invalidatesTags: [...MENU],
     }),
+    menuItems: b.query<MenuItem[], string | T<catalog.MenuItemFilters>>({
+      queryFn: (arg) => {
+        if (typeof arg === "string") return run(() => catalog.listMenuItems(arg));
+        const { tenantId, ...filters } = arg;
+        return run(() => catalog.listMenuItems(tenantId, filters));
+      },
+      providesTags: [...MENU],
+    }),
+    menuItem: b.query<MenuItem, T<{ id: string; branchId?: string }>>({
+      queryFn: ({ tenantId, id, branchId }) => run(() => catalog.getMenuItem(tenantId, id, branchId)),
+      providesTags: (_r, _e, a) => [{ type: "MenuItem" as const, id: a.id }],
+    }),
     saveMenuItem: b.mutation<MenuItem, T<catalog.MenuItemInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => catalog.saveMenuItem(tenantId, i)),
       invalidatesTags: [...MENU, "Recipe"],
@@ -77,6 +89,10 @@ export const backofficeApi = api2.injectEndpoints({
       queryFn: ({ tenantId, ...i }) => run(() => stock.saveIngredient(tenantId, i)),
       invalidatesTags: [...STOCK, "Recipe"],
     }),
+    deleteIngredient: b.mutation<{ ok: true }, T<{ id: string; branchId?: string }>>({
+      queryFn: ({ tenantId, id, branchId }) => run(() => stock.deleteIngredient(tenantId, id, branchId)),
+      invalidatesTags: [...STOCK, "Recipe"],
+    }),
     adjustStock: b.mutation<Ingredient, T<stock.AdjustmentInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => stock.adjustStock(tenantId, i)),
       invalidatesTags: [...STOCK],
@@ -91,12 +107,24 @@ export const backofficeApi = api2.injectEndpoints({
     }),
 
     // ---- Purchasing ----
-    suppliers: b.query<Supplier[], string>({
-      queryFn: (tenantId) => run(() => purchasing.listSuppliers(tenantId)),
+    suppliers: b.query<Supplier[], string | T<purchasing.SupplierFilters>>({
+      queryFn: (arg) => {
+        if (typeof arg === "string") return run(() => purchasing.listSuppliers(arg));
+        const { tenantId, ...filters } = arg;
+        return run(() => purchasing.listSuppliers(tenantId, filters));
+      },
       providesTags: ["Supplier"],
+    }),
+    supplier: b.query<Supplier, T<{ id: string }>>({
+      queryFn: ({ tenantId, id }) => run(() => purchasing.getSupplier(tenantId, id)),
+      providesTags: (_r, _e, a) => [{ type: "Supplier" as const, id: a.id }],
     }),
     saveSupplier: b.mutation<Supplier, T<purchasing.SupplierInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => purchasing.saveSupplier(tenantId, i)),
+      invalidatesTags: ["Supplier"],
+    }),
+    deleteSupplier: b.mutation<{ ok: true }, T<{ id: string }>>({
+      queryFn: ({ tenantId, id }) => run(() => purchasing.deleteSupplier(tenantId, id)),
       invalidatesTags: ["Supplier"],
     }),
     purchaseOrders: b.query<PurchaseOrder[], T<{ branchId: string }>>({
@@ -134,6 +162,8 @@ export const {
   useSaveCategoryMutation,
   useMoveCategoryMutation,
   useDeleteCategoryMutation,
+  useMenuItemsQuery,
+  useMenuItemQuery,
   useSaveMenuItemMutation,
   useSetItemAvailabilityMutation,
   useDeleteMenuItemMutation,
@@ -146,11 +176,14 @@ export const {
   useRecipeCostsQuery,
   useSaveRecipeMutation,
   useSaveIngredientMutation,
+  useDeleteIngredientMutation,
   useAdjustStockMutation,
   useStockCountsQuery,
   useSubmitStockCountMutation,
   useSuppliersQuery,
+  useSupplierQuery,
   useSaveSupplierMutation,
+  useDeleteSupplierMutation,
   usePurchaseOrdersQuery,
   useSavePurchaseOrderMutation,
   useSetPurchaseOrderStatusMutation,

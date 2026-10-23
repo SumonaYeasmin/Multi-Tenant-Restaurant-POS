@@ -111,6 +111,35 @@ export async function getMenu(tenantId: string): Promise<MenuBundle> {
     }
   }
 
+  try {
+    const backendItems = await backendFetch<any[]>(`/tenants/${tenantId}/menu-items`);
+    if (Array.isArray(backendItems)) {
+      const db = tenantDb(tenantId);
+      db.menuItems = backendItems.map((item) => ({
+        id: item.id,
+        tenantId: item.tenantId || tenantId,
+        categoryId: item.categoryId,
+        name: item.name,
+        description: item.description ?? "",
+        price: Number(item.effectivePrice ?? item.price) || 0,
+        available: item.effectiveAvailable ?? item.available ?? true,
+        tags: item.tags ?? [],
+        modifierGroupIds: item.modifierGroupIds ?? [],
+        variants: (item.variants || []).map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          priceDelta: Number(v.priceDelta) || 0,
+        })),
+        recipe: [],
+      }));
+      commit(tenantId);
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch menu items from backend, using local store:", err);
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   return { categories: [...db.categories].sort((a, b) => a.sort - b.sort), items: db.menuItems, modifierGroups: db.modifierGroups, combos: db.combos };
@@ -434,6 +463,35 @@ export async function createTable(tenantId: string, input: CreateTableInput): Pr
 
 // ---------- Inventory ----------
 export async function listIngredients(tenantId: string, branchId: string): Promise<Ingredient[]> {
+  try {
+    const qs = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
+    const backendIngs = await backendFetch<any[]>(`/tenants/${tenantId}/inventory/ingredients${qs}`);
+    if (Array.isArray(backendIngs)) {
+      const db = tenantDb(tenantId);
+      const mapped: Ingredient[] = backendIngs.map((ing) => ({
+        id: ing.id,
+        tenantId: ing.tenantId || tenantId,
+        branchId: ing.branchId || branchId,
+        key: ing.key || ing.id,
+        name: ing.name,
+        unit: ing.unit,
+        stock: Number(ing.stock) || 0,
+        reorderLevel: Number(ing.reorderLevel) || 0,
+        unitCost: Number(ing.unitCost) || 0,
+      }));
+      db.ingredients = [
+        ...db.ingredients.filter((x) => x.branchId !== branchId),
+        ...mapped,
+      ];
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch ingredients from backend, using local store:", err);
+    }
+  }
+
   await latency();
   return tenantDb(tenantId).ingredients.filter((i) => i.branchId === branchId);
 }

@@ -128,8 +128,113 @@ export async function deleteCategory(tenantId: string, id: string): Promise<{ ok
 // ---------- Items ----------
 export type MenuItemInput = Omit<MenuItem, "id" | "tenantId" | "recipe"> & { id?: string | undefined };
 
+export interface MenuItemFilters {
+  categoryId?: string;
+  search?: string;
+  available?: boolean;
+  branchId?: string;
+}
+
+export async function listMenuItems(tenantId: string, filters?: MenuItemFilters): Promise<MenuItem[]> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.categoryId && filters.categoryId !== "all") params.append("categoryId", filters.categoryId);
+    if (filters?.search) params.append("search", filters.search);
+    if (filters?.available !== undefined) params.append("available", String(filters.available));
+    if (filters?.branchId) params.append("branchId", filters.branchId);
+
+    const queryStr = params.toString() ? `?${params.toString()}` : "";
+    const backendItems = await backendFetch<any[]>(`/tenants/${tenantId}/menu-items${queryStr}`);
+    if (Array.isArray(backendItems)) {
+      const db = tenantDb(tenantId);
+      const mappedList: MenuItem[] = backendItems.map((item) => ({
+        id: item.id,
+        tenantId: item.tenantId || tenantId,
+        categoryId: item.categoryId,
+        name: item.name,
+        description: item.description ?? "",
+        price: Number(item.effectivePrice ?? item.price) || 0,
+        available: item.effectiveAvailable ?? item.available ?? true,
+        tags: item.tags ?? [],
+        modifierGroupIds: item.modifierGroupIds ?? [],
+        variants: (item.variants || []).map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          priceDelta: Number(v.priceDelta) || 0,
+        })),
+        recipe: [],
+      }));
+
+      // Update local store if fetching all without filtering
+      if (!filters?.search && !filters?.categoryId) {
+        db.menuItems = mappedList;
+        commit(tenantId);
+      }
+      return mappedList;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch menu items from backend, using local store:", err);
+    }
+  }
+
+  await latency();
+  let items = tenantDb(tenantId).menuItems;
+  if (filters?.categoryId && filters.categoryId !== "all") {
+    items = items.filter((i) => i.categoryId === filters.categoryId);
+  }
+  if (filters?.search) {
+    const q = filters.search.trim().toLowerCase();
+    items = items.filter((i) => i.name.toLowerCase().includes(q));
+  }
+  if (filters?.available !== undefined) {
+    items = items.filter((i) => i.available === filters.available);
+  }
+  return items;
+}
+
+export async function getMenuItem(tenantId: string, id: string, branchId?: string): Promise<MenuItem> {
+  try {
+    const qs = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
+    const item = await backendFetch<any>(`/tenants/${tenantId}/menu-items/${id}${qs}`);
+    if (item && item.id) {
+      const mapped: MenuItem = {
+        id: item.id,
+        tenantId: item.tenantId || tenantId,
+        categoryId: item.categoryId,
+        name: item.name,
+        description: item.description ?? "",
+        price: Number(item.effectivePrice ?? item.price) || 0,
+        available: item.effectiveAvailable ?? item.available ?? true,
+        tags: item.tags ?? [],
+        modifierGroupIds: item.modifierGroupIds ?? [],
+        variants: (item.variants || []).map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          priceDelta: Number(v.priceDelta) || 0,
+        })),
+        recipe: [],
+      };
+      const db = tenantDb(tenantId);
+      const idx = db.menuItems.findIndex((x) => x.id === id);
+      if (idx >= 0) db.menuItems[idx] = mapped;
+      else db.menuItems.push(mapped);
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch menu item from backend, using local store:", err);
+    }
+  }
+
+  await latency();
+  const found = tenantDb(tenantId).menuItems.find((x) => x.id === id);
+  if (!found) throw new ApiError(404, "Item not found.");
+  return found;
+}
+
 export async function saveMenuItem(tenantId: string, input: MenuItemInput): Promise<MenuItem> {
-  await latency(200, 400);
   const db = tenantDb(tenantId);
   if (!db.categories.some((c) => c.id === input.categoryId)) throw new ApiError(422, "Choose a category.");
   const groups = input.modifierGroupIds.filter((g) => db.modifierGroups.some((m) => m.id === g));
@@ -143,6 +248,121 @@ export async function saveMenuItem(tenantId: string, input: MenuItemInput): Prom
     available: input.available,
     tags: input.tags.map((t) => t.trim().toLowerCase()).filter(Boolean),
   };
+
+  // Call backend API when creating a new menu item
+  if (!input.id) {
+    try {
+      const saved = await backendFetch<any>(`/tenants/${tenantId}/menu-items`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: data.name,
+          categoryId: data.categoryId,
+          price: data.price,
+          description: data.description,
+          available: data.available,
+          tags: data.tags,
+          modifierGroupIds: data.modifierGroupIds,
+          variants: data.variants.map((v) => ({
+            name: v.name,
+            priceDelta: v.priceDelta,
+          })),
+        }),
+      });
+
+      if (saved && saved.id) {
+        const mapped: MenuItem = {
+          id: saved.id,
+          tenantId: saved.tenantId || tenantId,
+          categoryId: saved.categoryId,
+          name: saved.name,
+          description: saved.description ?? data.description,
+          price: Number(saved.price) || data.price,
+          available: saved.available ?? data.available,
+          tags: saved.tags ?? data.tags,
+          modifierGroupIds: saved.modifierGroupIds ?? data.modifierGroupIds,
+          variants: (saved.variants || []).map((v: any) => ({
+            id: v.id,
+            name: v.name,
+            priceDelta: Number(v.priceDelta) || 0,
+          })),
+          recipe: [],
+        };
+        const idx = db.menuItems.findIndex((x) => x.id === saved.id);
+        if (idx >= 0) {
+          db.menuItems[idx] = mapped;
+        } else {
+          db.menuItems.push(mapped);
+        }
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for saving menu item, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // Call backend API when updating an existing menu item
+  if (input.id) {
+    try {
+      const updated = await backendFetch<any>(`/tenants/${tenantId}/menu-items/${input.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: data.name,
+          categoryId: data.categoryId,
+          price: data.price,
+          description: data.description,
+          available: data.available,
+          tags: data.tags,
+          modifierGroupIds: data.modifierGroupIds,
+          variants: data.variants.map((v) => ({
+            id: v.id,
+            name: v.name,
+            priceDelta: v.priceDelta,
+          })),
+        }),
+      });
+
+      if (updated && updated.id) {
+        const mapped: MenuItem = {
+          id: updated.id,
+          tenantId: updated.tenantId || tenantId,
+          categoryId: updated.categoryId,
+          name: updated.name || data.name,
+          description: updated.description ?? data.description,
+          price: Number(updated.effectivePrice ?? updated.price) || data.price,
+          available: updated.effectiveAvailable ?? updated.available ?? data.available,
+          tags: updated.tags ?? data.tags,
+          modifierGroupIds: updated.modifierGroupIds ?? data.modifierGroupIds,
+          variants: (updated.variants || []).map((v: any) => ({
+            id: v.id,
+            name: v.name,
+            priceDelta: Number(v.priceDelta) || 0,
+          })),
+          recipe: [],
+        };
+        const idx = db.menuItems.findIndex((x) => x.id === input.id);
+        if (idx >= 0) {
+          db.menuItems[idx] = mapped;
+        } else {
+          db.menuItems.push(mapped);
+        }
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for updating menu item, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  await latency(200, 400);
   if (input.id) {
     const m = db.menuItems.find((x) => x.id === input.id);
     if (!m) throw new ApiError(404, "Item not found.");
@@ -157,6 +377,29 @@ export async function saveMenuItem(tenantId: string, input: MenuItemInput): Prom
 }
 
 export async function setItemAvailability(tenantId: string, id: string, available: boolean): Promise<MenuItem> {
+  try {
+    const updated = await backendFetch<any>(`/tenants/${tenantId}/menu-items/${id}/availability`, {
+      method: "PATCH",
+      body: JSON.stringify({ available }),
+    });
+
+    if (updated && updated.id) {
+      const db = tenantDb(tenantId);
+      const m = db.menuItems.find((x) => x.id === id);
+      if (m) {
+        m.available = updated.available ?? available;
+        commit(tenantId);
+        return m;
+      }
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for toggling item availability, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency(60, 150);
   const m = tenantDb(tenantId).menuItems.find((x) => x.id === id);
   if (!m) throw new ApiError(404, "Item not found.");
@@ -166,6 +409,18 @@ export async function setItemAvailability(tenantId: string, id: string, availabl
 }
 
 export async function deleteMenuItem(tenantId: string, id: string): Promise<{ ok: true }> {
+  try {
+    await backendFetch<any>(`/tenants/${tenantId}/menu-items/${id}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for deleting menu item, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   const inCombo = db.combos.find((c) => c.components.some((x) => x.itemId === id));
@@ -548,6 +803,35 @@ export function costRecipe(recipe: RecipeLine[], ingredients: Ingredient[]) {
 }
 
 export async function listRecipeCosts(tenantId: string, branchId: string): Promise<RecipeCostRow[]> {
+  try {
+    const qs = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
+    const backendCosts = await backendFetch<any[]>(`/tenants/${tenantId}/recipes${qs}`);
+    if (Array.isArray(backendCosts)) {
+      return backendCosts.map((item) => ({
+        itemId: item.itemId,
+        name: item.name,
+        categoryId: item.categoryId,
+        price: Number(item.price) || 0,
+        cost: Number(item.cost) || 0,
+        margin: Number(item.margin) || 0,
+        costPct: Number(item.costPct) || 0,
+        recipe: (item.recipe || []).map((r: any) => ({
+          ingredientKey: r.ingredientKey || r.ingredientId,
+          qty: Number(r.qty ?? r.quantity) || 0,
+          name: r.name || r.ingredientKey || "",
+          unit: r.unit || "",
+          unitCost: Number(r.unitCost) || 0,
+          lineCost: Number(r.lineCost) || 0,
+          missing: Boolean(r.missing),
+        })),
+      }));
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch recipe costs from backend, using local store:", err);
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   const ings = db.ingredients.filter((i) => i.branchId === branchId);
@@ -567,12 +851,44 @@ export async function listRecipeCosts(tenantId: string, branchId: string): Promi
 }
 
 export async function saveRecipe(tenantId: string, itemId: string, recipe: RecipeLine[]): Promise<MenuItem> {
+  const clean = recipe.filter((r) => r.qty > 0);
+
+  // Call backend API to save recipe
+  try {
+    const saved = await backendFetch<any>(`/tenants/${tenantId}/recipes/${itemId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        recipe: clean.map((r) => ({
+          ingredientId: r.ingredientKey,
+          ingredientKey: r.ingredientKey,
+          qty: r.qty,
+          quantity: r.qty,
+        })),
+      }),
+    });
+
+    if (saved) {
+      const db = tenantDb(tenantId);
+      const m = db.menuItems.find((x) => x.id === itemId);
+      if (m) {
+        m.recipe = clean.map((r) => ({ ingredientKey: r.ingredientKey, qty: Math.round(r.qty * 1000) / 1000 }));
+        commit(tenantId);
+        return m;
+      }
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for saving recipe, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   const m = db.menuItems.find((x) => x.id === itemId);
   if (!m) throw new ApiError(404, "Item not found.");
   const keys = new Set(db.ingredients.map((i) => i.key));
-  const clean = recipe.filter((r) => r.qty > 0);
   if (clean.some((r) => !keys.has(r.ingredientKey))) throw new ApiError(422, "Unknown ingredient in recipe.");
   if (new Set(clean.map((r) => r.ingredientKey)).size !== clean.length) throw new ApiError(422, "Each ingredient can appear only once.");
   m.recipe = clean.map((r) => ({ ingredientKey: r.ingredientKey, qty: Math.round(r.qty * 1000) / 1000 }));

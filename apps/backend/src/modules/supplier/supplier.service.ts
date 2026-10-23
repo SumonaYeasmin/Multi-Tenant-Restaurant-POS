@@ -18,8 +18,10 @@ export class SupplierService {
    */
   async createSupplier(tenantSlug: string, dto: CreateSupplierDto) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -67,8 +69,10 @@ export class SupplierService {
    */
   async getSuppliers(tenantSlug: string, query?: GetSuppliersQueryDto) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -120,8 +124,10 @@ export class SupplierService {
    */
   async getSupplierById(tenantSlug: string, supplierId: string) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -162,8 +168,10 @@ export class SupplierService {
     dto: UpdateSupplierDto,
   ) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -239,8 +247,10 @@ export class SupplierService {
    */
   async deleteSupplier(tenantSlug: string, supplierId: string) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
