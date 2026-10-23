@@ -25,9 +25,17 @@ export const backofficeApi = api2.injectEndpoints({
       queryFn: ({ tenantId, id }) => run(() => catalog.deleteCategory(tenantId, id)),
       invalidatesTags: [...MENU],
     }),
-    menuItems: b.query<MenuItem[], string>({
-      queryFn: (tenantId) => run(() => catalog.listMenuItems(tenantId)),
+    menuItems: b.query<MenuItem[], string | T<catalog.MenuItemFilters>>({
+      queryFn: (arg) => {
+        if (typeof arg === "string") return run(() => catalog.listMenuItems(arg));
+        const { tenantId, ...filters } = arg;
+        return run(() => catalog.listMenuItems(tenantId, filters));
+      },
       providesTags: [...MENU],
+    }),
+    menuItem: b.query<MenuItem, T<{ id: string; branchId?: string }>>({
+      queryFn: ({ tenantId, id, branchId }) => run(() => catalog.getMenuItem(tenantId, id, branchId)),
+      providesTags: (_r, _e, a) => [{ type: "MenuItem" as const, id: a.id }],
     }),
     saveMenuItem: b.mutation<MenuItem, T<catalog.MenuItemInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => catalog.saveMenuItem(tenantId, i)),
@@ -139,6 +147,7 @@ export const {
   useMoveCategoryMutation,
   useDeleteCategoryMutation,
   useMenuItemsQuery,
+  useMenuItemQuery,
   useSaveMenuItemMutation,
   useSetItemAvailabilityMutation,
   useDeleteMenuItemMutation,

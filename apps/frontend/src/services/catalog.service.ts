@@ -128,19 +128,33 @@ export async function deleteCategory(tenantId: string, id: string): Promise<{ ok
 // ---------- Items ----------
 export type MenuItemInput = Omit<MenuItem, "id" | "tenantId" | "recipe"> & { id?: string | undefined };
 
-export async function listMenuItems(tenantId: string): Promise<MenuItem[]> {
+export interface MenuItemFilters {
+  categoryId?: string;
+  search?: string;
+  available?: boolean;
+  branchId?: string;
+}
+
+export async function listMenuItems(tenantId: string, filters?: MenuItemFilters): Promise<MenuItem[]> {
   try {
-    const backendItems = await backendFetch<any[]>(`/tenants/${tenantId}/menu-items`);
+    const params = new URLSearchParams();
+    if (filters?.categoryId && filters.categoryId !== "all") params.append("categoryId", filters.categoryId);
+    if (filters?.search) params.append("search", filters.search);
+    if (filters?.available !== undefined) params.append("available", String(filters.available));
+    if (filters?.branchId) params.append("branchId", filters.branchId);
+
+    const queryStr = params.toString() ? `?${params.toString()}` : "";
+    const backendItems = await backendFetch<any[]>(`/tenants/${tenantId}/menu-items${queryStr}`);
     if (Array.isArray(backendItems)) {
       const db = tenantDb(tenantId);
-      db.menuItems = backendItems.map((item) => ({
+      const mappedList: MenuItem[] = backendItems.map((item) => ({
         id: item.id,
         tenantId: item.tenantId || tenantId,
         categoryId: item.categoryId,
         name: item.name,
         description: item.description ?? "",
-        price: Number(item.price) || 0,
-        available: item.available ?? true,
+        price: Number(item.effectivePrice ?? item.price) || 0,
+        available: item.effectiveAvailable ?? item.available ?? true,
         tags: item.tags ?? [],
         modifierGroupIds: item.modifierGroupIds ?? [],
         variants: (item.variants || []).map((v: any) => ({
@@ -150,8 +164,13 @@ export async function listMenuItems(tenantId: string): Promise<MenuItem[]> {
         })),
         recipe: [],
       }));
-      commit(tenantId);
-      return db.menuItems;
+
+      // Update local store if fetching all without filtering
+      if (!filters?.search && !filters?.categoryId) {
+        db.menuItems = mappedList;
+        commit(tenantId);
+      }
+      return mappedList;
     }
   } catch (err) {
     if (!(err instanceof ApiError && err.status === 503)) {
@@ -160,7 +179,59 @@ export async function listMenuItems(tenantId: string): Promise<MenuItem[]> {
   }
 
   await latency();
-  return tenantDb(tenantId).menuItems;
+  let items = tenantDb(tenantId).menuItems;
+  if (filters?.categoryId && filters.categoryId !== "all") {
+    items = items.filter((i) => i.categoryId === filters.categoryId);
+  }
+  if (filters?.search) {
+    const q = filters.search.trim().toLowerCase();
+    items = items.filter((i) => i.name.toLowerCase().includes(q));
+  }
+  if (filters?.available !== undefined) {
+    items = items.filter((i) => i.available === filters.available);
+  }
+  return items;
+}
+
+export async function getMenuItem(tenantId: string, id: string, branchId?: string): Promise<MenuItem> {
+  try {
+    const qs = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
+    const item = await backendFetch<any>(`/tenants/${tenantId}/menu-items/${id}${qs}`);
+    if (item && item.id) {
+      const mapped: MenuItem = {
+        id: item.id,
+        tenantId: item.tenantId || tenantId,
+        categoryId: item.categoryId,
+        name: item.name,
+        description: item.description ?? "",
+        price: Number(item.effectivePrice ?? item.price) || 0,
+        available: item.effectiveAvailable ?? item.available ?? true,
+        tags: item.tags ?? [],
+        modifierGroupIds: item.modifierGroupIds ?? [],
+        variants: (item.variants || []).map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          priceDelta: Number(v.priceDelta) || 0,
+        })),
+        recipe: [],
+      };
+      const db = tenantDb(tenantId);
+      const idx = db.menuItems.findIndex((x) => x.id === id);
+      if (idx >= 0) db.menuItems[idx] = mapped;
+      else db.menuItems.push(mapped);
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch menu item from backend, using local store:", err);
+    }
+  }
+
+  await latency();
+  const found = tenantDb(tenantId).menuItems.find((x) => x.id === id);
+  if (!found) throw new ApiError(404, "Item not found.");
+  return found;
 }
 
 export async function saveMenuItem(tenantId: string, input: MenuItemInput): Promise<MenuItem> {
