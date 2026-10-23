@@ -497,6 +497,34 @@ export async function setPurchaseOrderStatus(tenantId: string, id: string, statu
   return po;
 }
 
+export async function deletePurchaseOrder(tenantId: string, id: string): Promise<{ ok: true }> {
+  try {
+    await backendFetch(`/tenants/${tenantId}/purchase-orders/${id}`, {
+      method: "DELETE",
+    });
+    const db = tenantDb(tenantId);
+    const po = db.purchaseOrders.find((p) => p.id === id);
+    if (po) po.status = "cancelled";
+    commit(tenantId);
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for deleting purchase order, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
+  await latency();
+  const db = tenantDb(tenantId);
+  const po = db.purchaseOrders.find((p) => p.id === id);
+  if (!po) throw new ApiError(404, "Purchase order not found.");
+  if (!["draft", "sent"].includes(po.status)) throw new ApiError(409, "Orders with received goods can't be cancelled.");
+  po.status = "cancelled";
+  commit(tenantId);
+  return { ok: true };
+}
+
 // ---------- Receiving ----------
 export async function listReceipts(tenantId: string, branchId: string): Promise<GoodsReceipt[]> {
   await latency();

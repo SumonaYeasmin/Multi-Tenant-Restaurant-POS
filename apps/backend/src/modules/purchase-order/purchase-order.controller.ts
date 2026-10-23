@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -219,4 +220,54 @@ export class PurchaseOrderController {
       'Purchase order updated successfully',
     );
   }
+
+  @Delete(':tenantSlug/purchase-orders/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.PURCHASING_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Cancel / delete a purchase order',
+    description:
+      'Cancels and soft-deletes a purchase order by setting status to CANCELLED.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'id',
+    example: 'cuid',
+    description: 'Purchase Order ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase order cancelled successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Purchase order or restaurant not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Orders with received goods cannot be deleted or cancelled',
+  })
+  async deletePurchaseOrder(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('id') id: string,
+  ) {
+    const result = await this.purchaseOrderService.deletePurchaseOrder(
+      tenantSlug,
+      id,
+    );
+    return ResponseHelper.success(
+      result,
+      'Purchase order cancelled successfully',
+    );
+  }
 }
+

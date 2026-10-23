@@ -143,6 +143,10 @@ export const backofficeApi = api2.injectEndpoints({
       queryFn: ({ tenantId, id, status }) => run(() => purchasing.setPurchaseOrderStatus(tenantId, id, status)),
       invalidatesTags: ["PurchaseOrder"],
     }),
+    deletePurchaseOrder: b.mutation<{ ok: true }, T<{ id: string }>>({
+      queryFn: ({ tenantId, id }) => run(() => purchasing.deletePurchaseOrder(tenantId, id)),
+      invalidatesTags: ["PurchaseOrder"],
+    }),
     receipts: b.query<GoodsReceipt[], T<{ branchId: string }>>({
       queryFn: ({ tenantId, branchId }) => run(() => purchasing.listReceipts(tenantId, branchId)),
       providesTags: ["Receipt"],
@@ -192,6 +196,7 @@ export const {
   usePurchaseOrderQuery,
   useSavePurchaseOrderMutation,
   useSetPurchaseOrderStatusMutation,
+  useDeletePurchaseOrderMutation,
   useReceiptsQuery,
   useReceiveGoodsMutation,
   useSupplierReturnsQuery,
