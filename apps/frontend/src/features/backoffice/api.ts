@@ -123,6 +123,10 @@ export const backofficeApi = api2.injectEndpoints({
       queryFn: ({ tenantId, ...i }) => run(() => purchasing.saveSupplier(tenantId, i)),
       invalidatesTags: ["Supplier"],
     }),
+    deleteSupplier: b.mutation<{ ok: true }, T<{ id: string }>>({
+      queryFn: ({ tenantId, id }) => run(() => purchasing.deleteSupplier(tenantId, id)),
+      invalidatesTags: ["Supplier"],
+    }),
     purchaseOrders: b.query<PurchaseOrder[], T<{ branchId: string }>>({
       queryFn: ({ tenantId, branchId }) => run(() => purchasing.listPurchaseOrders(tenantId, branchId)),
       providesTags: ["PurchaseOrder"],
@@ -179,6 +183,7 @@ export const {
   useSuppliersQuery,
   useSupplierQuery,
   useSaveSupplierMutation,
+  useDeleteSupplierMutation,
   usePurchaseOrdersQuery,
   useSavePurchaseOrderMutation,
   useSetPurchaseOrderStatusMutation,

@@ -205,6 +205,32 @@ export async function saveSupplier(tenantId: string, input: SupplierInput): Prom
   return s;
 }
 
+export async function deleteSupplier(tenantId: string, id: string): Promise<{ ok: true }> {
+  try {
+    await backendFetch(`/tenants/${tenantId}/suppliers/${id}`, {
+      method: "DELETE",
+    });
+    const db = tenantDb(tenantId);
+    db.suppliers = db.suppliers.filter((s) => s.id !== id);
+    commit(tenantId);
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for deleting supplier, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
+  await latency();
+  const db = tenantDb(tenantId);
+  const idx = db.suppliers.findIndex((s) => s.id === id);
+  if (idx === -1) throw new ApiError(404, "Supplier not found.");
+  db.suppliers.splice(idx, 1);
+  commit(tenantId);
+  return { ok: true };
+}
+
 // ---------- Purchase orders ----------
 export async function listPurchaseOrders(tenantId: string, branchId: string): Promise<PurchaseOrder[]> {
   await latency();
