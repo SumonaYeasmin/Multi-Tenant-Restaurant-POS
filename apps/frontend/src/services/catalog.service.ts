@@ -351,6 +351,31 @@ export async function deleteModifierGroup(tenantId: string, id: string): Promise
 
 // ---------- Combos ----------
 export async function listCombos(tenantId: string): Promise<Combo[]> {
+  try {
+    const backendCombos = await backendFetch<any[]>(`/tenants/${tenantId}/combos`);
+    if (Array.isArray(backendCombos)) {
+      const db = tenantDb(tenantId);
+      db.combos = backendCombos.map((c) => ({
+        id: c.id,
+        tenantId: c.tenantId || tenantId,
+        name: c.name,
+        description: c.description ?? "",
+        price: Number(c.price) || 0,
+        available: c.available ?? true,
+        components: (c.components || c.items || []).map((x: any) => ({
+          itemId: x.itemId || x.menuItemId,
+          qty: x.qty ?? x.quantity ?? 1,
+        })),
+      }));
+      commit(tenantId);
+      return db.combos;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch combos from backend, using local store:", err);
+    }
+  }
+
   await latency();
   return tenantDb(tenantId).combos;
 }
@@ -358,12 +383,67 @@ export async function listCombos(tenantId: string): Promise<Combo[]> {
 export type ComboInput = Omit<Combo, "id" | "tenantId"> & { id?: string | undefined };
 
 export async function saveCombo(tenantId: string, input: ComboInput): Promise<Combo> {
-  await latency();
   const db = tenantDb(tenantId);
   const components = input.components.filter((c) => c.qty > 0);
   if (components.length < 2) throw new ApiError(422, "A combo needs at least two items.");
   if (components.some((c) => !db.menuItems.some((m) => m.id === c.itemId))) throw new ApiError(422, "One of the items no longer exists.");
-  const data = { name: nonEmpty(input.name, "Name"), description: input.description.trim(), price: nonNegative(input.price, "Price"), components, available: input.available };
+  const data = {
+    name: nonEmpty(input.name, "Name"),
+    description: input.description.trim(),
+    price: nonNegative(input.price, "Price"),
+    components,
+    available: input.available,
+  };
+
+  // Call backend API when creating a new combo
+  if (!input.id) {
+    try {
+      const saved = await backendFetch<any>(`/tenants/${tenantId}/combos`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          available: data.available,
+          components: data.components.map((c) => ({
+            itemId: c.itemId,
+            qty: c.qty,
+          })),
+        }),
+      });
+
+      if (saved && saved.id) {
+        const mapped: Combo = {
+          id: saved.id,
+          tenantId: saved.tenantId || tenantId,
+          name: saved.name,
+          description: saved.description ?? data.description,
+          price: Number(saved.price) || data.price,
+          available: saved.available ?? data.available,
+          components: (saved.components || saved.items || data.components).map((x: any) => ({
+            itemId: x.itemId || x.menuItemId,
+            qty: x.qty ?? x.quantity ?? 1,
+          })),
+        };
+        const idx = db.combos.findIndex((x) => x.id === saved.id);
+        if (idx >= 0) {
+          db.combos[idx] = mapped;
+        } else {
+          db.combos.push(mapped);
+        }
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for saving combo, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  await latency();
   if (input.id) {
     const c = db.combos.find((x) => x.id === input.id);
     if (!c) throw new ApiError(404, "Combo not found.");

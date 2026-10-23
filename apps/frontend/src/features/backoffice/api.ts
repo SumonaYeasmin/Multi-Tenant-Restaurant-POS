@@ -49,6 +49,10 @@ export const backofficeApi = api2.injectEndpoints({
       queryFn: ({ tenantId, id }) => run(() => catalog.deleteModifierGroup(tenantId, id)),
       invalidatesTags: [...MENU],
     }),
+    combos: b.query<Combo[], string>({
+      queryFn: (tenantId) => run(() => catalog.listCombos(tenantId)),
+      providesTags: [...MENU],
+    }),
     saveCombo: b.mutation<Combo, T<catalog.ComboInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => catalog.saveCombo(tenantId, i)),
       invalidatesTags: [...MENU],
@@ -136,6 +140,7 @@ export const {
   useModifierGroupsQuery,
   useSaveModifierGroupMutation,
   useDeleteModifierGroupMutation,
+  useCombosQuery,
   useSaveComboMutation,
   useDeleteComboMutation,
   useRecipeCostsQuery,
