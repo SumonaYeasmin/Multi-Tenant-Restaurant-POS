@@ -267,6 +267,53 @@ export async function saveModifierGroup(tenantId: string, input: ModifierGroupIn
     }
   }
 
+  // Call backend API when updating an existing modifier group
+  if (input.id) {
+    try {
+      const updated = await backendFetch<any>(`/tenants/${tenantId}/modifier-groups/${input.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: data.name,
+          min: data.min,
+          max: data.max,
+          options: data.options.map((o) => ({
+            name: o.name,
+            price: o.price,
+          })),
+        }),
+      });
+
+      if (updated && updated.id) {
+        const mapped: ModifierGroup = {
+          id: updated.id,
+          tenantId: updated.tenantId || tenantId,
+          name: updated.name || data.name,
+          min: updated.min ?? data.min,
+          max: updated.max ?? data.max,
+          options: (updated.options || []).map((o: any) => ({
+            id: o.id,
+            name: o.name,
+            price: Number(o.price) || 0,
+          })),
+        };
+        const idx = db.modifierGroups.findIndex((x) => x.id === input.id);
+        if (idx >= 0) {
+          db.modifierGroups[idx] = mapped;
+        } else {
+          db.modifierGroups.push(mapped);
+        }
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for updating modifier group, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
   await latency();
   if (input.id) {
     const g = db.modifierGroups.find((x) => x.id === input.id);
@@ -282,6 +329,18 @@ export async function saveModifierGroup(tenantId: string, input: ModifierGroupIn
 }
 
 export async function deleteModifierGroup(tenantId: string, id: string): Promise<{ ok: true }> {
+  try {
+    await backendFetch<any>(`/tenants/${tenantId}/modifier-groups/${id}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for deleting modifier group, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   db.modifierGroups = db.modifierGroups.filter((g) => g.id !== id);

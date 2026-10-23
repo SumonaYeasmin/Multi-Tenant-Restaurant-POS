@@ -237,15 +237,25 @@ export class ModifierGroupService {
     // 1. Verify group exists in tenant and is not deleted
     await this.getModifierGroupById(tenantSlug, groupId);
 
-    // 2. Soft delete modifier group
-    await this.prisma.modifierGroup.update({
-      where: { id: groupId },
-      data: {
-        isDeleted: true,
-        deletedAt: new Date(),
-        isActive: false,
-      },
-    });
+    // 2. Soft delete modifier group and options
+    await this.prisma.$transaction([
+      this.prisma.modifierOption.updateMany({
+        where: { groupId },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          isActive: false,
+        },
+      }),
+      this.prisma.modifierGroup.update({
+        where: { id: groupId },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          isActive: false,
+        },
+      }),
+    ]);
 
     return { message: 'Modifier group deleted successfully' };
   }
