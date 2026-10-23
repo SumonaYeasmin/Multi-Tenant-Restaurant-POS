@@ -107,9 +107,17 @@ export const backofficeApi = api2.injectEndpoints({
     }),
 
     // ---- Purchasing ----
-    suppliers: b.query<Supplier[], string>({
-      queryFn: (tenantId) => run(() => purchasing.listSuppliers(tenantId)),
+    suppliers: b.query<Supplier[], string | T<purchasing.SupplierFilters>>({
+      queryFn: (arg) => {
+        if (typeof arg === "string") return run(() => purchasing.listSuppliers(arg));
+        const { tenantId, ...filters } = arg;
+        return run(() => purchasing.listSuppliers(tenantId, filters));
+      },
       providesTags: ["Supplier"],
+    }),
+    supplier: b.query<Supplier, T<{ id: string }>>({
+      queryFn: ({ tenantId, id }) => run(() => purchasing.getSupplier(tenantId, id)),
+      providesTags: (_r, _e, a) => [{ type: "Supplier" as const, id: a.id }],
     }),
     saveSupplier: b.mutation<Supplier, T<purchasing.SupplierInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => purchasing.saveSupplier(tenantId, i)),
@@ -169,6 +177,7 @@ export const {
   useStockCountsQuery,
   useSubmitStockCountMutation,
   useSuppliersQuery,
+  useSupplierQuery,
   useSaveSupplierMutation,
   usePurchaseOrdersQuery,
   useSavePurchaseOrderMutation,

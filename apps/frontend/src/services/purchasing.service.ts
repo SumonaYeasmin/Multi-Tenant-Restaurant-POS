@@ -8,9 +8,19 @@ import type { GoodsReceipt, PurchaseOrder, Supplier, SupplierReturn } from "@/ty
 // Future REST: /tenants/:tenantId/suppliers, /purchase-orders, /goods-receipts, /supplier-returns
 
 // ---------- Suppliers ----------
-export async function listSuppliers(tenantId: string): Promise<Supplier[]> {
+export interface SupplierFilters {
+  search?: string;
+  activeOnly?: boolean;
+}
+
+export async function listSuppliers(tenantId: string, filters?: SupplierFilters): Promise<Supplier[]> {
   try {
-    const backendSuppliers = await backendFetch<any[]>(`/tenants/${tenantId}/suppliers`);
+    const params = new URLSearchParams();
+    if (filters?.search) params.append("search", filters.search);
+    if (filters?.activeOnly !== undefined) params.append("activeOnly", String(filters.activeOnly));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+
+    const backendSuppliers = await backendFetch<any[]>(`/tenants/${tenantId}/suppliers${qs}`);
     if (Array.isArray(backendSuppliers)) {
       const mappedList: Supplier[] = backendSuppliers.map((s) => ({
         id: s.id,
@@ -35,7 +45,49 @@ export async function listSuppliers(tenantId: string): Promise<Supplier[]> {
   }
 
   await latency();
-  return tenantDb(tenantId).suppliers;
+  let suppliers = tenantDb(tenantId).suppliers;
+  if (filters?.search) {
+    const q = filters.search.trim().toLowerCase();
+    suppliers = suppliers.filter((s) => `${s.name} ${s.contact} ${s.supplies}`.toLowerCase().includes(q));
+  }
+  if (filters?.activeOnly !== undefined) {
+    suppliers = suppliers.filter((s) => s.active === filters.activeOnly);
+  }
+  return suppliers;
+}
+
+export async function getSupplier(tenantId: string, id: string): Promise<Supplier> {
+  try {
+    const backendSupplier = await backendFetch<any>(`/tenants/${tenantId}/suppliers/${id}`);
+    if (backendSupplier && backendSupplier.id) {
+      const mapped: Supplier = {
+        id: backendSupplier.id,
+        tenantId: backendSupplier.tenantId || tenantId,
+        name: backendSupplier.name,
+        contact: backendSupplier.contact ?? "",
+        phone: backendSupplier.phone ?? "",
+        email: backendSupplier.email ?? "",
+        supplies: backendSupplier.supplies ?? "",
+        paymentTerms: backendSupplier.paymentTerms ?? "Net 14",
+        active: backendSupplier.active ?? true,
+      };
+      const db = tenantDb(tenantId);
+      const idx = db.suppliers.findIndex((x) => x.id === id);
+      if (idx >= 0) db.suppliers[idx] = mapped;
+      else db.suppliers.push(mapped);
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch supplier from backend, using local store:", err);
+    }
+  }
+
+  await latency();
+  const s = tenantDb(tenantId).suppliers.find((x) => x.id === id);
+  if (!s) throw new ApiError(404, "Supplier not found.");
+  return s;
 }
 
 export type SupplierInput = Omit<Supplier, "id" | "tenantId"> & { id?: string | undefined };
