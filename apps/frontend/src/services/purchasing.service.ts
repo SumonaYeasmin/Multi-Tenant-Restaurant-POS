@@ -732,23 +732,181 @@ export async function receiveGoods(
 }
 
 // ---------- Supplier returns ----------
-export async function listSupplierReturns(tenantId: string, branchId: string): Promise<SupplierReturn[]> {
+export interface SupplierReturnFilters {
+  branchId?: string;
+  supplierId?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CreateSupplierReturnInput {
+  branchId: string;
+  supplierId: string;
+  reason: string;
+  lines: { ingredientId: string; qty: number; unitCost?: number }[];
+  createdBy?: string;
+}
+
+function mapBackendSupplierReturn(backend: any, tenantId: string): SupplierReturn {
+  return {
+    id: backend.id,
+    tenantId: backend.tenantId || tenantId,
+    branchId: backend.branchId,
+    number: backend.number,
+    supplierId: backend.supplierId,
+    supplierName: backend.supplierName || backend.supplier?.name || "Supplier",
+    reason: backend.reason || "",
+    credit: Number(backend.credit) || 0,
+    createdBy: backend.createdBy || "Staff",
+    createdAt: backend.createdAt ? new Date(backend.createdAt).toISOString() : new Date().toISOString(),
+    lines: Array.isArray(backend.lines)
+      ? backend.lines.map((l: any) => ({
+          id: l.id,
+          ingredientId: l.ingredientId,
+          name: l.name || l.ingredient?.name || "",
+          unit: l.unit || l.ingredient?.unit || "",
+          qty: Number(l.qty) || 0,
+          unitCost: Number(l.unitCost) || 0,
+        }))
+      : [],
+  };
+}
+
+export async function listSupplierReturns(
+  tenantId: string,
+  branchIdOrFilters?: string | SupplierReturnFilters,
+): Promise<SupplierReturn[]> {
+  const filters: SupplierReturnFilters =
+    typeof branchIdOrFilters === "string"
+      ? { branchId: branchIdOrFilters }
+      : branchIdOrFilters || {};
+
+  try {
+    const params = new URLSearchParams();
+    if (filters.branchId) params.append("branchId", filters.branchId);
+    if (filters.supplierId) params.append("supplierId", filters.supplierId);
+    if (filters.search) params.append("search", filters.search);
+    if (filters.startDate) params.append("startDate", filters.startDate);
+    if (filters.endDate) params.append("endDate", filters.endDate);
+
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const backendReturns = await backendFetch<any[]>(`/tenants/${tenantId}/supplier-returns${qs}`);
+    if (Array.isArray(backendReturns)) {
+      const mappedList = backendReturns.map((r) => mapBackendSupplierReturn(r, tenantId));
+      const db = tenantDb(tenantId);
+      for (const rtn of mappedList) {
+        const idx = db.supplierReturns.findIndex((x) => x.id === rtn.id);
+        if (idx >= 0) db.supplierReturns[idx] = rtn;
+        else db.supplierReturns.unshift(rtn);
+      }
+      commit(tenantId);
+      return mappedList;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch supplier returns from backend, using local store:", err);
+    }
+  }
+
   await latency();
-  return tenantDb(tenantId).supplierReturns.filter((r) => r.branchId === branchId);
+  return tenantDb(tenantId).supplierReturns.filter((r) => {
+    if (filters.branchId && r.branchId !== filters.branchId) return false;
+    if (filters.supplierId && r.supplierId !== filters.supplierId) return false;
+    if (filters.search) {
+      const s = filters.search.toLowerCase();
+      const match =
+        r.number.toLowerCase().includes(s) ||
+        r.reason.toLowerCase().includes(s) ||
+        r.supplierName.toLowerCase().includes(s) ||
+        r.createdBy.toLowerCase().includes(s);
+      if (!match) return false;
+    }
+    return true;
+  });
+}
+
+export async function getSupplierReturn(tenantId: string, id: string): Promise<SupplierReturn> {
+  try {
+    const r = await backendFetch<any>(`/tenants/${tenantId}/supplier-returns/${id}`);
+    if (r && r.id) {
+      const mapped = mapBackendSupplierReturn(r, tenantId);
+      const db = tenantDb(tenantId);
+      const idx = db.supplierReturns.findIndex((x) => x.id === id);
+      if (idx >= 0) db.supplierReturns[idx] = mapped;
+      else db.supplierReturns.unshift(mapped);
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch supplier return from backend, using local store:", err);
+    }
+  }
+
+  await latency();
+  const rtn = tenantDb(tenantId).supplierReturns.find((r) => r.id === id);
+  if (!rtn) throw new ApiError(404, "Supplier return not found.");
+  return rtn;
 }
 
 export async function createSupplierReturn(
   tenantId: string,
-  input: { branchId: string; supplierId: string; reason: string; lines: { ingredientId: string; qty: number }[]; createdBy: string },
+  input: CreateSupplierReturnInput,
 ): Promise<SupplierReturn> {
+  const lines = input.lines.filter((l) => l.qty > 0);
+  if (!lines.length) throw new ApiError(422, "Add at least one item to return.");
+  if (!input.reason.trim()) throw new ApiError(422, "Give a reason for the return.");
+  if (!input.supplierId) throw new ApiError(422, "Choose a supplier.");
+
+  try {
+    const created = await backendFetch<any>(`/tenants/${tenantId}/supplier-returns`, {
+      method: "POST",
+      body: JSON.stringify({
+        branchId: input.branchId,
+        supplierId: input.supplierId,
+        reason: input.reason.trim(),
+        createdBy: input.createdBy || undefined,
+        lines: lines.map((l) => ({
+          ingredientId: l.ingredientId,
+          qty: Number(l.qty),
+          unitCost: l.unitCost !== undefined ? Number(l.unitCost) : undefined,
+        })),
+      }),
+    });
+
+    if (created && created.id) {
+      const mapped = mapBackendSupplierReturn(created, tenantId);
+      const db = tenantDb(tenantId);
+      const idx = db.supplierReturns.findIndex((x) => x.id === created.id);
+      if (idx >= 0) db.supplierReturns[idx] = mapped;
+      else db.supplierReturns.unshift(mapped);
+
+      // Deduct local ingredient stock & log movement in local db
+      const sup = db.suppliers.find((s) => s.id === input.supplierId);
+      const supName = sup ? sup.name : mapped.supplierName;
+      for (const line of mapped.lines) {
+        const ing = db.ingredients.find((i) => i.id === line.ingredientId && i.branchId === input.branchId);
+        if (ing) {
+          applyMovement(db, ing, -line.qty, "return", `${mapped.number} → ${supName}`);
+        }
+      }
+
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for supplier return, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency(300, 600);
   const db = tenantDb(tenantId);
   const sup = db.suppliers.find((s) => s.id === input.supplierId);
   if (!sup) throw new ApiError(422, "Choose a supplier.");
-  if (!input.reason.trim()) throw new ApiError(422, "Give a reason for the return.");
-  const lines = input.lines.filter((l) => l.qty > 0);
-  if (!lines.length) throw new ApiError(422, "Add at least one item to return.");
-  // Validate everything before changing stock.
   const ings = lines.map((l) => {
     const ing = db.ingredients.find((i) => i.id === l.ingredientId && i.branchId === input.branchId);
     if (!ing) throw new ApiError(422, "Unknown ingredient.");
@@ -771,7 +929,7 @@ export async function createSupplierReturn(
     lines: out,
     reason: input.reason.trim(),
     credit: round2(out.reduce((s, l) => s + l.qty * l.unitCost, 0)),
-    createdBy: input.createdBy,
+    createdBy: input.createdBy || "Staff",
     createdAt: new Date().toISOString(),
   };
   db.supplierReturns.unshift(rtn);
