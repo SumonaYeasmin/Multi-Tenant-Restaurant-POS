@@ -121,8 +121,8 @@ export async function getMenu(tenantId: string): Promise<MenuBundle> {
         categoryId: item.categoryId,
         name: item.name,
         description: item.description ?? "",
-        price: Number(item.price) || 0,
-        available: item.available ?? true,
+        price: Number(item.effectivePrice ?? item.price) || 0,
+        available: item.effectiveAvailable ?? item.available ?? true,
         tags: item.tags ?? [],
         modifierGroupIds: item.modifierGroupIds ?? [],
         variants: (item.variants || []).map((v: any) => ({

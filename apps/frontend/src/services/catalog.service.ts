@@ -305,6 +305,63 @@ export async function saveMenuItem(tenantId: string, input: MenuItemInput): Prom
     }
   }
 
+  // Call backend API when updating an existing menu item
+  if (input.id) {
+    try {
+      const updated = await backendFetch<any>(`/tenants/${tenantId}/menu-items/${input.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: data.name,
+          categoryId: data.categoryId,
+          price: data.price,
+          description: data.description,
+          available: data.available,
+          tags: data.tags,
+          modifierGroupIds: data.modifierGroupIds,
+          variants: data.variants.map((v) => ({
+            id: v.id,
+            name: v.name,
+            priceDelta: v.priceDelta,
+          })),
+        }),
+      });
+
+      if (updated && updated.id) {
+        const mapped: MenuItem = {
+          id: updated.id,
+          tenantId: updated.tenantId || tenantId,
+          categoryId: updated.categoryId,
+          name: updated.name || data.name,
+          description: updated.description ?? data.description,
+          price: Number(updated.effectivePrice ?? updated.price) || data.price,
+          available: updated.effectiveAvailable ?? updated.available ?? data.available,
+          tags: updated.tags ?? data.tags,
+          modifierGroupIds: updated.modifierGroupIds ?? data.modifierGroupIds,
+          variants: (updated.variants || []).map((v: any) => ({
+            id: v.id,
+            name: v.name,
+            priceDelta: Number(v.priceDelta) || 0,
+          })),
+          recipe: [],
+        };
+        const idx = db.menuItems.findIndex((x) => x.id === input.id);
+        if (idx >= 0) {
+          db.menuItems[idx] = mapped;
+        } else {
+          db.menuItems.push(mapped);
+        }
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for updating menu item, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
   await latency(200, 400);
   if (input.id) {
     const m = db.menuItems.find((x) => x.id === input.id);
@@ -320,6 +377,29 @@ export async function saveMenuItem(tenantId: string, input: MenuItemInput): Prom
 }
 
 export async function setItemAvailability(tenantId: string, id: string, available: boolean): Promise<MenuItem> {
+  try {
+    const updated = await backendFetch<any>(`/tenants/${tenantId}/menu-items/${id}/availability`, {
+      method: "PATCH",
+      body: JSON.stringify({ available }),
+    });
+
+    if (updated && updated.id) {
+      const db = tenantDb(tenantId);
+      const m = db.menuItems.find((x) => x.id === id);
+      if (m) {
+        m.available = updated.available ?? available;
+        commit(tenantId);
+        return m;
+      }
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for toggling item availability, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency(60, 150);
   const m = tenantDb(tenantId).menuItems.find((x) => x.id === id);
   if (!m) throw new ApiError(404, "Item not found.");
@@ -329,6 +409,18 @@ export async function setItemAvailability(tenantId: string, id: string, availabl
 }
 
 export async function deleteMenuItem(tenantId: string, id: string): Promise<{ ok: true }> {
+  try {
+    await backendFetch<any>(`/tenants/${tenantId}/menu-items/${id}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for deleting menu item, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   const inCombo = db.combos.find((c) => c.components.some((x) => x.itemId === id));
