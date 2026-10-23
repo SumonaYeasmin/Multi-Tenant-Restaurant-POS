@@ -48,6 +48,32 @@ export async function saveCategory(tenantId: string, input: { id?: string | unde
     }
   }
 
+  // Call backend API when updating an existing category
+  if (input.id) {
+    try {
+      const updated = await backendFetch<Category>(`/tenants/${tenantId}/categories/${input.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name }),
+      });
+
+      if (updated) {
+        const db = tenantDb(tenantId);
+        const c = db.categories.find((x) => x.id === input.id);
+        if (c) {
+          c.name = updated.name || name;
+          commit(tenantId);
+          return c;
+        }
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for updating category, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   if (db.categories.some((c) => c.name.toLowerCase() === name.toLowerCase() && c.id !== input.id)) throw new ApiError(409, "A category with this name already exists.");
@@ -78,6 +104,18 @@ export async function moveCategory(tenantId: string, id: string, dir: -1 | 1): P
 }
 
 export async function deleteCategory(tenantId: string, id: string): Promise<{ ok: true }> {
+  try {
+    await backendFetch<{ message: string }>(`/tenants/${tenantId}/categories/${id}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for deleting category, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   const count = db.menuItems.filter((m) => m.categoryId === id).length;
