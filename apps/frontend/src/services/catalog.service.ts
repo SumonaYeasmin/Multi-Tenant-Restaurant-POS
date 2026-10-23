@@ -443,6 +443,54 @@ export async function saveCombo(tenantId: string, input: ComboInput): Promise<Co
     }
   }
 
+  // Call backend API when updating an existing combo
+  if (input.id) {
+    try {
+      const updated = await backendFetch<any>(`/tenants/${tenantId}/combos/${input.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          available: data.available,
+          components: data.components.map((c) => ({
+            itemId: c.itemId,
+            qty: c.qty,
+          })),
+        }),
+      });
+
+      if (updated && updated.id) {
+        const mapped: Combo = {
+          id: updated.id,
+          tenantId: updated.tenantId || tenantId,
+          name: updated.name || data.name,
+          description: updated.description ?? data.description,
+          price: Number(updated.price) || data.price,
+          available: updated.available ?? data.available,
+          components: (updated.components || updated.items || data.components).map((x: any) => ({
+            itemId: x.itemId || x.menuItemId,
+            qty: x.qty ?? x.quantity ?? 1,
+          })),
+        };
+        const idx = db.combos.findIndex((x) => x.id === input.id);
+        if (idx >= 0) {
+          db.combos[idx] = mapped;
+        } else {
+          db.combos.push(mapped);
+        }
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for updating combo, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
   await latency();
   if (input.id) {
     const c = db.combos.find((x) => x.id === input.id);
@@ -458,6 +506,18 @@ export async function saveCombo(tenantId: string, input: ComboInput): Promise<Co
 }
 
 export async function deleteCombo(tenantId: string, id: string): Promise<{ ok: true }> {
+  try {
+    await backendFetch<any>(`/tenants/${tenantId}/combos/${id}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for deleting combo, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   db.combos = db.combos.filter((c) => c.id !== id);
