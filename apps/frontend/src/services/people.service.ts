@@ -1,6 +1,7 @@
 import { ApiError, commit, latency, tenantDb, uid } from "@/mocks/db";
 import type { TenantDb } from "@/mocks/seed";
 import { round2 } from "@/lib/pricing";
+import { backendFetch } from "./api-client";
 import type {
   AttendanceRecord,
   Branch,
@@ -279,6 +280,28 @@ export const hoursWorked = (a: AttendanceRecord, now = Date.now()) => round2(((a
 
 // ---------- Branches ----------
 export async function listAllBranches(tenantId: string): Promise<Branch[]> {
+  try {
+    const backendBranches = await backendFetch<Branch[]>(`/tenants/${tenantId}/branches`);
+    if (Array.isArray(backendBranches)) {
+      const db = tenantDb(tenantId);
+      db.branches = backendBranches.map((b) => ({
+        id: b.id,
+        tenantId: b.tenantId || tenantId,
+        name: b.name,
+        address: b.address || "",
+        phone: b.phone || "",
+      }));
+      commit(tenantId);
+      return db.branches;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for branches, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   return tenantDb(tenantId).branches;
 }
@@ -286,11 +309,69 @@ export async function listAllBranches(tenantId: string): Promise<Branch[]> {
 export type BranchInput = Pick<Branch, "name" | "address" | "phone"> & { id?: string | undefined };
 
 export async function saveBranch(tenantId: string, input: BranchInput): Promise<Branch> {
-  await latency();
-  const db = tenantDb(tenantId);
   const name = input.name.trim();
   if (!name) throw new ApiError(422, "Branch name is required.");
-  if (db.branches.some((b) => b.name.toLowerCase() === name.toLowerCase() && b.id !== input.id)) throw new ApiError(409, "A branch with this name already exists.");
+
+  try {
+    let saved: Branch;
+    if (input.id) {
+      saved = await backendFetch<Branch>(`/tenants/${tenantId}/branches/${input.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name,
+          address: input.address?.trim() || "",
+          phone: input.phone?.trim() || "",
+        }),
+      });
+    } else {
+      saved = await backendFetch<Branch>(`/tenants/${tenantId}/branches`, {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          address: input.address?.trim() || "",
+          phone: input.phone?.trim() || "",
+        }),
+      });
+    }
+
+    if (saved && saved.id) {
+      const db = tenantDb(tenantId);
+      const existing = db.branches.find((x) => x.id === saved.id);
+      const mapped: Branch = {
+        id: saved.id,
+        tenantId: saved.tenantId || tenantId,
+        name: saved.name,
+        address: saved.address || "",
+        phone: saved.phone || "",
+      };
+
+      if (existing) {
+        Object.assign(existing, mapped);
+      } else {
+        db.branches.push(mapped);
+        if (db.branches.length > 1 && db.ingredients.length > 0) {
+          const template = db.ingredients.filter((i) => i.branchId === db.branches[0]!.id);
+          for (const i of template) {
+            db.ingredients.push({ ...i, id: `${mapped.id}_ing_${i.key}`, branchId: mapped.id, stock: 0 });
+          }
+        }
+      }
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unreachable for saving branch, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
+  await latency();
+  const db = tenantDb(tenantId);
+  if (db.branches.some((b) => b.name.toLowerCase() === name.toLowerCase() && b.id !== input.id)) {
+    throw new ApiError(409, "A branch with this name already exists.");
+  }
   const data = { name, address: input.address.trim(), phone: input.phone.trim() };
   if (input.id) {
     const b = db.branches.find((x) => x.id === input.id);
