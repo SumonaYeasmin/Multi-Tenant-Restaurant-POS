@@ -803,6 +803,35 @@ export function costRecipe(recipe: RecipeLine[], ingredients: Ingredient[]) {
 }
 
 export async function listRecipeCosts(tenantId: string, branchId: string): Promise<RecipeCostRow[]> {
+  try {
+    const qs = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
+    const backendCosts = await backendFetch<any[]>(`/tenants/${tenantId}/recipes${qs}`);
+    if (Array.isArray(backendCosts)) {
+      return backendCosts.map((item) => ({
+        itemId: item.itemId,
+        name: item.name,
+        categoryId: item.categoryId,
+        price: Number(item.price) || 0,
+        cost: Number(item.cost) || 0,
+        margin: Number(item.margin) || 0,
+        costPct: Number(item.costPct) || 0,
+        recipe: (item.recipe || []).map((r: any) => ({
+          ingredientKey: r.ingredientKey || r.ingredientId,
+          qty: Number(r.qty ?? r.quantity) || 0,
+          name: r.name || r.ingredientKey || "",
+          unit: r.unit || "",
+          unitCost: Number(r.unitCost) || 0,
+          lineCost: Number(r.lineCost) || 0,
+          missing: Boolean(r.missing),
+        })),
+      }));
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch recipe costs from backend, using local store:", err);
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   const ings = db.ingredients.filter((i) => i.branchId === branchId);
@@ -822,12 +851,44 @@ export async function listRecipeCosts(tenantId: string, branchId: string): Promi
 }
 
 export async function saveRecipe(tenantId: string, itemId: string, recipe: RecipeLine[]): Promise<MenuItem> {
+  const clean = recipe.filter((r) => r.qty > 0);
+
+  // Call backend API to save recipe
+  try {
+    const saved = await backendFetch<any>(`/tenants/${tenantId}/recipes/${itemId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        recipe: clean.map((r) => ({
+          ingredientId: r.ingredientKey,
+          ingredientKey: r.ingredientKey,
+          qty: r.qty,
+          quantity: r.qty,
+        })),
+      }),
+    });
+
+    if (saved) {
+      const db = tenantDb(tenantId);
+      const m = db.menuItems.find((x) => x.id === itemId);
+      if (m) {
+        m.recipe = clean.map((r) => ({ ingredientKey: r.ingredientKey, qty: Math.round(r.qty * 1000) / 1000 }));
+        commit(tenantId);
+        return m;
+      }
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for saving recipe, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   const m = db.menuItems.find((x) => x.id === itemId);
   if (!m) throw new ApiError(404, "Item not found.");
   const keys = new Set(db.ingredients.map((i) => i.key));
-  const clean = recipe.filter((r) => r.qty > 0);
   if (clean.some((r) => !keys.has(r.ingredientKey))) throw new ApiError(422, "Unknown ingredient in recipe.");
   if (new Set(clean.map((r) => r.ingredientKey)).size !== clean.length) throw new ApiError(422, "Each ingredient can appear only once.");
   m.recipe = clean.map((r) => ({ ingredientKey: r.ingredientKey, qty: Math.round(r.qty * 1000) / 1000 }));

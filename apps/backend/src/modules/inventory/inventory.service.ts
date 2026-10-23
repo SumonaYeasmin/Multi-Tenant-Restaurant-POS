@@ -162,8 +162,10 @@ export class InventoryService {
    * search, category filtering, and low stock filtering.
    */
   async getIngredients(tenantSlug: string, query: GetIngredientsQueryDto) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -211,6 +213,7 @@ export class InventoryService {
 
         return {
           id: ing.id,
+          key: ing.id,
           tenantId: ing.tenantId,
           branchId,
           name: ing.name,
