@@ -29,8 +29,10 @@ export class InventoryService {
     currentUser?: any,
   ) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -260,8 +262,10 @@ export class InventoryService {
    * Get a single ingredient by ID with branch stock details.
    */
   async getIngredientById(tenantSlug: string, ingredientId: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -304,8 +308,10 @@ export class InventoryService {
     ingredientId: string,
     dto: UpdateIngredientDto,
   ) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -421,8 +427,10 @@ export class InventoryService {
    * Soft delete an ingredient (sets isDeleted: true, deletedAt, isActive: false).
    */
   async deleteIngredient(tenantSlug: string, ingredientId: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -502,8 +510,10 @@ export class InventoryService {
     currentUser?: any,
   ) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
     if (!tenant) {
       throw new NotFoundException('Restaurant');
@@ -691,8 +701,10 @@ export class InventoryService {
    * Get stock counts with optional branch filtering and pagination
    */
   async getStockCounts(tenantSlug: string, query: GetStockCountsQueryDto) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
     if (!tenant) {
       throw new NotFoundException('Restaurant');
@@ -765,8 +777,10 @@ export class InventoryService {
    * Get single stock count by ID
    */
   async getStockCountById(tenantSlug: string, id: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
     if (!tenant) {
       throw new NotFoundException('Restaurant');

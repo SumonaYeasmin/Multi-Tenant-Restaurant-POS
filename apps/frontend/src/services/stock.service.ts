@@ -1,5 +1,6 @@
 import { ApiError, commit, latency, tenantDb, uid } from "@/mocks/db";
 import { round2 } from "@/lib/pricing";
+import { backendFetch } from "./api-client";
 import type { Ingredient, MovementReason, StockCount, StockMovement } from "@/types/domain";
 import type { TenantDb } from "@/mocks/seed";
 
@@ -43,11 +44,100 @@ export interface IngredientInput {
 }
 
 export async function saveIngredient(tenantId: string, input: IngredientInput): Promise<Ingredient> {
-  await latency();
-  const db = tenantDb(tenantId);
   const name = input.name.trim();
   if (!name || !input.unit.trim()) throw new ApiError(422, "Name and unit are required.");
   if (input.reorderLevel < 0 || input.unitCost < 0) throw new ApiError(422, "Values must be zero or more.");
+
+  // Call backend API when creating a new ingredient
+  if (!input.id) {
+    try {
+      const saved = await backendFetch<any>(`/tenants/${tenantId}/inventory/ingredients`, {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          unit: input.unit.trim(),
+          costPerUnit: round2(input.unitCost),
+          unitCost: round2(input.unitCost),
+          branchId: input.branchId,
+          openingStock: input.openingStock ? Number(input.openingStock) : 0,
+          reorderLevel: Number(input.reorderLevel) || 0,
+        }),
+      });
+
+      if (saved && saved.id) {
+        const bStock = saved.branchStocks?.find((b: any) => b.branchId === input.branchId) ?? saved.branchStocks?.[0];
+        const stock = bStock?.currentStock ?? input.openingStock ?? 0;
+        const reorderLevel = bStock?.reorderLevel ?? input.reorderLevel ?? 0;
+        const unitCost = bStock?.unitCost ?? saved.costPerUnit ?? input.unitCost ?? 0;
+
+        const mapped: Ingredient = {
+          id: saved.id,
+          tenantId: saved.tenantId || tenantId,
+          branchId: input.branchId,
+          key: saved.id,
+          name: saved.name,
+          unit: saved.unit,
+          stock: Number(stock) || 0,
+          reorderLevel: Number(reorderLevel) || 0,
+          unitCost: Number(unitCost) || 0,
+        };
+
+        const db = tenantDb(tenantId);
+        const idx = db.ingredients.findIndex((x) => x.id === saved.id && x.branchId === input.branchId);
+        if (idx >= 0) db.ingredients[idx] = mapped;
+        else db.ingredients.push(mapped);
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for creating ingredient, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // Call backend API when updating an existing ingredient
+  if (input.id) {
+    try {
+      const updated = await backendFetch<any>(`/tenants/${tenantId}/inventory/ingredients/${input.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name,
+          unit: input.unit.trim(),
+          costPerUnit: round2(input.unitCost),
+          unitCost: round2(input.unitCost),
+          branchId: input.branchId,
+          reorderLevel: Number(input.reorderLevel) || 0,
+        }),
+      });
+
+      if (updated && updated.id) {
+        const db = tenantDb(tenantId);
+        const ing = db.ingredients.find((i) => i.id === input.id && i.branchId === input.branchId);
+        if (ing) {
+          Object.assign(ing, {
+            name: updated.name || name,
+            unit: updated.unit || input.unit.trim(),
+            reorderLevel: input.reorderLevel,
+            unitCost: round2(input.unitCost),
+          });
+          commit(tenantId);
+          return ing;
+        }
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for updating ingredient, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  await latency();
+  const db = tenantDb(tenantId);
   if (input.id) {
     const ing = findIng(db, input.branchId, input.id);
     Object.assign(ing, { name, unit: input.unit.trim(), reorderLevel: input.reorderLevel, unitCost: round2(input.unitCost) });
