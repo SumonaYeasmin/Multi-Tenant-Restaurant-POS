@@ -127,9 +127,13 @@ export const backofficeApi = api2.injectEndpoints({
       queryFn: ({ tenantId, id }) => run(() => purchasing.deleteSupplier(tenantId, id)),
       invalidatesTags: ["Supplier"],
     }),
-    purchaseOrders: b.query<PurchaseOrder[], T<{ branchId: string }>>({
-      queryFn: ({ tenantId, branchId }) => run(() => purchasing.listPurchaseOrders(tenantId, branchId)),
+    purchaseOrders: b.query<PurchaseOrder[], T<{ branchId?: string } & purchasing.PurchaseOrderFilters>>({
+      queryFn: ({ tenantId, ...filters }) => run(() => purchasing.listPurchaseOrders(tenantId, filters)),
       providesTags: ["PurchaseOrder"],
+    }),
+    purchaseOrder: b.query<PurchaseOrder, T<{ id: string }>>({
+      queryFn: ({ tenantId, id }) => run(() => purchasing.getPurchaseOrder(tenantId, id)),
+      providesTags: (_r, _e, a) => [{ type: "PurchaseOrder" as const, id: a.id }],
     }),
     savePurchaseOrder: b.mutation<PurchaseOrder, T<purchasing.PurchaseOrderInput>>({
       queryFn: ({ tenantId, ...i }) => run(() => purchasing.savePurchaseOrder(tenantId, i)),
@@ -185,6 +189,7 @@ export const {
   useSaveSupplierMutation,
   useDeleteSupplierMutation,
   usePurchaseOrdersQuery,
+  usePurchaseOrderQuery,
   useSavePurchaseOrderMutation,
   useSetPurchaseOrderStatusMutation,
   useReceiptsQuery,

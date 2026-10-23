@@ -2,7 +2,7 @@ import { ApiError, commit, latency, tenantDb, uid } from "@/mocks/db";
 import { round2 } from "@/lib/pricing";
 import { backendFetch } from "./api-client";
 import { applyMovement } from "./stock.service";
-import type { GoodsReceipt, PurchaseOrder, Supplier, SupplierReturn } from "@/types/domain";
+import type { GoodsReceipt, PurchaseOrder, PurchaseOrderStatus, Supplier, SupplierReturn } from "@/types/domain";
 
 // Suppliers, purchase orders, goods receiving and supplier returns.
 // Future REST: /tenants/:tenantId/suppliers, /purchase-orders, /goods-receipts, /supplier-returns
@@ -232,11 +232,102 @@ export async function deleteSupplier(tenantId: string, id: string): Promise<{ ok
 }
 
 // ---------- Purchase orders ----------
-export async function listPurchaseOrders(tenantId: string, branchId: string): Promise<PurchaseOrder[]> {
+export interface PurchaseOrderFilters {
+  branchId?: string;
+  supplierId?: string;
+  status?: string;
+  search?: string;
+}
+
+function mapBackendPurchaseOrder(p: any, tenantId: string, fallbackBranchId = ""): PurchaseOrder {
+  return {
+    id: p.id,
+    tenantId: p.tenantId || p.restaurantId || tenantId,
+    branchId: p.branchId || fallbackBranchId,
+    number: p.number || p.poNumber || "",
+    supplierId: p.supplierId || p.supplier?.id || "",
+    supplierName: p.supplierName || p.supplier?.name || "",
+    status: (p.status || "draft").toLowerCase() as PurchaseOrderStatus,
+    lines: (p.lines || p.items || []).map((l: any) => ({
+      ingredientId: l.ingredientId,
+      name: l.name || l.ingredient?.name || "",
+      unit: l.unit || l.ingredient?.unit || "",
+      qty: Number(l.qty ?? l.quantity ?? 0),
+      unitCost: Number(l.unitCost ?? 0),
+      receivedQty: Number(l.receivedQty ?? 0),
+    })),
+    notes: p.notes || "",
+    expectedDate: p.expectedDate || (p.expectedAt ? new Date(p.expectedAt).toISOString().slice(0, 10) : ""),
+    total: Number(p.total ?? p.totalAmount ?? 0),
+    createdBy: p.createdBy || p.createdById || "",
+    createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
+    sentAt: p.sentAt ? new Date(p.sentAt).toISOString() : null,
+  };
+}
+
+export async function listPurchaseOrders(
+  tenantId: string,
+  branchIdOrFilters?: string | PurchaseOrderFilters,
+): Promise<PurchaseOrder[]> {
+  const filters: PurchaseOrderFilters =
+    typeof branchIdOrFilters === "string"
+      ? { branchId: branchIdOrFilters }
+      : (branchIdOrFilters ?? {});
+
+  try {
+    const params = new URLSearchParams();
+    if (filters.branchId) params.append("branchId", filters.branchId);
+    if (filters.supplierId) params.append("supplierId", filters.supplierId);
+    if (filters.status && filters.status !== "all") params.append("status", filters.status.toUpperCase());
+    if (filters.search) params.append("search", filters.search);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+
+    const backendPOs = await backendFetch<any[]>(`/tenants/${tenantId}/purchase-orders${qs}`);
+    if (Array.isArray(backendPOs)) {
+      const mappedList = backendPOs.map((p) => mapBackendPurchaseOrder(p, tenantId, filters.branchId));
+      const db = tenantDb(tenantId);
+      for (const po of mappedList) {
+        const idx = db.purchaseOrders.findIndex((x) => x.id === po.id);
+        if (idx >= 0) db.purchaseOrders[idx] = po;
+        else db.purchaseOrders.push(po);
+      }
+      commit(tenantId);
+      return mappedList;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch purchase orders from backend, using local store:", err);
+    }
+  }
+
   await latency();
   return tenantDb(tenantId)
-    .purchaseOrders.filter((p) => p.branchId === branchId)
+    .purchaseOrders.filter((p) => !filters.branchId || p.branchId === filters.branchId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function getPurchaseOrder(tenantId: string, id: string): Promise<PurchaseOrder> {
+  try {
+    const p = await backendFetch<any>(`/tenants/${tenantId}/purchase-orders/${id}`);
+    if (p && p.id) {
+      const mapped = mapBackendPurchaseOrder(p, tenantId);
+      const db = tenantDb(tenantId);
+      const idx = db.purchaseOrders.findIndex((x) => x.id === id);
+      if (idx >= 0) db.purchaseOrders[idx] = mapped;
+      else db.purchaseOrders.push(mapped);
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch purchase order from backend, using local store:", err);
+    }
+  }
+
+  await latency();
+  const po = tenantDb(tenantId).purchaseOrders.find((x) => x.id === id);
+  if (!po) throw new ApiError(404, "Purchase order not found.");
+  return po;
 }
 
 export interface PurchaseOrderInput {
@@ -250,6 +341,80 @@ export interface PurchaseOrderInput {
 }
 
 export async function savePurchaseOrder(tenantId: string, input: PurchaseOrderInput): Promise<PurchaseOrder> {
+  const validLines = input.lines.filter((l) => l.qty > 0);
+
+  // Call backend API when creating a new purchase order
+  if (!input.id) {
+    try {
+      const created = await backendFetch<any>(`/tenants/${tenantId}/purchase-orders`, {
+        method: "POST",
+        body: JSON.stringify({
+          branchId: input.branchId,
+          supplierId: input.supplierId,
+          expectedDate: input.expectedDate ? new Date(input.expectedDate).toISOString() : undefined,
+          notes: input.notes?.trim() || undefined,
+          lines: validLines.map((l) => ({
+            ingredientId: l.ingredientId,
+            quantity: Number(l.qty),
+            unitCost: Number(l.unitCost),
+          })),
+        }),
+      });
+
+      if (created && created.id) {
+        const mapped = mapBackendPurchaseOrder(created, tenantId, input.branchId);
+        const db = tenantDb(tenantId);
+        const idx = db.purchaseOrders.findIndex((x) => x.id === created.id);
+        if (idx >= 0) db.purchaseOrders[idx] = mapped;
+        else db.purchaseOrders.push(mapped);
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for creating purchase order, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // Call backend API when updating an existing purchase order
+  if (input.id) {
+    try {
+      const updated = await backendFetch<any>(`/tenants/${tenantId}/purchase-orders/${input.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          branchId: input.branchId,
+          supplierId: input.supplierId,
+          expectedDate: input.expectedDate ? new Date(input.expectedDate).toISOString() : undefined,
+          notes: input.notes?.trim() || undefined,
+          lines: validLines.map((l) => ({
+            ingredientId: l.ingredientId,
+            quantity: Number(l.qty),
+            unitCost: Number(l.unitCost),
+          })),
+        }),
+      });
+
+      if (updated && updated.id) {
+        const mapped = mapBackendPurchaseOrder(updated, tenantId, input.branchId);
+        const db = tenantDb(tenantId);
+        const idx = db.purchaseOrders.findIndex((x) => x.id === input.id);
+        if (idx >= 0) db.purchaseOrders[idx] = mapped;
+        else db.purchaseOrders.push(mapped);
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for updating purchase order, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   const sup = db.suppliers.find((s) => s.id === input.supplierId);
@@ -297,8 +462,32 @@ export async function savePurchaseOrder(tenantId: string, input: PurchaseOrderIn
 }
 
 export async function setPurchaseOrderStatus(tenantId: string, id: string, status: "sent" | "cancelled"): Promise<PurchaseOrder> {
+  try {
+    const updated = await backendFetch<any>(`/tenants/${tenantId}/purchase-orders/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        status: status.toUpperCase(),
+      }),
+    });
+    if (updated && updated.id) {
+      const mapped = mapBackendPurchaseOrder(updated, tenantId);
+      const db = tenantDb(tenantId);
+      const idx = db.purchaseOrders.findIndex((x) => x.id === id);
+      if (idx >= 0) db.purchaseOrders[idx] = mapped;
+      else db.purchaseOrders.push(mapped);
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for setting purchase order status, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
-  const po = tenantDb(tenantId).purchaseOrders.find((p) => p.id === id);
+  const po = tenantDb(tenantId).purchaseOrders.find((x) => x.id === id);
   if (!po) throw new ApiError(404, "Purchase order not found.");
   if (status === "sent" && po.status !== "draft") throw new ApiError(409, "Only drafts can be sent.");
   if (status === "cancelled" && !["draft", "sent"].includes(po.status)) throw new ApiError(409, "Orders with received goods can't be cancelled.");
