@@ -496,7 +496,11 @@ function CustomersAndLoyaltyPage() {
           color: tierFormData.color,
           description: tierFormData.description.trim() || undefined,
         });
-        setTiers((prev) => prev.map((t) => (t.id === editingTier.id ? updated : t)));
+        setTiers((prev) =>
+          prev
+            .map((t) => (t.id === editingTier.id ? updated : t))
+            .sort((a, b) => a.minSpend - b.minSpend),
+        );
         toast.success(`Tier "${updated.name}" updated successfully!`);
       } else {
         const created = await createLoyaltyTierApi(tenant.slug, {
@@ -508,8 +512,10 @@ function CustomersAndLoyaltyPage() {
           description: tierFormData.description.trim() || undefined,
           sortOrder: tiers.length,
         });
-        setTiers((prev) => [...prev, created]);
-        toast.success(`Tier "${created.name}" created successfully!`);
+        setTiers((prev) =>
+          [...prev, created].sort((a, b) => a.minSpend - b.minSpend),
+        );
+        toast.success(`Loyalty tier "${created.name}" created successfully!`);
       }
       setIsTierModalOpen(false);
       setEditingTier(null);
@@ -1738,11 +1744,24 @@ function CustomersAndLoyaltyPage() {
                     onChange={(e) =>
                       setTierFormData((prev) => ({ ...prev, color: e.target.value }))
                     }
-                    className="size-9 rounded-md border cursor-pointer p-0.5 bg-background"
+                    className="size-9 rounded-md border cursor-pointer p-0.5 bg-background shrink-0"
                   />
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {tierFormData.color}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {["#B45309", "#94A3B8", "#EAB308", "#8B5CF6", "#06B6D4", "#10B981", "#F43F5E"].map((col) => (
+                      <button
+                        key={col}
+                        type="button"
+                        onClick={() => setTierFormData((prev) => ({ ...prev, color: col }))}
+                        className={`size-6 rounded-full border transition-transform ${
+                          tierFormData.color.toLowerCase() === col.toLowerCase()
+                            ? "scale-110 ring-2 ring-primary ring-offset-1"
+                            : "hover:scale-105"
+                        }`}
+                        style={{ backgroundColor: col }}
+                        title={col}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
