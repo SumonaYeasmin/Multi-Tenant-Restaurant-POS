@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -15,6 +16,8 @@ import {
 } from '@nestjs/swagger';
 import { PromotionService } from './promotion.service';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
+import { GetPromotionsQueryDto } from './dto/get-promotions-query.dto';
+import { CheckPromotionQueryDto } from './dto/check-promotion-query.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -68,20 +71,80 @@ export class PromotionController {
   @RequirePermissions(Permission.PROMOTIONS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'List all promotions',
-    description: 'Retrieves all promotions created for the restaurant tenant.',
+    summary: 'List and filter promotions',
+    description:
+      'Retrieves promotions with search, status filtering, and pagination support.',
   })
   @ApiParam({
     name: 'tenantSlug',
     example: 'saffron-ember',
     description: 'Restaurant slug or ID',
   })
-  async getPromotions(@Param('tenantSlug') tenantSlug: string) {
-    const promotions = await this.promotionService.getPromotions(tenantSlug);
+  async getPromotions(
+    @Param('tenantSlug') tenantSlug: string,
+    @Query() query: GetPromotionsQueryDto,
+  ) {
+    const result = await this.promotionService.getPromotions(
+      tenantSlug,
+      query,
+    );
     return ResponseHelper.success(
-      promotions,
+      result,
       'Promotions retrieved successfully',
     );
+  }
+
+  @Get(':tenantSlug/promotions/validate')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.DISCOUNTS_APPLY, Permission.PROMOTIONS_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Validate promo code for POS checkout',
+    description:
+      'Validates promo code lifecycle, usage cap, min spend, and computes order discount in real-time.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'saffron-ember',
+  })
+  async validatePromotion(
+    @Param('tenantSlug') tenantSlug: string,
+    @Query() query: CheckPromotionQueryDto,
+  ) {
+    const result = await this.promotionService.checkPromotionValidity(
+      tenantSlug,
+      query.code,
+      query.subtotal,
+    );
+    return ResponseHelper.success(result, 'Promotion is valid');
+  }
+
+  @Get(':tenantSlug/promotions/by-code/:code')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.DISCOUNTS_APPLY, Permission.PROMOTIONS_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Find promotion by exact promo code',
+    description:
+      'Looks up a promotion by exact code and returns computed availability metrics.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'saffron-ember',
+  })
+  @ApiParam({
+    name: 'code',
+    example: 'WEEKEND20',
+  })
+  async getPromotionByCode(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('code') code: string,
+  ) {
+    const result = await this.promotionService.checkPromotionValidity(
+      tenantSlug,
+      code,
+    );
+    return ResponseHelper.success(result.promotion, 'Promotion found');
   }
 
   @Get(':tenantSlug/promotions/:id')
@@ -90,7 +153,8 @@ export class PromotionController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get promotion by ID',
-    description: 'Retrieves promotion details by ID.',
+    description:
+      'Retrieves promotion details, remaining uses, and computed status by ID.',
   })
   @ApiParam({
     name: 'tenantSlug',

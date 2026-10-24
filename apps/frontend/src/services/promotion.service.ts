@@ -14,6 +14,10 @@ export interface BackendPromotion {
   active: boolean;
   uses: number;
   maxUses: number | null;
+  computedStatus?: "LIVE" | "SCHEDULED" | "ENDED" | "PAUSED" | "USED_UP";
+  remainingUses?: number | null;
+  isAvailable?: boolean;
+  usagePercent?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -28,6 +32,30 @@ export interface CreatePromotionInput {
   endsAt: string;
   maxUses?: number | null;
   active?: boolean;
+}
+
+export interface GetPromotionsQuery {
+  search?: string;
+  code?: string;
+  status?: "ALL" | "LIVE" | "SCHEDULED" | "ENDED" | "PAUSED" | "USED_UP";
+  kind?: "PERCENT" | "AMOUNT";
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedPromotionsResponse {
+  items: BackendPromotion[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface CheckPromotionResult {
+  promotion: BackendPromotion;
+  discountAmount?: number;
+  finalTotal?: number;
+  isValid: boolean;
 }
 
 /**
@@ -78,12 +106,27 @@ export async function createPromotionApi(
 }
 
 /**
- * Fetch all promotions for a tenant from backend API
+ * Fetch all promotions for a tenant with optional search, status filtering, and pagination
  */
 export async function getPromotionsApi(
-  tenantSlug: string
+  tenantSlug: string,
+  query?: GetPromotionsQuery
 ): Promise<BackendPromotion[]> {
-  return backendFetch<BackendPromotion[]>(`/tenants/${tenantSlug}/promotions`);
+  const qs = new URLSearchParams();
+  if (query?.search) qs.append("search", query.search);
+  if (query?.code) qs.append("code", query.code);
+  if (query?.status) qs.append("status", query.status);
+  if (query?.kind) qs.append("kind", query.kind);
+  if (query?.page) qs.append("page", String(query.page));
+  if (query?.limit !== undefined) qs.append("limit", String(query.limit));
+
+  const queryStr = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await backendFetch<
+    PaginatedPromotionsResponse | BackendPromotion[]
+  >(`/tenants/${tenantSlug}/promotions${queryStr}`);
+
+  if (Array.isArray(res)) return res;
+  return res.items ?? [];
 }
 
 /**
@@ -95,5 +138,33 @@ export async function getPromotionByIdApi(
 ): Promise<BackendPromotion> {
   return backendFetch<BackendPromotion>(
     `/tenants/${tenantSlug}/promotions/${id}`
+  );
+}
+
+/**
+ * Look up a promotion by exact code from backend API
+ */
+export async function getPromotionByCodeApi(
+  tenantSlug: string,
+  code: string
+): Promise<BackendPromotion> {
+  return backendFetch<BackendPromotion>(
+    `/tenants/${tenantSlug}/promotions/by-code/${encodeURIComponent(code)}`
+  );
+}
+
+/**
+ * Real-time POS promotion check & discount calculation from backend API
+ */
+export async function validatePromotionApi(
+  tenantSlug: string,
+  code: string,
+  subtotal?: number
+): Promise<CheckPromotionResult> {
+  const qs = new URLSearchParams({ code });
+  if (subtotal !== undefined) qs.append("subtotal", String(subtotal));
+
+  return backendFetch<CheckPromotionResult>(
+    `/tenants/${tenantSlug}/promotions/validate?${qs.toString()}`
   );
 }

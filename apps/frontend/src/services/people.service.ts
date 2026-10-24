@@ -6,6 +6,7 @@ import {
   createPromotionApi,
   getPromotionsApi,
   mapBackendPromotionToDomain,
+  validatePromotionApi,
 } from "./promotion.service";
 import type {
   AttendanceRecord,
@@ -412,6 +413,19 @@ export function checkPromotion(db: TenantDb, code: string, subtotal: number, tod
 }
 
 export async function validatePromotion(tenantId: string, code: string, subtotal: number): Promise<Promotion> {
+  try {
+    const res = await validatePromotionApi(tenantId, code, subtotal);
+    if (res?.promotion) {
+      return mapBackendPromotionToDomain(res.promotion);
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for validating promotion, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency(100, 200);
   return checkPromotion(tenantDb(tenantId), code, subtotal);
 }

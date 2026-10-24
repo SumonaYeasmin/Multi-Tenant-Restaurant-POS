@@ -4,9 +4,21 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '../../../prisma/generated/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
+import {
+  GetPromotionsQueryDto,
+  PromotionStatusFilter,
+} from './dto/get-promotions-query.dto';
 import { DiscountKind } from '../../../prisma/generated/client';
+
+export type PromotionComputedStatus =
+  | 'LIVE'
+  | 'SCHEDULED'
+  | 'ENDED'
+  | 'PAUSED'
+  | 'USED_UP';
 
 @Injectable()
 export class PromotionService {
@@ -28,6 +40,48 @@ export class PromotionService {
       );
     }
     return tenant;
+  }
+
+  /**
+   * Helper: compute dynamic lifecycle status of a promotion
+   */
+  public computePromotionStatus(
+    promo: {
+      active: boolean;
+      startsAt: Date;
+      endsAt: Date;
+      uses: number;
+      maxUses: number | null;
+    },
+    now = new Date(),
+  ): PromotionComputedStatus {
+    if (!promo.active) return 'PAUSED';
+    if (now < new Date(promo.startsAt)) return 'SCHEDULED';
+    if (now > new Date(promo.endsAt)) return 'ENDED';
+    if (promo.maxUses !== null && promo.uses >= promo.maxUses) return 'USED_UP';
+    return 'LIVE';
+  }
+
+  /**
+   * Helper: enrich promotion record with computed metrics
+   */
+  private enrichPromotion(promo: any, now = new Date()) {
+    const computedStatus = this.computePromotionStatus(promo, now);
+    const remainingUses =
+      promo.maxUses !== null ? Math.max(0, promo.maxUses - promo.uses) : null;
+    const isAvailable = computedStatus === 'LIVE';
+    const usagePercent =
+      promo.maxUses && promo.maxUses > 0
+        ? Math.round((promo.uses / promo.maxUses) * 100)
+        : null;
+
+    return {
+      ...promo,
+      computedStatus,
+      remainingUses,
+      isAvailable,
+      usagePercent,
+    };
   }
 
   /**
@@ -86,7 +140,7 @@ export class PromotionService {
     }
 
     // 5. Create promotion record
-    return this.prisma.promotion.create({
+    const created = await this.prisma.promotion.create({
       data: {
         tenantId: tenant.id,
         name: dto.name.trim(),
@@ -101,27 +155,106 @@ export class PromotionService {
         uses: 0,
       },
     });
+
+    return this.enrichPromotion(created);
   }
 
   /**
-   * Get all active promotions for a restaurant tenant
+   * GET 1: List / search / filter promotions with pagination and computed status
    */
-  async getPromotions(tenantSlug: string) {
+  async getPromotions(tenantSlug: string, query?: GetPromotionsQueryDto) {
     const tenant = await this.resolveTenant(tenantSlug);
+    const now = new Date();
 
-    return this.prisma.promotion.findMany({
-      where: {
-        tenantId: tenant.id,
-        isDeleted: false,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    const where: Prisma.PromotionWhereInput = {
+      tenantId: tenant.id,
+      isDeleted: false,
+    };
+
+    // 1. Search filter: Match name or promo code
+    if (query?.search && query.search.trim()) {
+      const term = query.search.trim();
+      where.OR = [
+        { name: { contains: term, mode: 'insensitive' } },
+        { code: { contains: term.toUpperCase(), mode: 'insensitive' } },
+      ];
+    }
+
+    // 2. Exact code filter
+    if (query?.code && query.code.trim()) {
+      where.code = query.code.trim().toUpperCase();
+    }
+
+    // 3. Discount Kind filter (PERCENT or AMOUNT)
+    if (query?.kind) {
+      where.kind = query.kind;
+    }
+
+    // 4. Status filter
+    if (query?.status && query.status !== PromotionStatusFilter.ALL) {
+      switch (query.status) {
+        case PromotionStatusFilter.PAUSED:
+          where.active = false;
+          break;
+        case PromotionStatusFilter.SCHEDULED:
+          where.active = true;
+          where.startsAt = { gt: now };
+          break;
+        case PromotionStatusFilter.ENDED:
+          where.endsAt = { lt: now };
+          break;
+        case PromotionStatusFilter.USED_UP:
+          where.maxUses = { not: null };
+          break;
+        case PromotionStatusFilter.LIVE:
+          where.active = true;
+          where.startsAt = { lte: now };
+          where.endsAt = { gte: now };
+          break;
+      }
+    }
+
+    // 5. Pagination calculation
+    const page = query?.page && query.page > 0 ? query.page : 1;
+    const limit = query?.limit !== undefined ? query.limit : 20;
+
+    let total = await this.prisma.promotion.count({ where });
+
+    // Fetch items
+    const findOptions: Prisma.PromotionFindManyArgs = {
+      where,
+      orderBy: { createdAt: 'desc' },
+    };
+
+    if (limit > 0) {
+      findOptions.skip = (page - 1) * limit;
+      findOptions.take = limit;
+    }
+
+    const records = await this.prisma.promotion.findMany(findOptions);
+
+    let enriched = records.map((p) => this.enrichPromotion(p, now));
+
+    // Post-filter for USED_UP or LIVE when maxUses condition requires comparison
+    if (query?.status === PromotionStatusFilter.USED_UP) {
+      enriched = enriched.filter((p) => p.computedStatus === 'USED_UP');
+      total = enriched.length;
+    } else if (query?.status === PromotionStatusFilter.LIVE) {
+      enriched = enriched.filter((p) => p.computedStatus === 'LIVE');
+      total = enriched.length;
+    }
+
+    return {
+      items: enriched,
+      total,
+      page,
+      limit,
+      totalPages: limit > 0 ? Math.ceil(total / limit) : 1,
+    };
   }
 
   /**
-   * Get promotion by ID
+   * GET 2: Get single promotion by ID with detailed metrics
    */
   async getPromotionById(tenantSlug: string, id: string) {
     const tenant = await this.resolveTenant(tenantSlug);
@@ -138,6 +271,82 @@ export class PromotionService {
       throw new NotFoundException('Promotion not found.');
     }
 
-    return promotion;
+    return this.enrichPromotion(promotion);
+  }
+
+  /**
+   * GET 3: Validate promo code in real-time during POS checkout
+   */
+  async checkPromotionValidity(
+    tenantSlug: string,
+    code: string,
+    subtotal?: number,
+  ) {
+    const tenant = await this.resolveTenant(tenantSlug);
+    const cleanCode = code.trim().toUpperCase();
+
+    // 1. Find promo code under the specific tenant
+    const promo = await this.prisma.promotion.findFirst({
+      where: {
+        tenantId: tenant.id,
+        code: cleanCode,
+        isDeleted: false,
+      },
+    });
+
+    if (!promo) {
+      throw new NotFoundException(`Promo code "${cleanCode}" not found.`);
+    }
+
+    // 2. Active status check
+    if (!promo.active) {
+      throw new BadRequestException('This promotion is currently paused.');
+    }
+
+    const now = new Date();
+
+    // 3. Start date check
+    if (now < new Date(promo.startsAt)) {
+      throw new BadRequestException("This promotion hasn't started yet.");
+    }
+
+    // 4. End date check
+    if (now > new Date(promo.endsAt)) {
+      throw new BadRequestException('This promotion has ended.');
+    }
+
+    // 5. Usage cap check
+    if (promo.maxUses !== null && promo.uses >= promo.maxUses) {
+      throw new BadRequestException(
+        'This promotion has reached its maximum usage limit.',
+      );
+    }
+
+    // 6. Minimum spend check (if subtotal is passed)
+    if (subtotal !== undefined && subtotal < promo.minSpend) {
+      throw new BadRequestException(
+        `Minimum spend for ${promo.code} is ${promo.minSpend} BDT. Your subtotal is ${subtotal} BDT.`,
+      );
+    }
+
+    // 7. Calculate discount amount in real-time
+    let discountAmount = 0;
+    if (subtotal !== undefined && subtotal > 0) {
+      if (promo.kind === DiscountKind.PERCENT) {
+        discountAmount = Math.round(((subtotal * promo.value) / 100) * 100) / 100;
+      } else {
+        discountAmount = Math.min(subtotal, promo.value);
+      }
+    }
+
+    const finalTotal =
+      subtotal !== undefined ? Math.max(0, subtotal - discountAmount) : undefined;
+
+    return {
+      promotion: this.enrichPromotion(promo, now),
+      discountAmount,
+      finalTotal,
+      isValid: true,
+    };
   }
 }
