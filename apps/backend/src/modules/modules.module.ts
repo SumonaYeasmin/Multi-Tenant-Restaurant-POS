@@ -18,6 +18,7 @@ import { PurchaseOrderModule } from './purchase-order/purchase-order.module';
 import { GoodsReceiptModule } from './goods-receipt/goods-receipt.module';
 import { SupplierReturnModule } from './supplier-return/supplier-return.module';
 import { CustomerModule } from './customer/customer.module';
+import { LoyaltyModule } from './loyalty/loyalty.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { CustomerModule } from './customer/customer.module';
     GoodsReceiptModule,
     SupplierReturnModule,
     CustomerModule,
+    LoyaltyModule,
   ],
   exports: [
     TenantRoleModule,
@@ -60,6 +62,7 @@ import { CustomerModule } from './customer/customer.module';
     GoodsReceiptModule,
     SupplierReturnModule,
     CustomerModule,
+    LoyaltyModule,
   ],
 })
 export class ModulesModule {}
