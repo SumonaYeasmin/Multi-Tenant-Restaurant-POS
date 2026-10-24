@@ -114,7 +114,43 @@ export async function getLoyaltySettings(tenantId: string) {
 }
 
 // ---------- Reservations ----------
+function toFrontendReservation(r: any): Reservation {
+  return {
+    id: r.id,
+    tenantId: r.tenantId,
+    branchId: r.branchId,
+    customerName: r.customerName,
+    phone: r.phone ?? "",
+    partySize: r.partySize ?? 2,
+    at: typeof r.at === "string" ? r.at : new Date(r.at).toISOString(),
+    durationMin: r.durationMin ?? 90,
+    tableId: r.tableId ?? null,
+    tableName: r.tableName ?? r.table?.name ?? null,
+    status: (r.status?.toLowerCase() ?? "booked") as ReservationStatus,
+    notes: r.notes ?? "",
+    createdAt: typeof r.createdAt === "string" ? r.createdAt : new Date(r.createdAt).toISOString(),
+  };
+}
+
 export async function listReservations(tenantId: string, branchId: string): Promise<Reservation[]> {
+  try {
+    const qs = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
+    const res = await backendFetch<any[]>(`/tenants/${tenantId}/reservations${qs}`);
+    if (Array.isArray(res)) {
+      const mapped = res.map(toFrontendReservation).sort((a, b) => a.at.localeCompare(b.at));
+      const db = tenantDb(tenantId);
+      db.reservations = mapped;
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for reservations, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   return tenantDb(tenantId).reservations.filter((r) => r.branchId === branchId).sort((a, b) => a.at.localeCompare(b.at));
 }
@@ -128,21 +164,71 @@ const overlaps = (a: Reservation | ReservationInput, b: Reservation) => {
 };
 
 export async function saveReservation(tenantId: string, input: ReservationInput): Promise<Reservation> {
-  await latency();
-  const db = tenantDb(tenantId);
-  if (!input.customerName.trim()) throw new ApiError(422, "Guest name is required.");
+  const customerName = input.customerName.trim();
+  if (!customerName) throw new ApiError(422, "Guest name is required.");
   if (!Number.isInteger(input.partySize) || input.partySize < 1 || input.partySize > 40) throw new ApiError(422, "Party size must be 1–40.");
   if (Number.isNaN(Date.parse(input.at))) throw new ApiError(422, "Choose a date and time.");
+
+  try {
+    const body = {
+      branchId: input.branchId,
+      customerName,
+      phone: input.phone?.trim() || "",
+      partySize: input.partySize,
+      at: new Date(input.at).toISOString(),
+      durationMin: input.durationMin || 90,
+      tableId: input.tableId && input.tableId !== "none" ? input.tableId : null,
+      notes: input.notes?.trim() || "",
+    };
+
+    let backendRes: any;
+    if (input.id) {
+      backendRes = await backendFetch<any>(`/tenants/${tenantId}/reservations/${input.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } else {
+      backendRes = await backendFetch<any>(`/tenants/${tenantId}/reservations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
+
+    if (backendRes && backendRes.id) {
+      const saved = toFrontendReservation(backendRes);
+      const db = tenantDb(tenantId);
+      const idx = db.reservations.findIndex((r) => r.id === saved.id);
+      if (idx >= 0) {
+        db.reservations[idx] = saved;
+      } else {
+        db.reservations.push(saved);
+      }
+      commit(tenantId);
+      return saved;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for saving reservation, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
+  // Fallback to local DB
+  await latency();
+  const db = tenantDb(tenantId);
   let tableName: string | null = null;
-  if (input.tableId) {
-    const t = db.tables.find((x) => x.id === input.tableId && x.branchId === input.branchId);
+  if (input.tableId && input.tableId !== "none") {
+    const t = db.tables.find((x) => (x.id === input.tableId || x.name === input.tableId) && x.branchId === input.branchId);
     if (!t) throw new ApiError(422, "Table not found in this branch.");
     if (t.seats < input.partySize) throw new ApiError(422, `${t.name} seats only ${t.seats}.`);
     const clash = db.reservations.find((r) => r.id !== input.id && r.tableId === t.id && (r.status === "booked" || r.status === "seated") && overlaps(input, r));
     if (clash) throw new ApiError(409, `${t.name} is already booked for ${clash.customerName} at that time.`);
     tableName = t.name;
   }
-  const data = { ...input, customerName: input.customerName.trim(), phone: input.phone.trim(), notes: input.notes.trim(), tableName };
+  const data = { ...input, customerName, phone: input.phone.trim(), notes: input.notes.trim(), tableName, tableId: input.tableId === "none" ? null : input.tableId };
   if (input.id) {
     const r = db.reservations.find((x) => x.id === input.id);
     if (!r) throw new ApiError(404, "Reservation not found.");
@@ -168,6 +254,35 @@ const RES_FLOW: Record<ReservationStatus, ReservationStatus[]> = {
 };
 
 export async function setReservationStatus(tenantId: string, id: string, status: ReservationStatus): Promise<Reservation> {
+  try {
+    const backendRes = await backendFetch<any>(`/tenants/${tenantId}/reservations/${id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: status.toUpperCase() }),
+    });
+
+    if (backendRes && backendRes.id) {
+      const updated = toFrontendReservation(backendRes);
+      const db = tenantDb(tenantId);
+      const idx = db.reservations.findIndex((r) => r.id === updated.id);
+      if (idx >= 0) {
+        db.reservations[idx] = updated;
+      }
+      const t = updated.tableId ? db.tables.find((x) => x.id === updated.tableId) : undefined;
+      if (t && status === "seated" && t.status === "available") t.status = "reserved";
+      if (t && status !== "seated" && t.status === "reserved") t.status = "available";
+      commit(tenantId);
+      return updated;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for setting reservation status, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
+  // Fallback to local DB
   await latency();
   const db = tenantDb(tenantId);
   const r = db.reservations.find((x) => x.id === id);
