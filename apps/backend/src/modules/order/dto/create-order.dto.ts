@@ -61,6 +61,14 @@ export class CreateOrderDto {
   tableName?: string;
 
   @ApiPropertyOptional({
+    description: 'Registered customer ID (for loyalty & purchase history)',
+    example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+  })
+  @IsUUID('4', { message: 'Customer ID must be a valid UUID' })
+  @IsOptional()
+  customerId?: string;
+
+  @ApiPropertyOptional({
     description: 'Customer or guest name',
     example: 'Rahim Ahmed',
     maxLength: 60,

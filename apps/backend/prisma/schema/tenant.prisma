@@ -32,6 +32,10 @@ model Tenant {
   orders              Order[]
   reservations        Reservation[]
   reservationSettings ReservationSettings?
+  customers           Customer[]
+  loyaltySettings     LoyaltySettings?
+  loyaltyTiers        LoyaltyTier[]
+  loyaltyTransactions LoyaltyTransaction[]
 
   @@map("tenants")
 }
