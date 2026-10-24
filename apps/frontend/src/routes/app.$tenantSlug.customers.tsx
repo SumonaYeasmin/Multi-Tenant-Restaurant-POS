@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import {
   Award,
@@ -10,16 +10,19 @@ import {
   Crown,
   Gift,
   HelpCircle,
+  Loader2,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   ShieldCheck,
   Sliders,
   Sparkles,
+  Trash2,
   TrendingUp,
   Users,
+  UtensilsCrossed,
   Wallet,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { RequirePermission } from "@/features/tenant/require-permission";
@@ -52,10 +55,25 @@ import {
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  getCustomersApi,
+  getCustomerByIdApi,
+  createCustomerApi,
+  updateCustomerApi,
+  deleteCustomerApi,
+  type BackendCustomer,
+} from "@/services/customer.service";
+import {
+  getLoyaltySettingsApi,
+  updateLoyaltySettingsApi,
+  getLoyaltyTiersApi,
+  createLoyaltyTierApi,
+  updateLoyaltyTierApi,
+  deleteLoyaltyTierApi,
+  type BackendLoyaltySettings,
+  type BackendLoyaltyTier,
+} from "@/services/loyalty.service";
 
 export const Route = createFileRoute("/app/$tenantSlug/customers")({
   head: () => ({
@@ -75,176 +93,6 @@ export const Route = createFileRoute("/app/$tenantSlug/customers")({
   ),
 });
 
-// ==========================================
-// TYPES & MOCK DATA
-// ==========================================
-
-interface UICustomer {
-  id: string;
-  name: string;
-  phone: string;
-  address?: string;
-  points: number;
-  totalSpent: number;
-  visits: number;
-  tierId: string;
-  tierName: string;
-  tierColor: string;
-  notes?: string;
-  lastVisitAt: string;
-  ledger: {
-    id: string;
-    points: number;
-    type: "EARNED" | "REDEEMED" | "ADJUSTED";
-    reason: string;
-    at: string;
-    orderNumber?: string;
-  }[];
-}
-
-interface UILoyaltyTier {
-  id: string;
-  name: string;
-  minSpend: number;
-  minPoints: number;
-  pointMultiplier: number;
-  discountPercent: number;
-  description: string;
-  color: string;
-  membersCount: number;
-  isActive: boolean;
-  sortOrder: number;
-}
-
-const INITIAL_TIERS: UILoyaltyTier[] = [
-  {
-    id: "tier-bronze",
-    name: "Bronze Member",
-    minSpend: 0,
-    minPoints: 0,
-    pointMultiplier: 1.0,
-    discountPercent: 0,
-    description: "Welcome tier for all registered guests. Earn 1x points on every order.",
-    color: "#B45309",
-    membersCount: 840,
-    isActive: true,
-    sortOrder: 0,
-  },
-  {
-    id: "tier-silver",
-    name: "Silver Elite",
-    minSpend: 5000,
-    minPoints: 50,
-    pointMultiplier: 1.25,
-    discountPercent: 3.0,
-    description: "Guests who spend ৳5,000+ earn 1.25x points and enjoy 3% flat discount.",
-    color: "#64748B",
-    membersCount: 320,
-    isActive: true,
-    sortOrder: 1,
-  },
-  {
-    id: "tier-gold",
-    name: "Gold VIP",
-    minSpend: 15000,
-    minPoints: 150,
-    pointMultiplier: 1.5,
-    discountPercent: 5.0,
-    description: "Frequent diners get 1.5x points, priority reservations, and 5% discount.",
-    color: "#D97706",
-    membersCount: 145,
-    isActive: true,
-    sortOrder: 2,
-  },
-  {
-    id: "tier-platinum",
-    name: "Platinum Royal",
-    minSpend: 35000,
-    minPoints: 350,
-    pointMultiplier: 2.0,
-    discountPercent: 10.0,
-    description: "Our top tier diners. Double points on all orders plus 10% lifetime discount.",
-    color: "#7C3AED",
-    membersCount: 42,
-    isActive: true,
-    sortOrder: 3,
-  },
-];
-
-const INITIAL_CUSTOMERS: UICustomer[] = [
-  {
-    id: "cust-1",
-    name: "Tanvir Ahmed",
-    phone: "+8801712345678",
-    address: "House 14, Road 7, Dhanmondi, Dhaka",
-    points: 240,
-    totalSpent: 18500,
-    visits: 14,
-    tierId: "tier-gold",
-    tierName: "Gold VIP",
-    tierColor: "#D97706",
-    notes: "Prefers corner table, likes extra spicy platters.",
-    lastVisitAt: "2026-10-22T19:30:00.000Z",
-    ledger: [
-      { id: "tx-1", points: 45, type: "EARNED", reason: "Order #1042 Dining", at: "2026-10-22T19:30:00.000Z", orderNumber: "#1042" },
-      { id: "tx-2", points: -50, type: "REDEEMED", reason: "Points Redeemed at Checkout", at: "2026-10-15T20:15:00.000Z", orderNumber: "#1028" },
-      { id: "tx-3", points: 30, type: "EARNED", reason: "Order #1010 Dining", at: "2026-10-08T18:40:00.000Z", orderNumber: "#1010" },
-      { id: "tx-4", points: 50, type: "ADJUSTED", reason: "Welcome Loyalty Bonus", at: "2026-09-01T12:00:00.000Z" },
-    ],
-  },
-  {
-    id: "cust-2",
-    name: "Nusrat Jahan",
-    phone: "+8801819876543",
-    address: "Gulshan-2, Dhaka",
-    points: 95,
-    totalSpent: 8200,
-    visits: 6,
-    tierId: "tier-silver",
-    tierName: "Silver Elite",
-    tierColor: "#64748B",
-    notes: "Vegetarian guest, allergic to peanuts.",
-    lastVisitAt: "2026-10-23T14:15:00.000Z",
-    ledger: [
-      { id: "tx-5", points: 25, type: "EARNED", reason: "Order #1050 Takeaway", at: "2026-10-23T14:15:00.000Z", orderNumber: "#1050" },
-      { id: "tx-6", points: 70, type: "EARNED", reason: "Order #1019 Family Dinner", at: "2026-10-11T21:00:00.000Z", orderNumber: "#1019" },
-    ],
-  },
-  {
-    id: "cust-3",
-    name: "Mahmudul Hasan",
-    phone: "+8801911223344",
-    address: "Uttara Sector 3, Dhaka",
-    points: 420,
-    totalSpent: 42000,
-    visits: 28,
-    tierId: "tier-platinum",
-    tierName: "Platinum Royal",
-    tierColor: "#7C3AED",
-    notes: "Corporate accounts, regular hosting.",
-    lastVisitAt: "2026-10-24T08:45:00.000Z",
-    ledger: [
-      { id: "tx-7", points: 120, type: "EARNED", reason: "Order #1061 Executive Lunch", at: "2026-10-24T08:45:00.000Z", orderNumber: "#1061" },
-      { id: "tx-8", points: -100, type: "REDEEMED", reason: "Discount redemption", at: "2026-10-18T13:20:00.000Z", orderNumber: "#1034" },
-    ],
-  },
-  {
-    id: "cust-4",
-    name: "Farhan Kabir",
-    phone: "+8801677889900",
-    points: 15,
-    totalSpent: 1650,
-    visits: 2,
-    tierId: "tier-bronze",
-    tierName: "Bronze Member",
-    tierColor: "#B45309",
-    lastVisitAt: "2026-10-20T20:10:00.000Z",
-    ledger: [
-      { id: "tx-9", points: 15, type: "EARNED", reason: "Order #1039 Dinner", at: "2026-10-20T20:10:00.000Z", orderNumber: "#1039" },
-    ],
-  },
-];
-
 function CustomersAndLoyaltyPage() {
   const { tenant } = useTenant();
   const money = useMoney();
@@ -252,97 +100,439 @@ function CustomersAndLoyaltyPage() {
   // Active Tab State
   const [activeTab, setActiveTab] = useState<"customers" | "tiers" | "settings">("customers");
 
-  // State collections
-  const [customers, setCustomers] = useState<UICustomer[]>(INITIAL_CUSTOMERS);
-  const [tiers, setTiers] = useState<UILoyaltyTier[]>(INITIAL_TIERS);
+  // Live Backend Customers State
+  const [customers, setCustomers] = useState<BackendCustomer[]>([]);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
 
-  // Loyalty Settings State
-  const [settings, setSettings] = useState({
+  // Live Loyalty Settings & Tiers
+  const [settings, setSettings] = useState<BackendLoyaltySettings>({
+    id: "",
+    tenantId: "",
     isEnabled: true,
     spendAmountPerPoint: 100,
     pointValue: 1.0,
     minPointsToRedeem: 20,
     maxPointsPerOrder: 500,
     expireAfterDays: 365,
+    createdAt: "",
+    updatedAt: "",
   });
+  const [tiers, setTiers] = useState<BackendLoyaltyTier[]>([]);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Search & Filtering
   const [searchQuery, setSearchQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("ALL");
 
-  // Modals & Drawers
-  const [selectedCustomer, setSelectedCustomer] = useState<UICustomer | null>(null);
+  // Customer Detail Drawer & Modals
+  const [selectedCustomer, setSelectedCustomer] = useState<BackendCustomer | null>(null);
+  const [isLoadingCustomerDetail, setIsLoadingCustomerDetail] = useState(false);
+
+  // Add / Edit Customer Modal
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<UICustomer | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<BackendCustomer | null>(null);
+  const [customerFormData, setCustomerFormData] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    notes: "",
+    tierId: "",
+    initialPoints: 50,
+  });
+  const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
 
+  // Delete Customer Confirmation Dialog
+  const [customerToDelete, setCustomerToDelete] = useState<BackendCustomer | null>(null);
+  const [isDeletingCustomer, setIsDeletingCustomer] = useState(false);
+
+  // Loyalty Tier Modal
   const [isTierModalOpen, setIsTierModalOpen] = useState(false);
-  const [editingTier, setEditingTier] = useState<UILoyaltyTier | null>(null);
+  const [editingTier, setEditingTier] = useState<BackendLoyaltyTier | null>(null);
+  const [tierFormData, setTierFormData] = useState({
+    name: "",
+    minSpend: 0,
+    pointMultiplier: 1.0,
+    discountPercent: 0,
+    color: "#B45309",
+    description: "",
+  });
+  const [isSubmittingTier, setIsSubmittingTier] = useState(false);
+  const [tierToDelete, setTierToDelete] = useState<BackendLoyaltyTier | null>(null);
+  const [isDeletingTier, setIsDeletingTier] = useState(false);
 
-  // Fast Point Adjustment State in Drawer
+  // Point Adjustment in Drawer
   const [adjustPts, setAdjustPts] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
+  const [isAdjustingPoints, setIsAdjustingPoints] = useState(false);
 
-  // Filtered customer list
-  const filteredCustomers = customers.filter((c) => {
-    const matchesSearch =
-      c.name.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-      c.phone.includes(searchQuery.trim());
-    const matchesTier = tierFilter === "ALL" || c.tierId === tierFilter;
-    return matchesSearch && matchesTier;
+  // ==========================================
+  // API INTEGRATION: FETCH CUSTOMERS
+  // ==========================================
+  const loadCustomers = useCallback(async () => {
+    if (!tenant?.slug) return;
+    try {
+      setIsLoadingCustomers(true);
+      const res = await getCustomersApi(tenant.slug, {
+        search: searchQuery.trim() || undefined,
+      });
+      setCustomers(res.items || []);
+      setTotalCount(res.total || 0);
+    } catch (err: any) {
+      console.warn("Could not load customers from backend API:", err);
+      toast.error(err.message || "Failed to load customers from backend");
+    } finally {
+      setIsLoadingCustomers(false);
+    }
+  }, [tenant?.slug, searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadCustomers();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [loadCustomers]);
+
+  // ==========================================
+  // API INTEGRATION: FETCH LOYALTY DATA
+  // ==========================================
+  const loadLoyaltyData = useCallback(async () => {
+    if (!tenant?.slug) return;
+    try {
+      const [fetchedSettings, fetchedTiers] = await Promise.all([
+        getLoyaltySettingsApi(tenant.slug).catch(() => null),
+        getLoyaltyTiersApi(tenant.slug).catch(() => []),
+      ]);
+      if (fetchedSettings) setSettings(fetchedSettings);
+      if (fetchedTiers) setTiers(fetchedTiers);
+    } catch (err) {
+      console.warn("Could not load loyalty settings or tiers:", err);
+    }
+  }, [tenant?.slug]);
+
+  useEffect(() => {
+    loadLoyaltyData();
+  }, [loadLoyaltyData]);
+
+  // ==========================================
+  // VIEW CUSTOMER DETAILS
+  // ==========================================
+  const handleSelectCustomer = async (c: BackendCustomer) => {
+    setSelectedCustomer(c);
+    if (!tenant?.slug) return;
+    try {
+      setIsLoadingCustomerDetail(true);
+      const full = await getCustomerByIdApi(tenant.slug, c.id);
+      setSelectedCustomer(full);
+    } catch (err) {
+      console.error("Could not fetch full customer details:", err);
+    } finally {
+      setIsLoadingCustomerDetail(false);
+    }
+  };
+
+  // Filter customers locally by tier if requested
+  const displayedCustomers = customers.filter((c) => {
+    if (tierFilter === "ALL") return true;
+    return c.tierId === tierFilter;
   });
 
   // Calculate high-level KPIs
-  const totalPointsInCirculation = customers.reduce((sum, c) => sum + c.points, 0);
-  const totalValueInCurrency = totalPointsInCirculation * settings.pointValue;
-  const totalLifetimeSpent = customers.reduce((sum, c) => sum + c.totalSpent, 0);
+  const totalPointsInCirculation = customers.reduce((sum, c) => sum + (c.loyaltyPoints || 0), 0);
+  const totalValueInCurrency = totalPointsInCirculation * (settings.pointValue || 1.0);
+  const totalLifetimeSpent = customers.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
 
-  // Handle Quick Point Adjustment
-  const handlePointAdjustment = (customer: UICustomer, isAdd: boolean) => {
+  // ==========================================
+  // OPEN ADD / EDIT CUSTOMER MODAL
+  // ==========================================
+  const openCreateCustomerModal = () => {
+    setEditingCustomer(null);
+    setCustomerFormData({
+      name: "",
+      phone: "",
+      address: "",
+      notes: "",
+      tierId: tiers[0]?.id || "",
+      initialPoints: 50,
+    });
+    setIsCustomerModalOpen(true);
+  };
+
+  const openEditCustomerModal = (c: BackendCustomer) => {
+    setEditingCustomer(c);
+    setCustomerFormData({
+      name: c.name || "",
+      phone: c.phone || "",
+      address: c.address || "",
+      notes: c.notes || "",
+      tierId: c.tierId || "",
+      initialPoints: 0,
+    });
+    setIsCustomerModalOpen(true);
+  };
+
+  // ==========================================
+  // API INTEGRATION: SAVE CUSTOMER (CREATE / UPDATE)
+  // ==========================================
+  const handleSaveCustomer = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!tenant?.slug) {
+      toast.error("Restaurant tenant not active");
+      return;
+    }
+
+    const name = customerFormData.name.trim();
+    const phone = customerFormData.phone.trim();
+    const address = customerFormData.address.trim();
+    const notes = customerFormData.notes.trim();
+    const tierId = customerFormData.tierId || undefined;
+
+    if (!name) {
+      toast.error("Customer name is required");
+      return;
+    }
+    if (!phone) {
+      toast.error("Customer phone number is required");
+      return;
+    }
+
+    try {
+      setIsSubmittingCustomer(true);
+
+      if (editingCustomer) {
+        // UPDATE API
+        const updated = await updateCustomerApi(tenant.slug, editingCustomer.id, {
+          name,
+          phone,
+          address: address || undefined,
+          notes: notes || undefined,
+          tierId,
+        });
+
+        setCustomers((prev) =>
+          prev.map((c) => (c.id === editingCustomer.id ? { ...c, ...updated } : c)),
+        );
+        if (selectedCustomer?.id === editingCustomer.id) {
+          setSelectedCustomer((prev) => (prev ? { ...prev, ...updated } : null));
+        }
+
+        toast.success(`Customer "${name}" updated successfully!`);
+      } else {
+        // CREATE API
+        const created = await createCustomerApi(tenant.slug, {
+          name,
+          phone,
+          address: address || undefined,
+          notes: notes || undefined,
+          tierId,
+          initialPoints: customerFormData.initialPoints > 0 ? customerFormData.initialPoints : undefined,
+        });
+
+        setCustomers((prev) => [created, ...prev]);
+        setTotalCount((prev) => prev + 1);
+
+        toast.success(`Customer "${name}" registered successfully!`, {
+          description: customerFormData.initialPoints > 0
+            ? `Awarded +${customerFormData.initialPoints} Welcome Bonus points automatically.`
+            : undefined,
+        });
+      }
+
+      setIsCustomerModalOpen(false);
+      setEditingCustomer(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save customer");
+    } finally {
+      setIsSubmittingCustomer(false);
+    }
+  };
+
+  // ==========================================
+  // API INTEGRATION: DELETE CUSTOMER
+  // ==========================================
+  const confirmDeleteCustomer = async () => {
+    if (!customerToDelete || !tenant?.slug) return;
+
+    try {
+      setIsDeletingCustomer(true);
+      await deleteCustomerApi(tenant.slug, customerToDelete.id);
+
+      setCustomers((prev) => prev.filter((c) => c.id !== customerToDelete.id));
+      setTotalCount((prev) => Math.max(0, prev - 1));
+
+      if (selectedCustomer?.id === customerToDelete.id) {
+        setSelectedCustomer(null);
+      }
+
+      toast.success(`Customer "${customerToDelete.name}" deleted successfully.`);
+      setCustomerToDelete(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete customer");
+    } finally {
+      setIsDeletingCustomer(false);
+    }
+  };
+
+  // ==========================================
+  // API INTEGRATION: QUICK POINT ADJUSTMENT
+  // ==========================================
+  const handlePointAdjustment = async (customer: BackendCustomer, isAdd: boolean) => {
+    if (!tenant?.slug) return;
     const pointsNum = parseInt(adjustPts, 10);
     if (!pointsNum || pointsNum <= 0) {
       toast.error("Please enter a valid positive points number");
       return;
     }
-    if (!isAdd && customer.points < pointsNum) {
-      toast.error(`Customer only has ${customer.points} points`);
+    if (!isAdd && (customer.loyaltyPoints || 0) < pointsNum) {
+      toast.error(`Customer only has ${customer.loyaltyPoints || 0} points available`);
       return;
     }
 
     const signedPoints = isAdd ? pointsNum : -pointsNum;
-    const newPoints = customer.points + signedPoints;
+    const newPoints = Math.max(0, (customer.loyaltyPoints || 0) + signedPoints);
 
-    const newLedgerItem = {
-      id: `tx-${Date.now()}`,
-      points: signedPoints,
-      type: (isAdd ? "ADJUSTED" : "REDEEMED") as "ADJUSTED" | "REDEEMED",
-      reason: adjustReason.trim() || (isAdd ? "Manual Bonus by Manager" : "Manual Redemption"),
-      at: new Date().toISOString(),
-    };
+    try {
+      setIsAdjustingPoints(true);
+      const updated = await updateCustomerApi(tenant.slug, customer.id, {
+        loyaltyPoints: newPoints,
+      });
 
-    const updatedCustomer = {
-      ...customer,
-      points: newPoints,
-      ledger: [newLedgerItem, ...customer.ledger],
-    };
+      // Refetch full customer to include newly generated LoyaltyTransaction ledger entry
+      const full = await getCustomerByIdApi(tenant.slug, customer.id).catch(() => updated);
+      setSelectedCustomer(full);
+      setCustomers((prev) =>
+        prev.map((c) => (c.id === customer.id ? { ...c, ...updated } : c)),
+      );
+      setAdjustPts("");
+      setAdjustReason("");
 
-    setCustomers((prev) => prev.map((c) => (c.id === customer.id ? updatedCustomer : c)));
-    setSelectedCustomer(updatedCustomer);
-    setAdjustPts("");
-    setAdjustReason("");
-
-    toast.success(
-      isAdd
-        ? `Added +${pointsNum} points to ${customer.name}`
-        : `Redeemed -${pointsNum} points for ${customer.name}`,
-    );
+      toast.success(
+        isAdd
+          ? `Added +${pointsNum} bonus points to ${customer.name}`
+          : `Redeemed -${pointsNum} points for ${customer.name}`,
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to adjust points balance");
+    } finally {
+      setIsAdjustingPoints(false);
+    }
   };
 
-  // Handle Settings Save
-  const handleSaveSettings = (e: React.FormEvent) => {
+  // ==========================================
+  // API INTEGRATION: LOYALTY SETTINGS SAVE
+  // ==========================================
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Loyalty program settings updated successfully!", {
-      description: `Guests earn 1 pt per ${money(settings.spendAmountPerPoint)} spent. Redemption value: ${money(settings.pointValue)}/pt.`,
+    if (!tenant?.slug) return;
+
+    try {
+      setIsSavingSettings(true);
+      const saved = await updateLoyaltySettingsApi(tenant.slug, {
+        isEnabled: settings.isEnabled,
+        spendAmountPerPoint: settings.spendAmountPerPoint,
+        pointValue: settings.pointValue,
+        minPointsToRedeem: settings.minPointsToRedeem,
+        maxPointsPerOrder: settings.maxPointsPerOrder ?? undefined,
+        expireAfterDays: settings.expireAfterDays ?? undefined,
+      });
+      setSettings(saved);
+
+      toast.success("Loyalty settings updated successfully!", {
+        description: `Guests earn 1 pt per ${money(saved.spendAmountPerPoint)} spent. Redemption value: ${money(saved.pointValue)}/pt.`,
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update loyalty settings");
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  // ==========================================
+  // API INTEGRATION: CREATE / UPDATE TIER
+  // ==========================================
+  const openCreateTierModal = () => {
+    setEditingTier(null);
+    setTierFormData({
+      name: "",
+      minSpend: 0,
+      pointMultiplier: 1.0,
+      discountPercent: 0,
+      color: "#B45309",
+      description: "",
     });
+    setIsTierModalOpen(true);
+  };
+
+  const openEditTierModal = (tier: BackendLoyaltyTier) => {
+    setEditingTier(tier);
+    setTierFormData({
+      name: tier.name,
+      minSpend: tier.minSpend,
+      pointMultiplier: tier.pointMultiplier,
+      discountPercent: tier.discountPercent,
+      color: tier.color,
+      description: tier.description || "",
+    });
+    setIsTierModalOpen(true);
+  };
+
+  const handleSaveTier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tenant?.slug) return;
+
+    if (!tierFormData.name.trim()) {
+      toast.error("Tier name is required");
+      return;
+    }
+
+    try {
+      setIsSubmittingTier(true);
+      if (editingTier) {
+        const updated = await updateLoyaltyTierApi(tenant.slug, editingTier.id, {
+          name: tierFormData.name.trim(),
+          minSpend: Number(tierFormData.minSpend) || 0,
+          pointMultiplier: Number(tierFormData.pointMultiplier) || 1.0,
+          discountPercent: Number(tierFormData.discountPercent) || 0,
+          color: tierFormData.color,
+          description: tierFormData.description.trim() || undefined,
+        });
+        setTiers((prev) => prev.map((t) => (t.id === editingTier.id ? updated : t)));
+        toast.success(`Tier "${updated.name}" updated successfully!`);
+      } else {
+        const created = await createLoyaltyTierApi(tenant.slug, {
+          name: tierFormData.name.trim(),
+          minSpend: Number(tierFormData.minSpend) || 0,
+          pointMultiplier: Number(tierFormData.pointMultiplier) || 1.0,
+          discountPercent: Number(tierFormData.discountPercent) || 0,
+          color: tierFormData.color,
+          description: tierFormData.description.trim() || undefined,
+          sortOrder: tiers.length,
+        });
+        setTiers((prev) => [...prev, created]);
+        toast.success(`Tier "${created.name}" created successfully!`);
+      }
+      setIsTierModalOpen(false);
+      setEditingTier(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save loyalty tier");
+    } finally {
+      setIsSubmittingTier(false);
+    }
+  };
+
+  const confirmDeleteTier = async () => {
+    if (!tierToDelete || !tenant?.slug) return;
+    try {
+      setIsDeletingTier(true);
+      await deleteLoyaltyTierApi(tenant.slug, tierToDelete.id);
+      setTiers((prev) => prev.filter((t) => t.id !== tierToDelete.id));
+      toast.success(`Tier "${tierToDelete.name}" deleted successfully.`);
+      setTierToDelete(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete tier");
+    } finally {
+      setIsDeletingTier(false);
+    }
   };
 
   return (
@@ -357,10 +547,7 @@ function CustomersAndLoyaltyPage() {
           <div className="flex items-center gap-2">
             {activeTab === "customers" && (
               <Button
-                onClick={() => {
-                  setEditingCustomer(null);
-                  setIsCustomerModalOpen(true);
-                }}
+                onClick={openCreateCustomerModal}
                 className="gap-2 shadow-sm"
               >
                 <Plus className="size-4" /> Add Customer
@@ -368,18 +555,23 @@ function CustomersAndLoyaltyPage() {
             )}
             {activeTab === "tiers" && (
               <Button
-                onClick={() => {
-                  setEditingTier(null);
-                  setIsTierModalOpen(true);
-                }}
+                onClick={openCreateTierModal}
                 className="gap-2 shadow-sm"
               >
                 <Plus className="size-4" /> Create New Tier
               </Button>
             )}
             {activeTab === "settings" && (
-              <Badge variant="outline" className="gap-1.5 py-1 px-3 text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                <CheckCircle2 className="size-3.5" /> Program Active
+              <Badge
+                variant="outline"
+                className={`gap-1.5 py-1 px-3 text-xs ${
+                  settings.isEnabled
+                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                    : "bg-muted text-muted-foreground border-border"
+                }`}
+              >
+                <CheckCircle2 className="size-3.5" />
+                {settings.isEnabled ? "Program Active" : "Program Disabled"}
               </Badge>
             )}
           </div>
@@ -394,9 +586,9 @@ function CustomersAndLoyaltyPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Registered Guests</p>
-              <h3 className="text-2xl font-bold tracking-tight mt-1">{customers.length + 1340}</h3>
+              <h3 className="text-2xl font-bold tracking-tight mt-1">{totalCount}</h3>
               <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
-                <TrendingUp className="size-3" /> +18 this week
+                <TrendingUp className="size-3" /> Live from Backend API
               </p>
             </div>
             <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -410,9 +602,7 @@ function CustomersAndLoyaltyPage() {
             <div>
               <p className="text-xs font-medium text-muted-foreground">Active Tiers</p>
               <h3 className="text-2xl font-bold tracking-tight mt-1">{tiers.length} Tiers</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                From Bronze to Platinum
-              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Automated Progression</p>
             </div>
             <div className="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
               <Crown className="size-5" />
@@ -442,10 +632,10 @@ function CustomersAndLoyaltyPage() {
             <div>
               <p className="text-xs font-medium text-muted-foreground">Total Guest Spend</p>
               <h3 className="text-2xl font-bold tracking-tight mt-1">
-                {money(totalLifetimeSpent + 142000)}
+                {money(totalLifetimeSpent)}
               </h3>
               <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
-                <Sparkles className="size-3" /> High loyalty retention
+                <Sparkles className="size-3" /> High customer retention
               </p>
             </div>
             <div className="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
@@ -469,7 +659,7 @@ function CustomersAndLoyaltyPage() {
               <Users className="size-4" />
               <span>Guests & Customers</span>
               <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0 h-5">
-                {filteredCustomers.length}
+                {displayedCustomers.length}
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="tiers" className="gap-2 px-4 py-2 text-sm">
@@ -486,9 +676,20 @@ function CustomersAndLoyaltyPage() {
           </TabsList>
 
           {activeTab === "customers" && (
-            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <HelpCircle className="size-3.5" />
-              Click any guest row to view their points history & redeem rewards.
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={loadCustomers}
+                className="size-8 p-0 text-muted-foreground hover:text-foreground"
+                title="Refresh from Backend"
+              >
+                <RefreshCw className={`size-3.5 ${isLoadingCustomers ? "animate-spin" : ""}`} />
+              </Button>
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <HelpCircle className="size-3.5" />
+                Click any guest row to view history & points.
+              </div>
             </div>
           )}
         </div>
@@ -545,114 +746,137 @@ function CustomersAndLoyaltyPage() {
                     <th className="px-4 py-3 text-center">Membership Tier</th>
                     <th className="px-4 py-3 text-right">Points Balance</th>
                     <th className="px-4 py-3 text-right">Total Spent</th>
-                    <th className="px-4 py-3 text-right">Visits</th>
+                    <th className="px-4 py-3 text-right">Created Date</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredCustomers.length === 0 ? (
+                  {isLoadingCustomers ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+                        <Loader2 className="size-6 animate-spin mx-auto text-primary mb-2" />
+                        <p className="font-medium text-xs">Loading customers from backend...</p>
+                      </td>
+                    </tr>
+                  ) : displayedCustomers.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
                         <Users className="size-8 mx-auto text-muted-foreground/40 mb-2" />
                         <p className="font-medium">No customers found</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Try searching with a different name or phone number.
+                          Click &quot;Add Customer&quot; above to register your first guest!
                         </p>
                       </td>
                     </tr>
                   ) : (
-                    filteredCustomers.map((c) => (
-                      <tr
-                        key={c.id}
-                        onClick={() => setSelectedCustomer(c)}
-                        className="cursor-pointer hover:bg-muted/40 transition-colors group"
-                      >
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-3">
-                            <div className="size-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs ring-2 ring-primary/20">
-                              {c.name
-                                .split(" ")
-                                .map((n) => n[0])
-                                .slice(0, 2)
-                                .join("")}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
-                                {c.name}
-                              </p>
-                              {c.address ? (
-                                <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                                  {c.address}
+                    displayedCustomers.map((c) => {
+                      const tierName = c.tier?.name || "Bronze Member";
+                      const tierColor = c.tier?.color || "#B45309";
+
+                      return (
+                        <tr
+                          key={c.id}
+                          onClick={() => handleSelectCustomer(c)}
+                          className="cursor-pointer hover:bg-muted/40 transition-colors group"
+                        >
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="size-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs ring-2 ring-primary/20">
+                                {c.name
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .slice(0, 2)
+                                  .join("")}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
+                                  {c.name}
                                 </p>
-                              ) : (
-                                <p className="text-xs text-muted-foreground italic">No address</p>
-                              )}
+                                {c.address ? (
+                                  <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                    {c.address}
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground italic">No address</p>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        <td className="px-4 py-3.5 text-xs text-foreground/90 font-medium">
-                          {c.phone}
-                        </td>
+                          <td className="px-4 py-3.5 text-xs text-foreground/90 font-medium">
+                            {c.phone}
+                          </td>
 
-                        <td className="px-4 py-3.5 text-center">
-                          <Badge
-                            variant="outline"
-                            className="font-medium text-xs border"
-                            style={{
-                              borderColor: `${c.tierColor}40`,
-                              backgroundColor: `${c.tierColor}15`,
-                              color: c.tierColor,
-                            }}
-                          >
-                            <Crown className="size-3 mr-1" />
-                            {c.tierName}
-                          </Badge>
-                        </td>
-
-                        <td className="px-4 py-3.5 text-right">
-                          <span className="font-bold text-base text-foreground tabular-nums">{c.points}</span>
-                          <span className="text-xs text-muted-foreground ml-1">pts</span>
-                          <p className="text-[11px] text-emerald-600 font-medium">
-                            ≈ {money(c.points * settings.pointValue)}
-                          </p>
-                        </td>
-
-                        <td className="px-4 py-3.5 text-right font-medium">
-                          {money(c.totalSpent)}
-                        </td>
-
-                        <td className="px-4 py-3.5 text-right text-muted-foreground">
-                          {c.visits} visits
-                        </td>
-
-                        <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setEditingCustomer(c);
-                                setIsCustomerModalOpen(true);
+                          <td className="px-4 py-3.5 text-center">
+                            <Badge
+                              variant="outline"
+                              className="font-medium text-xs border"
+                              style={{
+                                borderColor: `${tierColor}40`,
+                                backgroundColor: `${tierColor}15`,
+                                color: tierColor,
                               }}
-                              className="size-8 p-0"
-                              title="Edit Customer"
                             >
-                              <Pencil className="size-3.5" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setSelectedCustomer(c)}
-                              className="size-8 p-0 text-muted-foreground group-hover:text-primary"
-                              title="View History"
-                            >
-                              <ChevronRight className="size-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                              <Crown className="size-3 mr-1" />
+                              {tierName}
+                            </Badge>
+                          </td>
+
+                          <td className="px-4 py-3.5 text-right">
+                            <span className="font-bold text-base text-foreground tabular-nums">
+                              {c.loyaltyPoints || 0}
+                            </span>
+                            <span className="text-xs text-muted-foreground ml-1">pts</span>
+                            <p className="text-[11px] text-emerald-600 font-medium">
+                              ≈ {money((c.loyaltyPoints || 0) * (settings.pointValue || 1.0))}
+                            </p>
+                          </td>
+
+                          <td className="px-4 py-3.5 text-right font-medium">
+                            {money(c.totalSpent || 0)}
+                          </td>
+
+                          <td className="px-4 py-3.5 text-right text-xs text-muted-foreground">
+                            {c.createdAt ? format(new Date(c.createdAt), "dd MMM yyyy") : "—"}
+                          </td>
+
+                          <td
+                            className="px-4 py-3.5 text-right"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openEditCustomerModal(c)}
+                                className="size-8 p-0"
+                                title="Edit Customer"
+                              >
+                                <Pencil className="size-3.5 text-muted-foreground hover:text-foreground" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setCustomerToDelete(c)}
+                                className="size-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                title="Delete Customer"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleSelectCustomer(c)}
+                                className="size-8 p-0 text-muted-foreground group-hover:text-primary"
+                                title="View History"
+                              >
+                                <ChevronRight className="size-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -671,14 +895,11 @@ function CustomersAndLoyaltyPage() {
                 Membership Tier Hierarchy
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Guests automatically advance tiers when their lifetime spending or points meet the threshold.
+                Guests automatically advance tiers when their spending reaches the threshold.
               </p>
             </div>
             <Button
-              onClick={() => {
-                setEditingTier(null);
-                setIsTierModalOpen(true);
-              }}
+              onClick={openCreateTierModal}
               size="sm"
               className="gap-1.5"
             >
@@ -688,16 +909,12 @@ function CustomersAndLoyaltyPage() {
 
           {/* Tier Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {tiers.map((tier) => (
+            {tiers.map((tier, idx) => (
               <Card
                 key={tier.id}
                 className="relative overflow-hidden border shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
               >
-                {/* Accent top stripe */}
-                <div
-                  className="h-2 w-full"
-                  style={{ backgroundColor: tier.color }}
-                />
+                <div className="h-2 w-full" style={{ backgroundColor: tier.color }} />
 
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -711,7 +928,7 @@ function CustomersAndLoyaltyPage() {
                       }}
                     >
                       <Crown className="size-3 mr-1" />
-                      Level {tier.sortOrder + 1}
+                      Level {idx + 1}
                     </Badge>
 
                     <div className="flex items-center gap-1">
@@ -719,24 +936,30 @@ function CustomersAndLoyaltyPage() {
                         size="icon"
                         variant="ghost"
                         className="size-7"
-                        onClick={() => {
-                          setEditingTier(tier);
-                          setIsTierModalOpen(true);
-                        }}
+                        onClick={() => openEditTierModal(tier)}
+                        title="Edit Tier"
                       >
                         <Pencil className="size-3.5 text-muted-foreground" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setTierToDelete(tier)}
+                        title="Delete Tier"
+                      >
+                        <Trash2 className="size-3.5" />
                       </Button>
                     </div>
                   </div>
 
                   <CardTitle className="text-lg font-bold mt-2">{tier.name}</CardTitle>
                   <CardDescription className="text-xs line-clamp-2 min-h-[32px]">
-                    {tier.description}
+                    {tier.description || `Special perks and ${tier.discountPercent}% discount for ${tier.name} members.`}
                   </CardDescription>
                 </CardHeader>
 
                 <CardContent className="space-y-3 pb-4">
-                  {/* Threshold Metric */}
                   <div className="p-3 rounded-lg bg-muted/40 border space-y-1">
                     <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
                       Qualification Threshold
@@ -744,18 +967,17 @@ function CustomersAndLoyaltyPage() {
                     <p className="text-base font-bold text-foreground">
                       {tier.minSpend === 0 ? "Entry Free (৳0)" : `${money(tier.minSpend)} spend`}
                     </p>
-                    {tier.minPoints > 0 && (
-                      <p className="text-xs text-muted-foreground">or {tier.minPoints} lifetime points</p>
+                    {tier.minSpend > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Accumulated spend required
+                      </p>
                     )}
                   </div>
 
-                  {/* Benefits Grid */}
                   <div className="grid grid-cols-2 gap-2 text-center">
                     <div className="p-2 rounded-md bg-muted/20 border">
                       <p className="text-[10px] text-muted-foreground">Earn Multiplier</p>
-                      <p className="text-base font-bold text-primary">
-                        {tier.pointMultiplier}x
-                      </p>
+                      <p className="text-base font-bold text-primary">{tier.pointMultiplier}x</p>
                     </div>
                     <div className="p-2 rounded-md bg-muted/20 border">
                       <p className="text-[10px] text-muted-foreground">Order Discount</p>
@@ -769,7 +991,7 @@ function CustomersAndLoyaltyPage() {
                 <CardFooter className="pt-3 border-t bg-muted/10 flex items-center justify-between text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5 font-medium">
                     <Users className="size-3.5 text-muted-foreground" />
-                    {tier.membersCount} Members
+                    {tier._count?.customers ?? 0} Members
                   </span>
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                     {tier.isActive ? "Active" : "Inactive"}
@@ -785,7 +1007,6 @@ function CustomersAndLoyaltyPage() {
         {/* ========================================================================= */}
         <TabsContent value="settings" className="space-y-6 m-0 focus-visible:outline-none max-w-4xl">
           <form onSubmit={handleSaveSettings} className="space-y-6">
-            {/* Master Switch Card */}
             <Card className="border shadow-sm">
               <CardContent className="p-5 flex items-center justify-between">
                 <div className="space-y-0.5">
@@ -804,7 +1025,6 @@ function CustomersAndLoyaltyPage() {
               </CardContent>
             </Card>
 
-            {/* Core Earning & Redemption Rules */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card className="border shadow-sm">
                 <CardHeader className="pb-3">
@@ -884,7 +1104,6 @@ function CustomersAndLoyaltyPage() {
               </Card>
             </div>
 
-            {/* Threshold & Expiry Constraints */}
             <Card className="border shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -922,11 +1141,12 @@ function CustomersAndLoyaltyPage() {
                       id="max-order"
                       type="number"
                       min={1}
-                      value={settings.maxPointsPerOrder}
+                      value={settings.maxPointsPerOrder ?? ""}
+                      placeholder="No limit"
                       onChange={(e) =>
                         setSettings({
                           ...settings,
-                          maxPointsPerOrder: Number(e.target.value) || 1,
+                          maxPointsPerOrder: e.target.value ? Number(e.target.value) : null,
                         })
                       }
                     />
@@ -941,11 +1161,12 @@ function CustomersAndLoyaltyPage() {
                       id="expiry-days"
                       type="number"
                       min={30}
-                      value={settings.expireAfterDays}
+                      value={settings.expireAfterDays ?? ""}
+                      placeholder="Never expires"
                       onChange={(e) =>
                         setSettings({
                           ...settings,
-                          expireAfterDays: Number(e.target.value) || 365,
+                          expireAfterDays: e.target.value ? Number(e.target.value) : null,
                         })
                       }
                     />
@@ -956,8 +1177,13 @@ function CustomersAndLoyaltyPage() {
                 </div>
               </CardContent>
               <CardFooter className="bg-muted/20 border-t flex justify-end py-3">
-                <Button type="submit" className="gap-2">
-                  <Check className="size-4" /> Save Loyalty Settings
+                <Button type="submit" disabled={isSavingSettings} className="gap-2">
+                  {isSavingSettings ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Check className="size-4" />
+                  )}
+                  Save Loyalty Settings
                 </Button>
               </CardFooter>
             </Card>
@@ -972,16 +1198,16 @@ function CustomersAndLoyaltyPage() {
         <SheetContent className="w-full sm:max-w-xl p-0 overflow-hidden flex flex-col bg-background">
           {selectedCustomer && (
             <div className="flex flex-col h-full overflow-hidden">
-              {/* Header with Background Gradient */}
+              {/* Header */}
               <div className="p-6 pb-4 border-b bg-gradient-to-br from-muted/50 to-muted/20">
                 <div className="flex items-start justify-between gap-3 pr-6">
                   <div className="flex items-center gap-3">
                     <div
                       className="size-12 rounded-2xl flex items-center justify-center font-bold text-sm shadow-sm"
                       style={{
-                        backgroundColor: `${selectedCustomer.tierColor}20`,
-                        color: selectedCustomer.tierColor,
-                        border: `1.5px solid ${selectedCustomer.tierColor}40`,
+                        backgroundColor: `${selectedCustomer.tier?.color || "#B45309"}20`,
+                        color: selectedCustomer.tier?.color || "#B45309",
+                        border: `1.5px solid ${selectedCustomer.tier?.color || "#B45309"}40`,
                       }}
                     >
                       {selectedCustomer.name
@@ -999,13 +1225,13 @@ function CustomersAndLoyaltyPage() {
                           variant="outline"
                           className="text-[11px] font-bold px-2 py-0.5"
                           style={{
-                            borderColor: `${selectedCustomer.tierColor}50`,
-                            backgroundColor: `${selectedCustomer.tierColor}15`,
-                            color: selectedCustomer.tierColor,
+                            borderColor: `${selectedCustomer.tier?.color || "#B45309"}50`,
+                            backgroundColor: `${selectedCustomer.tier?.color || "#B45309"}15`,
+                            color: selectedCustomer.tier?.color || "#B45309",
                           }}
                         >
                           <Crown className="size-3 mr-1" />
-                          {selectedCustomer.tierName}
+                          {selectedCustomer.tier?.name || "Bronze Member"}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground font-medium mt-0.5">
@@ -1014,9 +1240,31 @@ function CustomersAndLoyaltyPage() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Header Actions */}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 text-xs font-medium"
+                      onClick={() => openEditCustomerModal(selectedCustomer)}
+                    >
+                      <Pencil className="size-3.5" />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                      onClick={() => setCustomerToDelete(selectedCustomer)}
+                    >
+                      <Trash2 className="size-3.5" />
+                      Delete
+                    </Button>
+                  </div>
                 </div>
 
-                {/* 2-Column Wide Metric Cards (No text clipping, no overflow) */}
+                {/* 2-Column Metric Cards */}
                 <div className="grid grid-cols-2 gap-3 mt-4">
                   <div className="p-3.5 rounded-xl bg-card border shadow-xs space-y-1">
                     <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
@@ -1025,12 +1273,15 @@ function CustomersAndLoyaltyPage() {
                     </div>
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-2xl font-black tracking-tight text-primary tabular-nums">
-                        {selectedCustomer.points}
+                        {selectedCustomer.loyaltyPoints || 0}
                       </span>
                       <span className="text-xs font-semibold text-muted-foreground">pts</span>
                     </div>
-                    <Badge variant="secondary" className="text-[11px] font-medium text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/10 border-0">
-                      ≈ {money(selectedCustomer.points * settings.pointValue)} value
+                    <Badge
+                      variant="secondary"
+                      className="text-[11px] font-medium text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/10 border-0"
+                    >
+                      ≈ {money((selectedCustomer.loyaltyPoints || 0) * (settings.pointValue || 1.0))} value
                     </Badge>
                   </div>
 
@@ -1040,10 +1291,10 @@ function CustomersAndLoyaltyPage() {
                       <Wallet className="size-3.5 text-emerald-500" />
                     </div>
                     <div className="text-xl font-bold tracking-tight text-foreground truncate">
-                      {money(selectedCustomer.totalSpent)}
+                      {money(selectedCustomer.totalSpent || 0)}
                     </div>
                     <span className="text-[11px] text-muted-foreground block">
-                      {selectedCustomer.visits} total visits recorded
+                      Registered customer
                     </span>
                   </div>
                 </div>
@@ -1103,19 +1354,21 @@ function CustomersAndLoyaltyPage() {
                         type="button"
                         size="sm"
                         variant="outline"
+                        disabled={isAdjustingPoints}
                         className="text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100/70 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800"
                         onClick={() => handlePointAdjustment(selectedCustomer, true)}
                       >
-                        + Add Bonus
+                        {isAdjustingPoints ? <Loader2 className="size-3 animate-spin mr-1" /> : "+"} Add Bonus
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
+                        disabled={isAdjustingPoints}
                         className="text-rose-700 bg-rose-50/50 hover:bg-rose-100/70 border-rose-300 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800"
                         onClick={() => handlePointAdjustment(selectedCustomer, false)}
                       >
-                        − Redeem Points
+                        {isAdjustingPoints ? <Loader2 className="size-3 animate-spin mr-1" /> : "−"} Redeem Points
                       </Button>
                     </div>
                   </CardContent>
@@ -1128,28 +1381,32 @@ function CustomersAndLoyaltyPage() {
                       Points Activity History
                     </h3>
                     <span className="text-xs text-muted-foreground">
-                      {selectedCustomer.ledger.length} entries
+                      {(selectedCustomer.loyaltyTransactions || []).length} entries
                     </span>
                   </div>
 
                   <div className="rounded-xl border divide-y bg-card overflow-hidden">
-                    {selectedCustomer.ledger.length === 0 ? (
+                    {isLoadingCustomerDetail ? (
+                      <div className="p-6 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                        <Loader2 className="size-4 animate-spin text-primary" />
+                        Loading activity ledger...
+                      </div>
+                    ) : !(selectedCustomer.loyaltyTransactions?.length) ? (
                       <div className="p-6 text-center text-xs text-muted-foreground">
                         No points activity recorded for this customer yet.
                       </div>
                     ) : (
-                      selectedCustomer.ledger.map((item) => (
+                      selectedCustomer.loyaltyTransactions.map((item) => (
                         <div
                           key={item.id}
                           className="p-3.5 flex items-center justify-between hover:bg-muted/30 transition-colors"
                         >
                           <div className="space-y-0.5">
                             <p className="text-xs font-semibold text-foreground">
-                              {item.reason}
+                              {item.reason || item.type}
                             </p>
                             <p className="text-[11px] text-muted-foreground">
-                              {format(new Date(item.at), "dd MMM yyyy, hh:mm a")}
-                              {item.orderNumber && ` • Order ${item.orderNumber}`}
+                              {format(new Date(item.createdAt), "dd MMM yyyy, hh:mm a")}
                             </p>
                           </div>
                           <Badge
@@ -1167,6 +1424,47 @@ function CustomersAndLoyaltyPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Recent Orders Section */}
+                {selectedCustomer.orders && selectedCustomer.orders.length > 0 && (
+                  <div className="space-y-2.5 pt-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                        <UtensilsCrossed className="size-4 text-muted-foreground" />
+                        Recent Orders
+                      </h3>
+                      <span className="text-xs text-muted-foreground">
+                        {selectedCustomer.orders.length} orders
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border divide-y bg-card overflow-hidden">
+                      {selectedCustomer.orders.map((ord) => (
+                        <div
+                          key={ord.id}
+                          className="p-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                        >
+                          <div>
+                            <p className="text-xs font-semibold text-foreground">
+                              #{ord.orderNumber}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {format(new Date(ord.createdAt), "dd MMM yyyy, hh:mm a")} • {ord.type}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-bold text-foreground">
+                              {money(ord.total)}
+                            </p>
+                            <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                              {ord.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1174,7 +1472,7 @@ function CustomersAndLoyaltyPage() {
       </Sheet>
 
       {/* ========================================================================= */}
-      {/* 5. ADD / EDIT CUSTOMER DIALOG (NAME & PHONE MANDATORY, NO EMAIL)          */}
+      {/* 5. ADD / EDIT CUSTOMER DIALOG (BACKEND API INTEGRATED, NO EMAIL)           */}
       {/* ========================================================================= */}
       <Dialog open={isCustomerModalOpen} onOpenChange={setIsCustomerModalOpen}>
         <DialogContent className="max-w-md">
@@ -1187,63 +1485,17 @@ function CustomersAndLoyaltyPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const form = e.target as HTMLFormElement;
-              const name = (form.elements.namedItem("name") as HTMLInputElement).value;
-              const phone = (form.elements.namedItem("phone") as HTMLInputElement).value;
-              const address = (form.elements.namedItem("address") as HTMLInputElement).value;
-              const notes = (form.elements.namedItem("notes") as HTMLTextAreaElement).value;
-
-              if (editingCustomer) {
-                setCustomers((prev) =>
-                  prev.map((c) =>
-                    c.id === editingCustomer.id
-                      ? { ...c, name, phone, address, notes }
-                      : c,
-                  ),
-                );
-                toast.success(`Updated customer: ${name}`);
-              } else {
-                const newCustomer: UICustomer = {
-                  id: `cust-${Date.now()}`,
-                  name,
-                  phone,
-                  address,
-                  notes,
-                  points: 50,
-                  totalSpent: 0,
-                  visits: 1,
-                  tierId: "tier-bronze",
-                  tierName: "Bronze Member",
-                  tierColor: "#B45309",
-                  lastVisitAt: new Date().toISOString(),
-                  ledger: [
-                    {
-                      id: `tx-${Date.now()}`,
-                      points: 50,
-                      type: "ADJUSTED",
-                      reason: "Welcome Registration Bonus",
-                      at: new Date().toISOString(),
-                    },
-                  ],
-                };
-                setCustomers((prev) => [newCustomer, ...prev]);
-                toast.success(`Registered new customer: ${name} (+50 Welcome Bonus awarded!)`);
-              }
-              setIsCustomerModalOpen(false);
-            }}
-            className="space-y-4 py-2"
-          >
+          <form onSubmit={handleSaveCustomer} className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="cust-name">
                 Full Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="cust-name"
-                name="name"
-                defaultValue={editingCustomer?.name || ""}
+                value={customerFormData.name}
+                onChange={(e) =>
+                  setCustomerFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
                 placeholder="e.g. Tanvir Hossain"
                 required
               />
@@ -1255,20 +1507,43 @@ function CustomersAndLoyaltyPage() {
               </Label>
               <Input
                 id="cust-phone"
-                name="phone"
                 type="tel"
-                defaultValue={editingCustomer?.phone || ""}
+                value={customerFormData.phone}
+                onChange={(e) =>
+                  setCustomerFormData((prev) => ({ ...prev, phone: e.target.value }))
+                }
                 placeholder="e.g. +8801712345678"
                 required
               />
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="cust-tier">Membership Tier</Label>
+              <select
+                id="cust-tier"
+                value={customerFormData.tierId}
+                onChange={(e) =>
+                  setCustomerFormData((prev) => ({ ...prev, tierId: e.target.value }))
+                }
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">Default Tier (Bronze)</option>
+                {tiers.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} (Min spend: {money(t.minSpend)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="cust-address">Delivery Address (Optional)</Label>
               <Input
                 id="cust-address"
-                name="address"
-                defaultValue={editingCustomer?.address || ""}
+                value={customerFormData.address}
+                onChange={(e) =>
+                  setCustomerFormData((prev) => ({ ...prev, address: e.target.value }))
+                }
                 placeholder="House, Road, Area, City"
               />
             </div>
@@ -1277,18 +1552,48 @@ function CustomersAndLoyaltyPage() {
               <Label htmlFor="cust-notes">Guest Preferences & Notes (Optional)</Label>
               <Textarea
                 id="cust-notes"
-                name="notes"
-                defaultValue={editingCustomer?.notes || ""}
+                value={customerFormData.notes}
+                onChange={(e) =>
+                  setCustomerFormData((prev) => ({ ...prev, notes: e.target.value }))
+                }
                 placeholder="Allergies, favorite table, spice tolerance..."
                 rows={2}
               />
             </div>
 
+            {!editingCustomer && (
+              <div className="space-y-2 pt-1">
+                <Label htmlFor="cust-initial-points">Welcome Signup Points Bonus</Label>
+                <Input
+                  id="cust-initial-points"
+                  type="number"
+                  min={0}
+                  value={customerFormData.initialPoints}
+                  onChange={(e) =>
+                    setCustomerFormData((prev) => ({
+                      ...prev,
+                      initialPoints: Number(e.target.value) || 0,
+                    }))
+                  }
+                  placeholder="50"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Awarded automatically upon registration as a welcome reward.
+                </p>
+              </div>
+            )}
+
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsCustomerModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSubmittingCustomer}
+                onClick={() => setIsCustomerModalOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={isSubmittingCustomer} className="gap-2">
+                {isSubmittingCustomer && <Loader2 className="size-4 animate-spin" />}
                 {editingCustomer ? "Save Changes" : "Create Customer"}
               </Button>
             </DialogFooter>
@@ -1297,7 +1602,51 @@ function CustomersAndLoyaltyPage() {
       </Dialog>
 
       {/* ========================================================================= */}
-      {/* 6. ADD / EDIT LOYALTY TIER DIALOG                                         */}
+      {/* 6. DELETE CUSTOMER CONFIRMATION DIALOG                                    */}
+      {/* ========================================================================= */}
+      <Dialog
+        open={!!customerToDelete}
+        onOpenChange={(open) => !open && setCustomerToDelete(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <Trash2 className="size-5" />
+              Delete Customer Profile
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-foreground">
+                {customerToDelete?.name}
+              </span>{" "}
+              ({customerToDelete?.phone})? Their profile and point balance will be removed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDeletingCustomer}
+              onClick={() => setCustomerToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isDeletingCustomer}
+              onClick={confirmDeleteCustomer}
+              className="gap-2"
+            >
+              {isDeletingCustomer && <Loader2 className="size-4 animate-spin" />}
+              Yes, Delete Customer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* 7. ADD / EDIT LOYALTY TIER DIALOG                                         */}
       {/* ========================================================================= */}
       <Dialog open={isTierModalOpen} onOpenChange={setIsTierModalOpen}>
         <DialogContent className="max-w-md">
@@ -1310,53 +1659,15 @@ function CustomersAndLoyaltyPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const form = e.target as HTMLFormElement;
-              const name = (form.elements.namedItem("name") as HTMLInputElement).value;
-              const minSpend = Number((form.elements.namedItem("minSpend") as HTMLInputElement).value) || 0;
-              const pointMultiplier = Number((form.elements.namedItem("pointMultiplier") as HTMLInputElement).value) || 1.0;
-              const discountPercent = Number((form.elements.namedItem("discountPercent") as HTMLInputElement).value) || 0;
-              const description = (form.elements.namedItem("description") as HTMLInputElement).value;
-              const color = (form.elements.namedItem("color") as HTMLInputElement).value || "#3B82F6";
-
-              if (editingTier) {
-                setTiers((prev) =>
-                  prev.map((t) =>
-                    t.id === editingTier.id
-                      ? { ...t, name, minSpend, pointMultiplier, discountPercent, description, color }
-                      : t,
-                  ),
-                );
-                toast.success(`Updated tier: ${name}`);
-              } else {
-                const newTier: UILoyaltyTier = {
-                  id: `tier-${Date.now()}`,
-                  name,
-                  minSpend,
-                  minPoints: Math.round(minSpend / 100),
-                  pointMultiplier,
-                  discountPercent,
-                  description,
-                  color,
-                  membersCount: 0,
-                  isActive: true,
-                  sortOrder: tiers.length,
-                };
-                setTiers((prev) => [...prev, newTier]);
-                toast.success(`Created new tier: ${name}`);
-              }
-              setIsTierModalOpen(false);
-            }}
-            className="space-y-4 py-2"
-          >
+          <form onSubmit={handleSaveTier} className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="tier-name">Tier Name</Label>
               <Input
                 id="tier-name"
-                name="name"
-                defaultValue={editingTier?.name || ""}
+                value={tierFormData.name}
+                onChange={(e) =>
+                  setTierFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
                 placeholder="e.g. Diamond VIP"
                 required
               />
@@ -1367,10 +1678,15 @@ function CustomersAndLoyaltyPage() {
                 <Label htmlFor="tier-spend">Min Spend (৳)</Label>
                 <Input
                   id="tier-spend"
-                  name="minSpend"
                   type="number"
                   min={0}
-                  defaultValue={editingTier?.minSpend ?? 0}
+                  value={tierFormData.minSpend}
+                  onChange={(e) =>
+                    setTierFormData((prev) => ({
+                      ...prev,
+                      minSpend: Number(e.target.value) || 0,
+                    }))
+                  }
                   required
                 />
               </div>
@@ -1379,11 +1695,16 @@ function CustomersAndLoyaltyPage() {
                 <Label htmlFor="tier-mult">Multiplier (x)</Label>
                 <Input
                   id="tier-mult"
-                  name="pointMultiplier"
                   type="number"
                   step="0.05"
                   min={1.0}
-                  defaultValue={editingTier?.pointMultiplier ?? 1.0}
+                  value={tierFormData.pointMultiplier}
+                  onChange={(e) =>
+                    setTierFormData((prev) => ({
+                      ...prev,
+                      pointMultiplier: Number(e.target.value) || 1.0,
+                    }))
+                  }
                   required
                 />
               </div>
@@ -1394,11 +1715,16 @@ function CustomersAndLoyaltyPage() {
                 <Label htmlFor="tier-disc">Discount (%)</Label>
                 <Input
                   id="tier-disc"
-                  name="discountPercent"
                   type="number"
                   min={0}
                   max={100}
-                  defaultValue={editingTier?.discountPercent ?? 0}
+                  value={tierFormData.discountPercent}
+                  onChange={(e) =>
+                    setTierFormData((prev) => ({
+                      ...prev,
+                      discountPercent: Number(e.target.value) || 0,
+                    }))
+                  }
                 />
               </div>
 
@@ -1407,13 +1733,15 @@ function CustomersAndLoyaltyPage() {
                 <div className="flex items-center gap-2">
                   <input
                     id="tier-color"
-                    name="color"
                     type="color"
-                    defaultValue={editingTier?.color || "#3B82F6"}
+                    value={tierFormData.color}
+                    onChange={(e) =>
+                      setTierFormData((prev) => ({ ...prev, color: e.target.value }))
+                    }
                     className="size-9 rounded-md border cursor-pointer p-0.5 bg-background"
                   />
                   <span className="text-xs text-muted-foreground font-mono">
-                    {editingTier?.color || "#3B82F6"}
+                    {tierFormData.color}
                   </span>
                 </div>
               </div>
@@ -1423,21 +1751,73 @@ function CustomersAndLoyaltyPage() {
               <Label htmlFor="tier-desc">Benefits Description</Label>
               <Input
                 id="tier-desc"
-                name="description"
-                defaultValue={editingTier?.description || ""}
+                value={tierFormData.description}
+                onChange={(e) =>
+                  setTierFormData((prev) => ({ ...prev, description: e.target.value }))
+                }
                 placeholder="Special perks for members of this tier..."
               />
             </div>
 
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsTierModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSubmittingTier}
+                onClick={() => setIsTierModalOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={isSubmittingTier} className="gap-2">
+                {isSubmittingTier && <Loader2 className="size-4 animate-spin" />}
                 {editingTier ? "Save Tier" : "Create Tier"}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* 8. DELETE TIER CONFIRMATION DIALOG                                        */}
+      {/* ========================================================================= */}
+      <Dialog
+        open={!!tierToDelete}
+        onOpenChange={(open) => !open && setTierToDelete(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <Trash2 className="size-5" />
+              Delete Loyalty Tier
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Are you sure you want to delete tier{" "}
+              <span className="font-semibold text-foreground">
+                {tierToDelete?.name}
+              </span>
+              ? Guests on this tier will fallback to default membership.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDeletingTier}
+              onClick={() => setTierToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isDeletingTier}
+              onClick={confirmDeleteTier}
+              className="gap-2"
+            >
+              {isDeletingTier && <Loader2 className="size-4 animate-spin" />}
+              Yes, Delete Tier
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
