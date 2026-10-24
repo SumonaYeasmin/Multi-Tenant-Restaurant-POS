@@ -20,6 +20,7 @@ import { SupplierReturnModule } from './supplier-return/supplier-return.module';
 import { CustomerModule } from './customer/customer.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { FinanceModule } from './finance/finance.module';
+import { PromotionModule } from './promotion/promotion.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { FinanceModule } from './finance/finance.module';
     CustomerModule,
     LoyaltyModule,
     FinanceModule,
+    PromotionModule,
   ],
   exports: [
     TenantRoleModule,
@@ -66,6 +68,7 @@ import { FinanceModule } from './finance/finance.module';
     CustomerModule,
     LoyaltyModule,
     FinanceModule,
+    PromotionModule,
   ],
 })
 export class ModulesModule {}

@@ -36,6 +36,7 @@ model Tenant {
   loyaltySettings     LoyaltySettings?
   loyaltyTiers        LoyaltyTier[]
   loyaltyTransactions LoyaltyTransaction[]
+  promotions          Promotion[]
 
   @@map("tenants")
 }

@@ -106,3 +106,9 @@ enum LoyaltyTransactionType {
   EXPIRED
   REFUNDED
 }
+
+enum DiscountKind {
+  PERCENT
+  AMOUNT
+}
+
