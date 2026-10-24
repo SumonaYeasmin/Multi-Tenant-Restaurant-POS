@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { PromotionService } from './promotion.service';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
+import { UpdatePromotionDto } from './dto/update-promotion.dto';
 import { GetPromotionsQueryDto } from './dto/get-promotions-query.dto';
 import { CheckPromotionQueryDto } from './dto/check-promotion-query.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
@@ -175,6 +177,46 @@ export class PromotionController {
     return ResponseHelper.success(
       promotion,
       'Promotion retrieved successfully',
+    );
+  }
+
+  @Put(':tenantSlug/promotions/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.PROMOTIONS_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update an existing promotion',
+    description:
+      'Updates promotion fields like name, discount value, dates, active status, or usage limits.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'saffron-ember',
+  })
+  @ApiParam({
+    name: 'id',
+    example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Promotion updated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 404, description: 'Promotion not found' })
+  @ApiResponse({ status: 409, description: 'Promo code conflict' })
+  async updatePromotion(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('id') id: string,
+    @Body() dto: UpdatePromotionDto,
+  ) {
+    const updated = await this.promotionService.updatePromotion(
+      tenantSlug,
+      id,
+      dto,
+    );
+    return ResponseHelper.success(
+      updated,
+      'Promotion updated successfully',
     );
   }
 }

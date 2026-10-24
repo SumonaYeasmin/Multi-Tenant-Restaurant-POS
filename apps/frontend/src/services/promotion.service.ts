@@ -168,3 +168,41 @@ export async function validatePromotionApi(
     `/tenants/${tenantSlug}/promotions/validate?${qs.toString()}`
   );
 }
+
+/**
+ * Update an existing promotion via backend API
+ */
+export async function updatePromotionApi(
+  tenantSlug: string,
+  id: string,
+  input: Partial<CreatePromotionInput>
+): Promise<BackendPromotion> {
+  return backendFetch<BackendPromotion>(
+    `/tenants/${tenantSlug}/promotions/${id}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        ...(input.name !== undefined && { name: input.name.trim() }),
+        ...(input.code !== undefined && {
+          code: input.code.trim().toUpperCase(),
+        }),
+        ...(input.kind !== undefined && { kind: input.kind.toUpperCase() }),
+        ...(input.value !== undefined && { value: input.value }),
+        ...(input.minSpend !== undefined && { minSpend: input.minSpend }),
+        ...(input.startsAt !== undefined && {
+          startsAt: input.startsAt
+            ? new Date(input.startsAt).toISOString()
+            : undefined,
+        }),
+        ...(input.endsAt !== undefined && {
+          endsAt: input.endsAt
+            ? new Date(input.endsAt).toISOString()
+            : undefined,
+        }),
+        ...(input.maxUses !== undefined && { maxUses: input.maxUses }),
+        ...(input.active !== undefined && { active: input.active }),
+      }),
+    }
+  );
+}
+

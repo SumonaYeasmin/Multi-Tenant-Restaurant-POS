@@ -6,6 +6,7 @@ import {
   createPromotionApi,
   getPromotionsApi,
   mapBackendPromotionToDomain,
+  updatePromotionApi,
   validatePromotionApi,
 } from "./promotion.service";
 import type {
@@ -491,6 +492,42 @@ export async function savePromotion(tenantId: string, input: PromotionInput): Pr
     } catch (err) {
       if (err instanceof ApiError && err.status === 503) {
         console.warn("Backend unavailable for creating promotion, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // If updating existing promotion, call backend API
+  if (input.id) {
+    try {
+      const updated = await updatePromotionApi(tenantId, input.id, {
+        name: input.name,
+        code,
+        kind: input.kind,
+        value: input.value,
+        minSpend: input.minSpend,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        maxUses: input.maxUses,
+        active: input.active,
+      });
+
+      if (updated && updated.id) {
+        const mapped = mapBackendPromotionToDomain(updated);
+        const db = tenantDb(tenantId);
+        const existingIdx = db.promotions.findIndex((p) => p.id === mapped.id);
+        if (existingIdx >= 0) {
+          db.promotions[existingIdx] = mapped;
+        } else {
+          db.promotions.unshift(mapped);
+        }
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for updating promotion, falling back to local DB");
       } else {
         throw err;
       }

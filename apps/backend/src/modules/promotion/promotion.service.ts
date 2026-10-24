@@ -7,6 +7,7 @@ import {
 import { Prisma } from '../../../prisma/generated/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
+import { UpdatePromotionDto } from './dto/update-promotion.dto';
 import {
   GetPromotionsQueryDto,
   PromotionStatusFilter,
@@ -349,4 +350,118 @@ export class PromotionService {
       isValid: true,
     };
   }
+
+  /**
+   * Update an existing promotion with business validation
+   */
+  async updatePromotion(
+    tenantSlug: string,
+    id: string,
+    dto: UpdatePromotionDto,
+  ) {
+    const tenant = await this.resolveTenant(tenantSlug);
+
+    // 1. Verify existence
+    const promotion = await this.prisma.promotion.findFirst({
+      where: {
+        id,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+    });
+
+    if (!promotion) {
+      throw new NotFoundException('Promotion not found.');
+    }
+
+    // 2. If code is changed, validate pattern and uniqueness
+    let cleanCode: string | undefined = undefined;
+    if (dto.code && dto.code.trim()) {
+      cleanCode = dto.code.trim().toUpperCase();
+      if (!/^[A-Z0-9]{3,16}$/.test(cleanCode)) {
+        throw new BadRequestException(
+          'Code must be 3–16 letters or digits (alphanumeric).',
+        );
+      }
+
+      if (cleanCode !== promotion.code) {
+        const existing = await this.prisma.promotion.findFirst({
+          where: {
+            tenantId: tenant.id,
+            code: cleanCode,
+            id: { not: id },
+            isDeleted: false,
+          },
+        });
+        if (existing) {
+          throw new ConflictException(
+            `A promotion with code "${cleanCode}" already exists for this restaurant.`,
+          );
+        }
+      }
+    }
+
+    // 3. Validate Value and Cap
+    const effectiveKind = dto.kind ?? promotion.kind;
+    const effectiveValue = dto.value !== undefined ? dto.value : promotion.value;
+
+    if (effectiveValue <= 0) {
+      throw new BadRequestException(
+        'Enter a valid discount value greater than 0.',
+      );
+    }
+
+    if (effectiveKind === DiscountKind.PERCENT && effectiveValue > 100) {
+      throw new BadRequestException('Percentage discount cannot exceed 100%.');
+    }
+
+    // 4. Validate Date Range
+    const effectiveStartsAt = dto.startsAt
+      ? new Date(dto.startsAt)
+      : promotion.startsAt;
+    const effectiveEndsAt = dto.endsAt
+      ? new Date(dto.endsAt)
+      : promotion.endsAt;
+
+    if (
+      isNaN(effectiveStartsAt.getTime()) ||
+      isNaN(effectiveEndsAt.getTime())
+    ) {
+      throw new BadRequestException('Invalid date format provided.');
+    }
+
+    if (effectiveEndsAt < effectiveStartsAt) {
+      throw new BadRequestException(
+        'End date must be on or after the start date.',
+      );
+    }
+
+    // 5. Validate minSpend & maxUses
+    if (dto.minSpend !== undefined && dto.minSpend < 0) {
+      throw new BadRequestException('Minimum spend cannot be negative.');
+    }
+
+    if (dto.maxUses !== undefined && dto.maxUses !== null && dto.maxUses < 1) {
+      throw new BadRequestException('Max uses must be at least 1.');
+    }
+
+    // 6. Execute update
+    const updated = await this.prisma.promotion.update({
+      where: { id },
+      data: {
+        ...(dto.name && { name: dto.name.trim() }),
+        ...(cleanCode && { code: cleanCode }),
+        ...(dto.kind && { kind: dto.kind }),
+        ...(dto.value !== undefined && { value: dto.value }),
+        ...(dto.minSpend !== undefined && { minSpend: dto.minSpend }),
+        ...(dto.startsAt && { startsAt: effectiveStartsAt }),
+        ...(dto.endsAt && { endsAt: effectiveEndsAt }),
+        ...(dto.maxUses !== undefined && { maxUses: dto.maxUses }),
+        ...(dto.active !== undefined && { active: dto.active }),
+      },
+    });
+
+    return this.enrichPromotion(updated);
+  }
 }
+
