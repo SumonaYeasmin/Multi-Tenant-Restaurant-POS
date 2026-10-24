@@ -1850,7 +1850,7 @@ function CustomersAndLoyaltyPage() {
               <span className="font-semibold text-foreground">
                 {tierToDelete?.name}
               </span>
-              ? Guests on this tier will fallback to default membership.
+              ? This tier will be safely archived (soft deleted) and any assigned guests will fallback to default membership.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0 pt-4">

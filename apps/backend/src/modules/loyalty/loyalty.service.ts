@@ -99,70 +99,82 @@ export class LoyaltyService {
     const tenant = await this.getTenant(tenantSlug);
 
     let tiers = await this.prisma.loyaltyTier.findMany({
-      where: { tenantId: tenant.id },
+      where: {
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
       orderBy: [{ sortOrder: 'asc' }, { minSpend: 'asc' }],
       include: {
         _count: {
-          select: { customers: true },
+          select: { customers: { where: { isDeleted: false } } },
         },
       },
     });
 
     // Auto-seed standard starter tiers if none exist
     if (tiers.length === 0) {
-      const defaultTiers = [
-        {
-          name: 'Bronze',
-          minSpend: 0,
-          minPoints: 0,
-          pointMultiplier: 1.0,
-          discountPercent: 0.0,
-          description: 'Entry-level tier for all registered customers',
-          color: '#CD7F32',
-          sortOrder: 0,
-        },
-        {
-          name: 'Silver',
-          minSpend: 5000,
-          minPoints: 50,
-          pointMultiplier: 1.2,
-          discountPercent: 3.0,
-          description: 'Earn 1.2x points and 3% flat discount on orders',
-          color: '#94A3B8',
-          sortOrder: 1,
-        },
-        {
-          name: 'Gold',
-          minSpend: 15000,
-          minPoints: 150,
-          pointMultiplier: 1.5,
-          discountPercent: 5.0,
-          description: 'VIP status with 1.5x points and 5% flat discount',
-          color: '#EAB308',
-          sortOrder: 2,
-        },
-      ];
-
-      await Promise.all(
-        defaultTiers.map((tier) =>
-          this.prisma.loyaltyTier.create({
-            data: {
-              tenantId: tenant.id,
-              ...tier,
-            },
-          }),
-        ),
-      );
-
-      tiers = await this.prisma.loyaltyTier.findMany({
+      const anyTiersCount = await this.prisma.loyaltyTier.count({
         where: { tenantId: tenant.id },
-        orderBy: [{ sortOrder: 'asc' }, { minSpend: 'asc' }],
-        include: {
-          _count: {
-            select: { customers: true },
-          },
-        },
       });
+
+      if (anyTiersCount === 0) {
+        const defaultTiers = [
+          {
+            name: 'Bronze',
+            minSpend: 0,
+            minPoints: 0,
+            pointMultiplier: 1.0,
+            discountPercent: 0.0,
+            description: 'Entry-level tier for all registered customers',
+            color: '#CD7F32',
+            sortOrder: 0,
+          },
+          {
+            name: 'Silver',
+            minSpend: 5000,
+            minPoints: 50,
+            pointMultiplier: 1.2,
+            discountPercent: 3.0,
+            description: 'Earn 1.2x points and 3% flat discount on orders',
+            color: '#94A3B8',
+            sortOrder: 1,
+          },
+          {
+            name: 'Gold',
+            minSpend: 15000,
+            minPoints: 150,
+            pointMultiplier: 1.5,
+            discountPercent: 5.0,
+            description: 'VIP status with 1.5x points and 5% flat discount',
+            color: '#EAB308',
+            sortOrder: 2,
+          },
+        ];
+
+        await Promise.all(
+          defaultTiers.map((tier) =>
+            this.prisma.loyaltyTier.create({
+              data: {
+                tenantId: tenant.id,
+                ...tier,
+              },
+            }),
+          ),
+        );
+
+        tiers = await this.prisma.loyaltyTier.findMany({
+          where: {
+            tenantId: tenant.id,
+            isDeleted: false,
+          },
+          orderBy: [{ sortOrder: 'asc' }, { minSpend: 'asc' }],
+          include: {
+            _count: {
+              select: { customers: { where: { isDeleted: false } } },
+            },
+          },
+        });
+      }
     }
 
     return tiers;
@@ -183,6 +195,7 @@ export class LoyaltyService {
           equals: trimmedName,
           mode: 'insensitive',
         },
+        isDeleted: false,
       },
     });
 
@@ -220,10 +233,11 @@ export class LoyaltyService {
       where: {
         id: tierId,
         tenantId: tenant.id,
+        isDeleted: false,
       },
       include: {
         _count: {
-          select: { customers: true },
+          select: { customers: { where: { isDeleted: false } } },
         },
       },
     });
@@ -249,6 +263,7 @@ export class LoyaltyService {
       where: {
         id: tierId,
         tenantId: tenant.id,
+        isDeleted: false,
       },
     });
 
@@ -262,6 +277,7 @@ export class LoyaltyService {
         where: {
           tenantId: tenant.id,
           name: { equals: dto.name.trim(), mode: 'insensitive' },
+          isDeleted: false,
           NOT: { id: tier.id },
         },
       });
@@ -295,7 +311,7 @@ export class LoyaltyService {
   }
 
   /**
-   * Delete a loyalty tier
+   * Soft delete a loyalty tier
    */
   async deleteTier(tenantSlug: string, tierId: string) {
     const tenant = await this.getTenant(tenantSlug);
@@ -304,6 +320,7 @@ export class LoyaltyService {
       where: {
         id: tierId,
         tenantId: tenant.id,
+        isDeleted: false,
       },
     });
 
@@ -311,7 +328,7 @@ export class LoyaltyService {
       throw new NotFoundException('Loyalty Tier');
     }
 
-    // Unset tierId from customers attached to this tier before deletion
+    // Unset tierId from customers attached to this tier before soft delete
     await this.prisma.customer.updateMany({
       where: {
         tenantId: tenant.id,
@@ -322,8 +339,14 @@ export class LoyaltyService {
       },
     });
 
-    await this.prisma.loyaltyTier.delete({
+    // Soft delete by setting isDeleted: true and deletedAt: now()
+    await this.prisma.loyaltyTier.update({
       where: { id: tier.id },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        isActive: false,
+      },
     });
 
     return { success: true, message: 'Loyalty tier deleted successfully' };
