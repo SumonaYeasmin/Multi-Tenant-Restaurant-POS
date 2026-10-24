@@ -98,3 +98,11 @@ enum ReservationStatus {
   CANCELLED
   NO_SHOW
 }
+
+enum LoyaltyTransactionType {
+  EARNED
+  REDEEMED
+  ADJUSTED
+  EXPIRED
+  REFUNDED
+}

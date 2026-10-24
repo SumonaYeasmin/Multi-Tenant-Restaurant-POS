@@ -1,5 +1,5 @@
 model PurchaseOrder {
-  id           String              @id @default(cuid())
+  id           String @id @default(cuid())
   poNumber     String
   restaurantId String
   branchId     String
