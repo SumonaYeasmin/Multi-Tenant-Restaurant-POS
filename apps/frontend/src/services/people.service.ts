@@ -2,6 +2,14 @@ import { ApiError, commit, latency, tenantDb, uid } from "@/mocks/db";
 import type { TenantDb } from "@/mocks/seed";
 import { round2 } from "@/lib/pricing";
 import { backendFetch } from "./api-client";
+import {
+  createPromotionApi,
+  deletePromotionApi,
+  getPromotionsApi,
+  mapBackendPromotionToDomain,
+  updatePromotionApi,
+  validatePromotionApi,
+} from "./promotion.service";
 import type {
   AttendanceRecord,
   Branch,
@@ -407,11 +415,41 @@ export function checkPromotion(db: TenantDb, code: string, subtotal: number, tod
 }
 
 export async function validatePromotion(tenantId: string, code: string, subtotal: number): Promise<Promotion> {
+  try {
+    const res = await validatePromotionApi(tenantId, code, subtotal);
+    if (res?.promotion) {
+      return mapBackendPromotionToDomain(res.promotion);
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for validating promotion, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency(100, 200);
   return checkPromotion(tenantDb(tenantId), code, subtotal);
 }
 
 export async function listPromotions(tenantId: string): Promise<Promotion[]> {
+  try {
+    const backendPromos = await getPromotionsApi(tenantId);
+    if (Array.isArray(backendPromos)) {
+      const mapped = backendPromos.map(mapBackendPromotionToDomain);
+      const db = tenantDb(tenantId);
+      db.promotions = mapped;
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 503 || err.status === 404)) {
+      console.warn("Backend unavailable for promotions, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   return tenantDb(tenantId).promotions;
 }
@@ -419,14 +457,87 @@ export async function listPromotions(tenantId: string): Promise<Promotion[]> {
 export type PromotionInput = Omit<Promotion, "id" | "tenantId" | "uses"> & { id?: string | undefined };
 
 export async function savePromotion(tenantId: string, input: PromotionInput): Promise<Promotion> {
-  await latency();
-  const db = tenantDb(tenantId);
   const code = input.code.trim().toUpperCase();
   if (!input.name.trim()) throw new ApiError(422, "Name is required.");
   if (!/^[A-Z0-9]{3,16}$/.test(code)) throw new ApiError(422, "Code must be 3–16 letters or digits.");
-  if (db.promotions.some((p) => p.code === code && p.id !== input.id)) throw new ApiError(409, "That code is already used.");
   if (!(input.value > 0) || (input.kind === "percent" && input.value > 100)) throw new ApiError(422, "Enter a valid discount value.");
   if (input.endsAt < input.startsAt) throw new ApiError(422, "End date must be on or after the start date.");
+
+  // If creating new promotion, call backend API
+  if (!input.id) {
+    try {
+      const created = await createPromotionApi(tenantId, {
+        name: input.name,
+        code,
+        kind: input.kind,
+        value: input.value,
+        minSpend: input.minSpend,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        maxUses: input.maxUses,
+        active: input.active,
+      });
+
+      if (created && created.id) {
+        const mapped = mapBackendPromotionToDomain(created);
+        const db = tenantDb(tenantId);
+        const existingIdx = db.promotions.findIndex((p) => p.id === mapped.id || p.code === mapped.code);
+        if (existingIdx >= 0) {
+          db.promotions[existingIdx] = mapped;
+        } else {
+          db.promotions.unshift(mapped);
+        }
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for creating promotion, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // If updating existing promotion, call backend API
+  if (input.id) {
+    try {
+      const updated = await updatePromotionApi(tenantId, input.id, {
+        name: input.name,
+        code,
+        kind: input.kind,
+        value: input.value,
+        minSpend: input.minSpend,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        maxUses: input.maxUses,
+        active: input.active,
+      });
+
+      if (updated && updated.id) {
+        const mapped = mapBackendPromotionToDomain(updated);
+        const db = tenantDb(tenantId);
+        const existingIdx = db.promotions.findIndex((p) => p.id === mapped.id);
+        if (existingIdx >= 0) {
+          db.promotions[existingIdx] = mapped;
+        } else {
+          db.promotions.unshift(mapped);
+        }
+        commit(tenantId);
+        return mapped;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        console.warn("Backend unavailable for updating promotion, falling back to local DB");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  await latency();
+  const db = tenantDb(tenantId);
+  if (db.promotions.some((p) => p.code === code && p.id !== input.id)) throw new ApiError(409, "That code is already used.");
   const { id: _id, ...rest } = input;
   void _id;
   const data = { ...rest, name: input.name.trim(), code };
@@ -442,3 +553,28 @@ export async function savePromotion(tenantId: string, input: PromotionInput): Pr
   commit(tenantId);
   return p;
 }
+
+export async function deletePromotion(
+  tenantId: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await deletePromotionApi(tenantId, id);
+    const db = tenantDb(tenantId);
+    db.promotions = db.promotions.filter((p) => p.id !== id);
+    commit(tenantId);
+    return res;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn(
+        "Backend unavailable for deleting promotion, falling back to local DB"
+      );
+      const db = tenantDb(tenantId);
+      db.promotions = db.promotions.filter((p) => p.id !== id);
+      commit(tenantId);
+      return { success: true, message: "Promotion deleted locally" };
+    }
+    throw err;
+  }
+}
+
