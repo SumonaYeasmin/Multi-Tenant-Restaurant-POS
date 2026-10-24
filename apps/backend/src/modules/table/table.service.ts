@@ -303,7 +303,7 @@ export class TableService {
             equals: trimmedName,
             mode: 'insensitive',
           },
-          id: { not: tableId },
+          id: { not: table.id },
           isDeleted: false,
         },
       });

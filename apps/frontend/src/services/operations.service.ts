@@ -742,26 +742,36 @@ export async function listTables(tenantId: string, branchId: string): Promise<Di
         CLEANING: "cleaning",
       };
       const db = tenantDb(tenantId);
-      const mapped: DiningTable[] = backendTables.map((t) => ({
-        id: t.id,
-        tenantId: t.tenantId || tenantId,
-        branchId: t.branchId || branchId,
-        name: t.name,
-        seats: t.seats ?? 4,
-        area: t.area || "Main hall",
-        status: statusMap[t.status] || (t.status?.toLowerCase() as TableStatus) || "available",
-        currentOrderId: t.currentOrderId || null,
-        x: t.x ?? 0,
-        y: t.y ?? 0,
-        shape: (t.shape?.toLowerCase() as any) || "square",
-      }));
+      const mapped: DiningTable[] = backendTables.map((t) => {
+        const shape: "round" | "square" | "long" =
+          t.shape === "round" || t.shape === "long" || t.shape === "square"
+            ? t.shape
+            : t.shape === "rectangle" || t.shape === "booth"
+            ? "long"
+            : "square";
+
+        return {
+          id: t.id,
+          tenantId: t.tenantId || tenantId,
+          branchId: t.branchId || branchId,
+          name: t.name,
+          seats: t.seats ?? 4,
+          area: t.area || "Main hall",
+          status: statusMap[t.status] || (t.status?.toLowerCase() as TableStatus) || "available",
+          currentOrderId: t.currentOrderId || t.orders?.[0]?.id || null,
+          x: t.x ?? 0,
+          y: t.y ?? 0,
+          shape,
+        };
+      });
+
       mapped.forEach((tbl) => {
         const idx = db.tables.findIndex((x) => x.id === tbl.id || (x.branchId === tbl.branchId && x.name === tbl.name));
         if (idx >= 0) db.tables[idx] = tbl;
         else db.tables.push(tbl);
       });
       commit(tenantId);
-      return mapped.filter((t) => !branchId || t.branchId === branchId);
+      return mapped;
     }
   } catch (err) {
     if (!(err instanceof ApiError && err.status === 503)) {
@@ -770,7 +780,59 @@ export async function listTables(tenantId: string, branchId: string): Promise<Di
   }
 
   await latency(80, 200);
-  return tenantDb(tenantId).tables.filter((t) => t.branchId === branchId);
+  return tenantDb(tenantId).tables.filter((t) => !branchId || t.branchId === branchId);
+}
+
+export async function getTable(tenantId: string, tableId: string): Promise<DiningTable> {
+  const statusMap: Record<string, TableStatus> = {
+    AVAILABLE: "available",
+    OCCUPIED: "occupied",
+    RESERVED: "reserved",
+    CLEANING: "cleaning",
+  };
+
+  try {
+    const t = await backendFetch<any>(`/tenants/${tenantId}/tables/${encodeURIComponent(tableId)}`);
+    if (t && t.id) {
+      const shape: "round" | "square" | "long" =
+        t.shape === "round" || t.shape === "long" || t.shape === "square"
+          ? t.shape
+          : t.shape === "rectangle" || t.shape === "booth"
+          ? "long"
+          : "square";
+
+      const mapped: DiningTable = {
+        id: t.id,
+        tenantId: t.tenantId || tenantId,
+        branchId: t.branchId,
+        name: t.name,
+        seats: t.seats ?? 4,
+        area: t.area || "Main hall",
+        status: statusMap[t.status] || (t.status?.toLowerCase() as TableStatus) || "available",
+        currentOrderId: t.currentOrderId || t.orders?.[0]?.id || null,
+        x: t.x ?? 0,
+        y: t.y ?? 0,
+        shape,
+      };
+
+      const db = tenantDb(tenantId);
+      const idx = db.tables.findIndex((x) => x.id === mapped.id || (x.branchId === mapped.branchId && x.name === mapped.name));
+      if (idx >= 0) db.tables[idx] = mapped;
+      else db.tables.push(mapped);
+      commit(tenantId);
+
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch table from backend, using local store:", err);
+    }
+  }
+
+  await latency(60, 150);
+  const found = tenantDb(tenantId).tables.find((x) => x.id === tableId || x.name === tableId);
+  if (!found) throw new ApiError(404, "Table not found");
+  return found;
 }
 
 export async function setTableStatus(tenantId: string, tableId: string, status: TableStatus): Promise<DiningTable> {
@@ -905,6 +967,128 @@ export async function createTable(tenantId: string, input: CreateTableInput): Pr
   db.tables.push(table);
   commit(tenantId);
   return table;
+}
+
+export interface UpdateTableInput {
+  name?: string;
+  seats?: number;
+  area?: string;
+  shape?: "square" | "round" | "long";
+  status?: TableStatus;
+  isActive?: boolean;
+}
+
+export async function updateTable(
+  tenantId: string,
+  tableId: string,
+  input: UpdateTableInput,
+): Promise<DiningTable> {
+  const statusMap: Record<string, TableStatus> = {
+    AVAILABLE: "available",
+    OCCUPIED: "occupied",
+    RESERVED: "reserved",
+    CLEANING: "cleaning",
+  };
+
+  try {
+    const payload: any = {};
+    if (input.name !== undefined) payload.name = input.name.trim();
+    if (input.seats !== undefined) payload.seats = Number(input.seats);
+    if (input.area !== undefined) payload.area = input.area.trim();
+    if (input.shape !== undefined) payload.shape = input.shape;
+    if (input.status !== undefined) payload.status = input.status.toUpperCase();
+    if (input.isActive !== undefined) payload.isActive = input.isActive;
+
+    const res = await backendFetch<any>(`/tenants/${tenantId}/tables/${encodeURIComponent(tableId)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+
+    if (res && res.id) {
+      const shape: "round" | "square" | "long" =
+        res.shape === "round" || res.shape === "long" || res.shape === "square"
+          ? res.shape
+          : res.shape === "rectangle" || res.shape === "booth"
+          ? "long"
+          : "square";
+
+      const mapped: DiningTable = {
+        id: res.id,
+        tenantId: res.tenantId || tenantId,
+        branchId: res.branchId,
+        name: res.name,
+        seats: res.seats ?? (input.seats || 4),
+        area: res.area || input.area || "Main hall",
+        status: statusMap[res.status] || (res.status?.toLowerCase() as TableStatus) || "available",
+        currentOrderId: res.currentOrderId || null,
+        x: res.x ?? 0,
+        y: res.y ?? 0,
+        shape,
+      };
+
+      const db = tenantDb(tenantId);
+      const idx = db.tables.findIndex((x) => x.id === tableId || x.id === res.id);
+      if (idx >= 0) db.tables[idx] = mapped;
+      else db.tables.push(mapped);
+      commit(tenantId);
+
+      return mapped;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status !== 503) {
+      throw err;
+    }
+    console.warn("Could not update table via backend, updating local store:", err);
+  }
+
+  await latency(80, 200);
+  const db = tenantDb(tenantId);
+  const t = db.tables.find((x) => x.id === tableId);
+  if (!t) throw new ApiError(404, "Table not found.");
+  if (input.name) t.name = input.name.trim();
+  if (input.seats) t.seats = input.seats;
+  if (input.area) t.area = input.area.trim();
+  if (input.shape) t.shape = input.shape;
+  if (input.status) t.status = input.status;
+  commit(tenantId);
+  return t;
+}
+
+export async function deleteTable(tenantId: string, tableId: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const res = await backendFetch<any>(`/tenants/${tenantId}/tables/${encodeURIComponent(tableId)}`, {
+      method: "DELETE",
+    });
+
+    const db = tenantDb(tenantId);
+    const idx = db.tables.findIndex((x) => x.id === tableId);
+    if (idx >= 0) {
+      db.tables.splice(idx, 1);
+      commit(tenantId);
+    }
+
+    return {
+      ok: true,
+      message: res?.message || "Table deleted successfully",
+    };
+  } catch (err) {
+    if (err instanceof ApiError && err.status !== 503) {
+      throw err;
+    }
+    console.warn("Could not delete table via backend, updating local store:", err);
+  }
+
+  await latency(80, 200);
+  const db = tenantDb(tenantId);
+  const idx = db.tables.findIndex((x) => x.id === tableId);
+  const target = idx >= 0 ? db.tables[idx] : undefined;
+  if (!target) throw new ApiError(404, "Table not found.");
+  if (target.status === "occupied") {
+    throw new ApiError(409, "Cannot delete table while occupied with an active order.");
+  }
+  db.tables.splice(idx, 1);
+  commit(tenantId);
+  return { ok: true, message: "Table deleted successfully" };
 }
 
 // ---------- Inventory ----------

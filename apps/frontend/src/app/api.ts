@@ -76,12 +76,24 @@ export const api = baseApi.injectEndpoints({
       queryFn: ({ tenantId, branchId }) => run(() => ops.listTables(tenantId, branchId)),
       providesTags: ["Table"],
     }),
+    table: b.query<DiningTable, T<{ tableId: string }>>({
+      queryFn: ({ tenantId, tableId }) => run(() => ops.getTable(tenantId, tableId)),
+      providesTags: (_r, _e, a) => [{ type: "Table", id: a.tableId }],
+    }),
     createTable: b.mutation<DiningTable, T<ops.CreateTableInput>>({
       queryFn: ({ tenantId, ...input }) => run(() => ops.createTable(tenantId, input)),
       invalidatesTags: ["Table", "Dashboard"],
     }),
     setTableStatus: b.mutation<DiningTable, T<{ tableId: string; status: TableStatus }>>({
       queryFn: ({ tenantId, tableId, status }) => run(() => ops.setTableStatus(tenantId, tableId, status)),
+      invalidatesTags: ["Table", "Dashboard"],
+    }),
+    updateTable: b.mutation<DiningTable, T<{ tableId: string } & ops.UpdateTableInput>>({
+      queryFn: ({ tenantId, tableId, ...input }) => run(() => ops.updateTable(tenantId, tableId, input)),
+      invalidatesTags: ["Table", "Dashboard"],
+    }),
+    deleteTable: b.mutation<{ ok: boolean; message: string }, T<{ tableId: string }>>({
+      queryFn: ({ tenantId, tableId }) => run(() => ops.deleteTable(tenantId, tableId)),
       invalidatesTags: ["Table", "Dashboard"],
     }),
 
@@ -128,8 +140,11 @@ export const {
   useAddPaymentMutation,
   useCancelOrderMutation,
   useTablesQuery,
+  useTableQuery,
   useCreateTableMutation,
   useSetTableStatusMutation,
+  useUpdateTableMutation,
+  useDeleteTableMutation,
   useIngredientsQuery,
   useMovementsQuery,
   useNotificationsQuery,
