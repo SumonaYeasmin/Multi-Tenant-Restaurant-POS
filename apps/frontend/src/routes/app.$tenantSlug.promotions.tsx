@@ -3,20 +3,21 @@ import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   CalendarClock,
-  CheckCircle2,
   Clock,
   Loader2,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Sparkles,
   Ticket,
-  XCircle,
+  Trash2,
 } from "lucide-react";
 import { RequirePermission } from "@/features/tenant/require-permission";
 import { useTenant } from "@/features/tenant/tenant-context";
 import { useMoney } from "@/features/tenant/use-money";
 import {
+  useDeletePromotionMutation,
   usePromotionsQuery,
   useSavePromotionMutation,
 } from "@/features/people/api";
@@ -37,13 +38,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { Promotion } from "@/types/domain";
 
 export const Route = createFileRoute("/app/$tenantSlug/promotions")({
   head: () => ({
     meta: [
-      { title: "Promotions — Tablewise POS" },
+      { title: "Promotions & Discounts — Tablewise POS" },
       {
         name: "description",
         content: "Promo codes cashiers can apply at the POS.",
@@ -80,7 +92,9 @@ function Promotions() {
   const money = useMoney();
   const list = usePromotionsQuery(tenant.id);
   const [save] = useSavePromotionMutation();
+  const [deletePromo, deleteState] = useDeletePromotionMutation();
   const [editing, setEditing] = useState<Promotion | "new" | null>(null);
+  const [deletingPromo, setDeletingPromo] = useState<Promotion | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | PromotionStatusKey>(
     "all"
   );
@@ -152,15 +166,42 @@ function Promotions() {
     );
   };
 
+  const handleDeleteConfirm = async () => {
+    if (!deletingPromo) return;
+    const ok = await withToast(
+      deletePromo({
+        tenantId: tenant.slug || tenant.id,
+        id: deletingPromo.id,
+      }),
+      `Promotion "${deletingPromo.code}" deleted`
+    );
+    if (ok) {
+      setDeletingPromo(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Promotions & Discounts"
         description="Create and manage coupon codes for POS checkout with date ranges, usage limits, and active status controls."
         actions={
-          <Button onClick={() => setEditing("new")}>
-            <Plus className="size-4 mr-1" /> New promotion
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => list.refetch()}
+              disabled={list.isFetching}
+            >
+              <RefreshCw
+                className={cn("size-4 mr-1.5", list.isFetching && "animate-spin")}
+              />
+              Refresh
+            </Button>
+            <Button onClick={() => setEditing("new")}>
+              <Plus className="size-4 mr-1" /> New promotion
+            </Button>
+          </div>
         }
       />
 
@@ -295,7 +336,11 @@ function Promotions() {
 
       {list.data && filteredPromotions.length === 0 && (
         <EmptyState
-          title={search || statusFilter !== "all" ? "No matching promotions" : "No promotions yet"}
+          title={
+            search || statusFilter !== "all"
+              ? "No matching promotions"
+              : "No promotions yet"
+          }
           description={
             search || statusFilter !== "all"
               ? "Try clearing filters or searching with another keyword."
@@ -356,20 +401,31 @@ function Promotions() {
                       onCheckedChange={(checked) => handleToggleActive(p, checked)}
                       aria-label={`Toggle active for ${p.name}`}
                     />
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground font-mono">
                       {p.active ? "ON" : "OFF"}
                     </span>
                   </div>
                 </td>
                 <td className={`${td} text-right`}>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    aria-label={`Edit ${p.name}`}
-                    onClick={() => setEditing(p)}
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Edit ${p.name}`}
+                      onClick={() => setEditing(p)}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      aria-label={`Delete ${p.name}`}
+                      onClick={() => setDeletingPromo(p)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
                 </td>
               </tr>
             );
@@ -377,12 +433,47 @@ function Promotions() {
         </DataTable>
       )}
 
+      {/* Create / Edit Dialog */}
       {editing && (
         <PromoDialog
           promo={editing === "new" ? null : editing}
           onClose={() => setEditing(null)}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!deletingPromo}
+        onOpenChange={(o) => !o && setDeletingPromo(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete promotion {deletingPromo?.code}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{" "}
+              <strong>{deletingPromo?.name}</strong>? This promo code will be
+              deactivated and removed from your promotions list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingPromo(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteState.isLoading}
+              onClick={handleDeleteConfirm}
+            >
+              {deleteState.isLoading && (
+                <Loader2 className="size-4 animate-spin mr-1.5" />
+              )}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

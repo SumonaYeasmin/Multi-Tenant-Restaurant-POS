@@ -4,6 +4,7 @@ import { round2 } from "@/lib/pricing";
 import { backendFetch } from "./api-client";
 import {
   createPromotionApi,
+  deletePromotionApi,
   getPromotionsApi,
   mapBackendPromotionToDomain,
   updatePromotionApi,
@@ -552,3 +553,28 @@ export async function savePromotion(tenantId: string, input: PromotionInput): Pr
   commit(tenantId);
   return p;
 }
+
+export async function deletePromotion(
+  tenantId: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await deletePromotionApi(tenantId, id);
+    const db = tenantDb(tenantId);
+    db.promotions = db.promotions.filter((p) => p.id !== id);
+    commit(tenantId);
+    return res;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn(
+        "Backend unavailable for deleting promotion, falling back to local DB"
+      );
+      const db = tenantDb(tenantId);
+      db.promotions = db.promotions.filter((p) => p.id !== id);
+      commit(tenantId);
+      return { success: true, message: "Promotion deleted locally" };
+    }
+    throw err;
+  }
+}
+

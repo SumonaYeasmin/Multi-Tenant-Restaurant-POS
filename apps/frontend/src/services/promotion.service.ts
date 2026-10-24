@@ -206,3 +206,19 @@ export async function updatePromotionApi(
   );
 }
 
+/**
+ * Soft delete a promotion via backend API
+ */
+export async function deletePromotionApi(
+  tenantSlug: string,
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  return backendFetch<{ success: boolean; message: string }>(
+    `/tenants/${tenantSlug}/promotions/${id}`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
+

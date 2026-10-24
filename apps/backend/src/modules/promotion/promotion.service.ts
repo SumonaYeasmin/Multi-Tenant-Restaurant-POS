@@ -463,5 +463,34 @@ export class PromotionService {
 
     return this.enrichPromotion(updated);
   }
+
+  /**
+   * Soft delete a promotion
+   */
+  async deletePromotion(tenantSlug: string, id: string) {
+    const tenant = await this.resolveTenant(tenantSlug);
+
+    const promotion = await this.prisma.promotion.findFirst({
+      where: {
+        id,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+    });
+
+    if (!promotion) {
+      throw new NotFoundException('Promotion not found.');
+    }
+
+    await this.prisma.promotion.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+      },
+    });
+
+    return { success: true, message: 'Promotion deleted successfully' };
+  }
 }
 

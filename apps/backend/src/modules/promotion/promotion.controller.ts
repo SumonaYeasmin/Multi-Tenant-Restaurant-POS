@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -217,6 +218,41 @@ export class PromotionController {
     return ResponseHelper.success(
       updated,
       'Promotion updated successfully',
+    );
+  }
+
+  @Delete(':tenantSlug/promotions/:id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.PROMOTIONS_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Delete promotion',
+    description: 'Soft deletes a promotion from the restaurant records.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'saffron-ember',
+  })
+  @ApiParam({
+    name: 'id',
+    example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Promotion deleted successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Promotion not found' })
+  async deletePromotion(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('id') id: string,
+  ) {
+    const result = await this.promotionService.deletePromotion(
+      tenantSlug,
+      id,
+    );
+    return ResponseHelper.success(
+      result,
+      'Promotion deleted successfully',
     );
   }
 }
