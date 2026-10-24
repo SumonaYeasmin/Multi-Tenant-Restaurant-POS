@@ -234,14 +234,14 @@ export class PromotionService {
 
     const records = await this.prisma.promotion.findMany(findOptions);
 
-    let enriched = records.map((p) => this.enrichPromotion(p, now));
+    let enriched = records.map((p: any) => this.enrichPromotion(p, now));
 
     // Post-filter for USED_UP or LIVE when maxUses condition requires comparison
     if (query?.status === PromotionStatusFilter.USED_UP) {
-      enriched = enriched.filter((p) => p.computedStatus === 'USED_UP');
+      enriched = enriched.filter((p: any) => p.computedStatus === 'USED_UP');
       total = enriched.length;
     } else if (query?.status === PromotionStatusFilter.LIVE) {
-      enriched = enriched.filter((p) => p.computedStatus === 'LIVE');
+      enriched = enriched.filter((p: any) => p.computedStatus === 'LIVE');
       total = enriched.length;
     }
 

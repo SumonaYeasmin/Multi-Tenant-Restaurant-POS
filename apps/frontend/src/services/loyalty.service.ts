@@ -43,12 +43,12 @@ export interface UpdateLoyaltySettingsInput {
 export interface CreateLoyaltyTierInput {
   name: string;
   minSpend: number;
-  pointMultiplier?: number;
-  discountPercent?: number;
-  color?: string;
-  description?: string;
-  isActive?: boolean;
-  sortOrder?: number;
+  pointMultiplier?: number | undefined;
+  discountPercent?: number | undefined;
+  color?: string | undefined;
+  description?: string | undefined;
+  isActive?: boolean | undefined;
+  sortOrder?: number | undefined;
 }
 
 export interface UpdateLoyaltyTierInput extends Partial<CreateLoyaltyTierInput> {}

@@ -6,7 +6,7 @@ export class GetGoodsReceiptsQueryDto {
     description: 'Filter goods receipts for a specific branch ID',
     example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
   })
-  @IsUUID('4', { message: 'branchId must be a valid UUID' })
+  @IsString()
   @IsOptional()
   branchId?: string;
 
@@ -14,7 +14,7 @@ export class GetGoodsReceiptsQueryDto {
     description: 'Filter goods receipts by supplier ID',
     example: 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
   })
-  @IsUUID('4', { message: 'supplierId must be a valid UUID' })
+  @IsString()
   @IsOptional()
   supplierId?: string;
 

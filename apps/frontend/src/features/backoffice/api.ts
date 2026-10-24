@@ -8,7 +8,7 @@ type T<A> = { tenantId: string } & A;
 const MENU = ["Menu", "Dashboard"] as const;
 const STOCK = ["Inventory", "Dashboard"] as const;
 
-const api2 = baseApi.enhanceEndpoints({ addTagTypes: ["Supplier", "PurchaseOrder", "Recipe", "StockCount", "Receipt", "SupplierReturn"] });
+const api2 = baseApi.enhanceEndpoints({ addTagTypes: ["MenuItem", "Supplier", "PurchaseOrder", "Recipe", "StockCount", "Receipt", "SupplierReturn"] });
 
 export const backofficeApi = api2.injectEndpoints({
   endpoints: (b) => ({

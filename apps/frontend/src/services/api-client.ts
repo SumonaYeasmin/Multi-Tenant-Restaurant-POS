@@ -1,7 +1,7 @@
 import { ApiError } from "@/mocks/db";
 
 const BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_BACKEND_URL) ||
+  (typeof import.meta !== "undefined" && import.meta.env?.["VITE_BACKEND_URL"]) ||
   "http://localhost:4000/api/v1";
 
 let cachedToken: string | null = null;

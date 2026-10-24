@@ -28,7 +28,7 @@ export interface TenantDb extends BackofficeData, PeopleData, Stage4Data {
   orderSeq: number;
 }
 
-export const DB_VERSION = 5;
+export const DB_VERSION = 6;
 
 interface ItemSpec {
   cat: string;
@@ -51,37 +51,102 @@ interface TenantSpec {
 
 const SPECS: Record<string, TenantSpec> = {
   t_saffron: {
-    categories: ["Grill", "Curries", "Rice & Breads", "Drinks"],
+    categories: [
+      "বিরিয়ানি ও পোলাও (Biryani & Polao)",
+      "কারি ও রেজালা (Curries & Gravy)",
+      "কাবাব ও রোস্ট (Grills & Roasts)",
+      "পানীয় ও বোরহানি (Beverages & Borhani)",
+      "মিষ্টি ও ডেজার্ট (Desserts & Sweets)",
+    ],
     modifiers: [
-      { key: "spice", name: "Spice level", min: 1, max: 1, options: [["Mild", 0], ["Medium", 0], ["Hot", 0], ["Ember hot", 20]] },
-      { key: "extras", name: "Extras", min: 0, max: 3, options: [["Extra raita", 60], ["Green chutney", 40], ["Fried onions", 50]] },
-      { key: "ice", name: "Ice", min: 0, max: 1, options: [["No ice", 0], ["Light ice", 0]] },
+      {
+        key: "spice",
+        name: "মশলার মাত্রা (Spice Level)",
+        min: 1,
+        max: 1,
+        options: [
+          ["রেগুলার শাহী ফ্লেভার", 0],
+          ["ঝাল মেজবানি স্পাইস", 0],
+        ],
+      },
+      {
+        key: "extras",
+        name: "কাচ্চি অ্যাড-অনস (Add-ons)",
+        min: 0,
+        max: 3,
+        options: [
+          ["সেদ্ধ ডিম (Extra Boiled Egg)", 25],
+          ["স্পেশাল আলু (Extra Shahi Potato)", 30],
+          ["আলু বোখরা চাটনি (Aloo Bokhara Chutney)", 40],
+        ],
+      },
+      {
+        key: "ice",
+        name: "বরফের পরিমাণ (Ice Level)",
+        min: 0,
+        max: 1,
+        options: [
+          ["বরফ ছাড়া (No Ice)", 0],
+          ["হালকা বরফ (Light Ice)", 0],
+        ],
+      },
     ],
     ingredients: [
-      ["chicken", "Chicken thigh", "kg", 24, 8, 420],
-      ["lamb", "Lamb shoulder", "kg", 12, 5, 980],
-      ["rice", "Basmati rice", "kg", 40, 10, 160],
-      ["flour", "Atta flour", "kg", 30, 8, 70],
-      ["yogurt", "Yogurt", "kg", 15, 5, 180],
-      ["paneer", "Paneer", "kg", 6, 3, 650],
-      ["mango", "Mango pulp", "l", 3, 4, 320],
-      ["spices", "Masala blend", "kg", 5, 2, 900],
+      ["rice", "চিনিগুঁড়া সুগন্ধি চাল (Chinigura Rice)", "kg", 85, 25, 130],
+      ["mutton", "তাজা দেশি খাসির মাংস (Fresh Desi Mutton)", "kg", 35, 10, 980],
+      ["beef", "তাজা গরুর সিনার মাংস (Prime Beef Shank)", "kg", 40, 12, 780],
+      ["oil", "ঘানি ভাঙা সরিষার তেল (Pure Mustard Oil)", "l", 28, 8, 290],
+      ["ghee", "খাঁটি গাওয়া ঘি (Pure Desi Ghee)", "kg", 14, 4, 1200],
+      ["curd", "মিষ্টি-টক দই ও ফ্রেশ দুধ (Fresh Yogurt & Milk)", "l", 45, 15, 95],
     ],
     items: [
-      { cat: "Grill", name: "Chicken Tikka", desc: "Charcoal-grilled, yogurt-marinated thigh", price: 520, variants: [["Half", 0], ["Full", 380]], mods: ["spice", "extras"], recipe: [["chicken", 0.25], ["yogurt", 0.05], ["spices", 0.01]], tags: ["bestseller"] },
-      { cat: "Grill", name: "Seekh Kebab", desc: "Minced lamb skewers, mint chutney", price: 640, mods: ["spice", "extras"], recipe: [["lamb", 0.2], ["spices", 0.01]] },
-      { cat: "Grill", name: "Paneer Shashlik", desc: "Paneer, peppers, onions", price: 480, mods: ["spice"], recipe: [["paneer", 0.18], ["spices", 0.01]], tags: ["veg"] },
-      { cat: "Curries", name: "Butter Chicken", desc: "Tomato-cream gravy, fenugreek", price: 590, mods: ["spice", "extras"], recipe: [["chicken", 0.22], ["yogurt", 0.03], ["spices", 0.01]], tags: ["bestseller"] },
-      { cat: "Curries", name: "Lamb Rogan Josh", desc: "Kashmiri chilli, slow-braised", price: 780, mods: ["spice"], recipe: [["lamb", 0.25], ["spices", 0.015]] },
-      { cat: "Curries", name: "Palak Paneer", desc: "Spinach, paneer, garlic", price: 460, mods: ["spice"], recipe: [["paneer", 0.15]], tags: ["veg"] },
-      { cat: "Rice & Breads", name: "Kacchi Biryani", desc: "Dhaka-style mutton biryani", price: 650, variants: [["Single", 0], ["Family (3)", 1200]], recipe: [["lamb", 0.2], ["rice", 0.2], ["spices", 0.01]], tags: ["bestseller"] },
-      { cat: "Rice & Breads", name: "Garlic Naan", desc: "Tandoor-baked", price: 120, recipe: [["flour", 0.12]] },
-      { cat: "Rice & Breads", name: "Jeera Rice", desc: "Cumin basmati", price: 220, recipe: [["rice", 0.15]] },
-      { cat: "Drinks", name: "Mango Lassi", desc: "Alphonso mango, yogurt", price: 260, mods: ["ice"], recipe: [["mango", 0.12], ["yogurt", 0.15]] },
-      { cat: "Drinks", name: "Masala Chai", desc: "Spiced milk tea", price: 140, recipe: [["spices", 0.002]] },
-      { cat: "Drinks", name: "Fresh Lime Soda", desc: "Sweet or salted", price: 180, variants: [["Sweet", 0], ["Salted", 0]], mods: ["ice"], recipe: [] },
+      {
+        cat: "বিরিয়ানি ও পোলাও (Biryani & Polao)",
+        name: "ঢাকা শাহী কাচ্চি বিরিয়ানি (Shahi Kacchi Biryani)",
+        desc: "খাসির নরম মাংস, সুগন্ধি চিনিগুঁড়া চাল, জাফরান ও শাহী আলুর নিখুঁত দমে রান্না কাচ্চি।",
+        price: 480,
+        variants: [["হাফ প্লেট", 0], ["ফুল প্লেট", 220]],
+        mods: ["spice", "extras"],
+        recipe: [["rice", 0.25], ["mutton", 0.3], ["ghee", 0.03]],
+        tags: ["bestseller", "kacchi"],
+      },
+      {
+        cat: "কারি ও রেজালা (Curries & Gravy)",
+        name: "চট্টগ্রাম মেজবানি গরুর কালা ভুনা (Beef Kala Bhuna)",
+        desc: "চট্টগ্রামের ঐতিহ্যবাহী খাঁটি সরিষার তেলে গাঢ় মসলায় ধীমে আঁচে কষানো গরুর কালা ভুনা।",
+        price: 420,
+        mods: ["spice"],
+        recipe: [["beef", 0.35], ["oil", 0.04]],
+        tags: ["traditional", "spicy"],
+      },
+      {
+        cat: "কাবাব ও রোস্ট (Grills & Roasts)",
+        name: "পুরান ঢাকা শাহী চিকেন রোস্ট (Old Dhaka Chicken Roast)",
+        desc: "বিয়েবাড়ির স্পেশাল বাদাম বাটা, মাওয়া ও খাঁটি ঘিয়ে ভাজা সোনালী শাহী চিকেন রোস্ট।",
+        price: 220,
+        recipe: [["ghee", 0.03], ["oil", 0.02]],
+        tags: ["wedding-special"],
+      },
+      {
+        cat: "পানীয় ও বোরহানি (Beverages & Borhani)",
+        name: "স্পেশাল মশলাদার বোরহানি (Special Spiced Borhani)",
+        desc: "ঘন টক দই, পুদিনা পাতা, বিট লবণ, কাঁচা মরিচ ও শাহী জিরার খাঁটি রিফ্রেশিং বোরহানি।",
+        price: 80,
+        variants: [["গ্লাস (Glass 250ml)", 0], ["বড় বোতল (Bottle 1L)", 200]],
+        mods: ["ice"],
+        recipe: [["curd", 0.25]],
+        tags: ["refreshing"],
+      },
+      {
+        cat: "মিষ্টি ও ডেজার্ট (Desserts & Sweets)",
+        name: "নবাবী শাহী টুকরা ও রাবড়ি (Nawabi Shahi Tukra)",
+        desc: "ঘিয়ে মচমচে ভাজা জাফরানি টোস্ট, ঘন ক্ষীরসা, এলাচ ও পেস্তা-বাদামের রাজকীয় মিষ্টি।",
+        price: 150,
+        recipe: [["ghee", 0.03], ["curd", 0.2]],
+        tags: ["sweet", "royal"],
+      },
     ],
-    areas: ["Main hall", "Terrace"],
+    areas: ["Main hall", "Lakeview Window", "VIP Cabin", "Family Hall", "Terrace Garden"],
   },
   t_harbor: {
     categories: ["Noodles", "Bao & Small plates", "Drinks"],
