@@ -613,12 +613,24 @@ export class OrderService {
 
   /**
    * Advance kitchen ticket status (NEW -> PREPARING -> READY -> BUMPED)
+   * or set to a specific kitchen status if targetStatus is provided
    */
-  async advanceKitchenStatus(tenantSlug: string, orderId: string) {
+  async advanceKitchenStatus(
+    tenantSlug: string,
+    orderId: string,
+    targetStatus?: KitchenStatus,
+  ) {
     const tenant = await this.resolveTenant(tenantSlug);
 
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId: tenant.id },
+      where: {
+        tenantId: tenant.id,
+        OR: [
+          { id: orderId },
+          { orderNumber: orderId },
+          { orderNumber: `#${orderId.replace(/^#/, '')}` },
+        ],
+      },
     });
     if (!order) throw new NotFoundException('Order');
 
@@ -633,7 +645,7 @@ export class OrderService {
       [KitchenStatus.BUMPED]: null,
     };
 
-    const nextStatus = KITCHEN_FLOW[order.kitchenStatus];
+    const nextStatus = targetStatus || KITCHEN_FLOW[order.kitchenStatus];
     if (!nextStatus) {
       throw new BadRequestException('Kitchen ticket already bumped');
     }
@@ -650,7 +662,7 @@ export class OrderService {
     }
 
     return this.prisma.order.update({
-      where: { id: orderId },
+      where: { id: order.id },
       data: updateData,
       include: {
         lines: { include: { modifiers: true } },
@@ -667,7 +679,14 @@ export class OrderService {
     const tenant = await this.resolveTenant(tenantSlug);
 
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId: tenant.id },
+      where: {
+        tenantId: tenant.id,
+        OR: [
+          { id: orderId },
+          { orderNumber: orderId },
+          { orderNumber: `#${orderId.replace(/^#/, '')}` },
+        ],
+      },
     });
     if (!order) throw new NotFoundException('Order');
 
@@ -695,7 +714,7 @@ export class OrderService {
     }
 
     return this.prisma.order.update({
-      where: { id: orderId },
+      where: { id: order.id },
       data: updateData,
       include: {
         lines: { include: { modifiers: true } },
@@ -718,7 +737,14 @@ export class OrderService {
 
     // 2. Fetch order
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId: tenant.id },
+      where: {
+        tenantId: tenant.id,
+        OR: [
+          { id: orderId },
+          { orderNumber: orderId },
+          { orderNumber: `#${orderId.replace(/^#/, '')}` },
+        ],
+      },
       include: {
         payments: true,
       },

@@ -583,30 +583,42 @@ function deductInventory(tenantId: string, order: Order) {
 
 const KITCHEN_FLOW: Record<KitchenStatus, KitchenStatus | null> = { new: "preparing", preparing: "ready", ready: "bumped", bumped: null };
 
-export async function advanceKitchen(tenantId: string, orderId: string): Promise<Order> {
+export async function advanceKitchen(
+  tenantId: string,
+  orderId: string,
+  targetStatus?: KitchenStatus,
+): Promise<Order> {
   try {
-    const backendOrder = await backendFetch<any>(`/tenants/${tenantId}/orders/${orderId}/kitchen/advance`, {
+    const url = targetStatus
+      ? `/tenants/${tenantId}/orders/${encodeURIComponent(orderId)}/kitchen/status`
+      : `/tenants/${tenantId}/orders/${encodeURIComponent(orderId)}/kitchen/advance`;
+
+    const backendOrder = await backendFetch<any>(url, {
       method: "PATCH",
+      ...(targetStatus && {
+        body: JSON.stringify({ kitchenStatus: targetStatus.toUpperCase() }),
+      }),
     });
     if (backendOrder && backendOrder.id) {
       const mapped = mapBackendOrderToDomain(backendOrder);
       const db = tenantDb(tenantId);
-      const idx = db.orders.findIndex((x) => x.id === mapped.id);
+      const idx = db.orders.findIndex((x) => x.id === mapped.id || x.number === mapped.number);
       if (idx >= 0) db.orders[idx] = mapped;
       else db.orders.push(mapped);
       commit(tenantId);
       return mapped;
     }
   } catch (err) {
-    if (!(err instanceof ApiError && err.status === 503)) {
-      console.warn("Backend advanceKitchen failed, using local store:", err);
+    if (err instanceof ApiError && err.status !== 503) {
+      throw err;
     }
+    console.warn("Backend advanceKitchen failed, using local store:", err);
   }
 
   await latency(100, 250);
   const order = findOrder(tenantId, orderId);
   if (order.status === "cancelled") throw new ApiError(409, "Order was cancelled.");
-  const next = KITCHEN_FLOW[order.kitchenStatus];
+  const next = targetStatus || KITCHEN_FLOW[order.kitchenStatus];
   if (!next) throw new ApiError(409, "Ticket already bumped.");
   order.kitchenStatus = next;
   if (next === "ready") {
@@ -619,22 +631,23 @@ export async function advanceKitchen(tenantId: string, orderId: string): Promise
 
 export async function markServed(tenantId: string, orderId: string): Promise<Order> {
   try {
-    const backendOrder = await backendFetch<any>(`/tenants/${tenantId}/orders/${orderId}/serve`, {
+    const backendOrder = await backendFetch<any>(`/tenants/${tenantId}/orders/${encodeURIComponent(orderId)}/serve`, {
       method: "PATCH",
     });
     if (backendOrder && backendOrder.id) {
       const mapped = mapBackendOrderToDomain(backendOrder);
       const db = tenantDb(tenantId);
-      const idx = db.orders.findIndex((x) => x.id === mapped.id);
+      const idx = db.orders.findIndex((x) => x.id === mapped.id || x.number === mapped.number);
       if (idx >= 0) db.orders[idx] = mapped;
       else db.orders.push(mapped);
       commit(tenantId);
       return mapped;
     }
   } catch (err) {
-    if (!(err instanceof ApiError && err.status === 503)) {
-      console.warn("Backend markServed failed, using local store:", err);
+    if (err instanceof ApiError && err.status !== 503) {
+      throw err;
     }
+    console.warn("Backend markServed failed, using local store:", err);
   }
 
   await latency(100, 250);

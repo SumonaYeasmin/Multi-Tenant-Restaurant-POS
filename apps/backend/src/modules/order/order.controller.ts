@@ -20,6 +20,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrderLineDto } from './dto/create-order-line.dto';
 import { CreateOrderPaymentDto } from './dto/create-order-payment.dto';
 import { GetOrdersQueryDto } from './dto/get-orders-query.dto';
+import { UpdateKitchenStatusDto } from './dto/update-kitchen-status.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -202,6 +203,46 @@ export class OrderController {
     return ResponseHelper.success(
       order,
       `Kitchen ticket advanced to ${order.kitchenStatus}`,
+    );
+  }
+
+  @Patch(':tenantSlug/orders/:orderId/kitchen/status')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.KITCHEN_VIEW)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update kitchen ticket status directly',
+    description: 'Sets specific kitchen ticket status (NEW, PREPARING, READY, BUMPED).',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'saffron-ember',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'orderId',
+    example: 'uuid',
+    description: 'Order ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Kitchen status updated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid kitchen status or order cancelled' })
+  @ApiResponse({ status: 404, description: 'Order or restaurant not found' })
+  async updateKitchenStatus(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: UpdateKitchenStatusDto,
+  ) {
+    const order = await this.orderService.advanceKitchenStatus(
+      tenantSlug,
+      orderId,
+      dto.kitchenStatus,
+    );
+    return ResponseHelper.success(
+      order,
+      `Kitchen ticket status set to ${order.kitchenStatus}`,
     );
   }
 
