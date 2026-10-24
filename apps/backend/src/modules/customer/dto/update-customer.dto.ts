@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/swagger';
 import { CreateCustomerDto } from './create-customer.dto';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, Min } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateCustomerDto extends PartialType(CreateCustomerDto) {
@@ -11,4 +11,13 @@ export class UpdateCustomerDto extends PartialType(CreateCustomerDto) {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Manually adjust customer loyalty points balance',
+    example: 120,
+  })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  loyaltyPoints?: number;
 }

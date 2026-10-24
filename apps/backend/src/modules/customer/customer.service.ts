@@ -131,6 +131,13 @@ export class CustomerService {
       where.tierId = query.tierId;
     }
 
+    if (query.name) {
+      where.name = {
+        contains: query.name.trim(),
+        mode: 'insensitive',
+      };
+    }
+
     if (query.phone) {
       where.phone = {
         contains: query.phone.trim(),
@@ -292,6 +299,7 @@ export class CustomerService {
         address: dto.address !== undefined ? dto.address.trim() : undefined,
         notes: dto.notes !== undefined ? dto.notes.trim() : undefined,
         tierId: dto.tierId !== undefined ? dto.tierId : undefined,
+        loyaltyPoints: dto.loyaltyPoints !== undefined ? dto.loyaltyPoints : undefined,
         isActive: dto.isActive !== undefined ? dto.isActive : undefined,
       },
       include: {

@@ -4,12 +4,20 @@ import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validato
 
 export class GetCustomersQueryDto {
   @ApiPropertyOptional({
-    description: 'Search customers by name or phone',
+    description: 'Search customers by name or phone (flexible search)',
     example: 'Tanvir',
   })
   @IsString({ message: 'Search term must be a string' })
   @IsOptional()
   search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Find customer by name',
+    example: 'Tanvir',
+  })
+  @IsString()
+  @IsOptional()
+  name?: string;
 
   @ApiPropertyOptional({
     description: 'Filter by exact or partial phone number (great for POS lookup)',
