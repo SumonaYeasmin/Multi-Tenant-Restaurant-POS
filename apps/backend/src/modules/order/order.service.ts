@@ -422,7 +422,10 @@ export class OrderService {
     // 2. Fetch order with lines, modifiers, payments, refunds and table
     const order = await this.prisma.order.findFirst({
       where: {
-        id: orderId,
+        OR: [
+          { id: orderId },
+          { orderNumber: orderId },
+        ],
         tenantId: tenant.id,
       },
       include: {

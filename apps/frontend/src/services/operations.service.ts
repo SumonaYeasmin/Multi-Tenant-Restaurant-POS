@@ -277,11 +277,7 @@ export async function listOrders(tenantId: string, f: OrderFilters): Promise<Ord
     if (Array.isArray(backendOrders)) {
       const mapped = backendOrders.map(mapBackendOrderToDomain);
       const db = tenantDb(tenantId);
-      mapped.forEach((o) => {
-        const idx = db.orders.findIndex((x) => x.id === o.id);
-        if (idx >= 0) db.orders[idx] = o;
-        else db.orders.push(o);
-      });
+      db.orders = mapped;
       commit(tenantId);
       return mapped;
     }
@@ -304,7 +300,7 @@ export async function listOrders(tenantId: string, f: OrderFilters): Promise<Ord
 
 export async function getOrder(tenantId: string, orderId: string): Promise<Order> {
   try {
-    const backendOrder = await backendFetch<any>(`/tenants/${tenantId}/orders/${orderId}`);
+    const backendOrder = await backendFetch<any>(`/tenants/${tenantId}/orders/${encodeURIComponent(orderId)}`);
     if (backendOrder && backendOrder.id) {
       const mapped = mapBackendOrderToDomain(backendOrder);
       const db = tenantDb(tenantId);
