@@ -58,7 +58,7 @@ export class LoyaltyController {
 
   @Put(':tenantSlug/loyalty/settings')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions(Permission.SETTINGS_MANAGE)
+  @RequirePermissions(Permission.CUSTOMERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Update restaurant loyalty settings',

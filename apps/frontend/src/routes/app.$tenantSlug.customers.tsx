@@ -119,6 +119,14 @@ function CustomersAndLoyaltyPage() {
     createdAt: "",
     updatedAt: "",
   });
+  const [settingsFormData, setSettingsFormData] = useState({
+    isEnabled: true,
+    spendAmountPerPoint: "100",
+    pointValue: "1.0",
+    minPointsToRedeem: "20",
+    maxPointsPerOrder: "500",
+    expireAfterDays: "365",
+  });
   const [tiers, setTiers] = useState<BackendLoyaltyTier[]>([]);
   const [isLoadingTiers, setIsLoadingTiers] = useState(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -206,7 +214,23 @@ function CustomersAndLoyaltyPage() {
         getLoyaltySettingsApi(tenant.slug).catch(() => null),
         getLoyaltyTiersApi(tenant.slug).catch(() => []),
       ]);
-      if (fetchedSettings) setSettings(fetchedSettings);
+      if (fetchedSettings) {
+        setSettings(fetchedSettings);
+        setSettingsFormData({
+          isEnabled: fetchedSettings.isEnabled,
+          spendAmountPerPoint: String(fetchedSettings.spendAmountPerPoint),
+          pointValue: String(fetchedSettings.pointValue),
+          minPointsToRedeem: String(fetchedSettings.minPointsToRedeem),
+          maxPointsPerOrder:
+            fetchedSettings.maxPointsPerOrder != null
+              ? String(fetchedSettings.maxPointsPerOrder)
+              : "",
+          expireAfterDays:
+            fetchedSettings.expireAfterDays != null
+              ? String(fetchedSettings.expireAfterDays)
+              : "",
+        });
+      }
       if (fetchedTiers) setTiers(fetchedTiers.sort((a, b) => a.minSpend - b.minSpend));
     } catch (err) {
       console.warn("Could not load loyalty settings or tiers:", err);
@@ -430,22 +454,68 @@ function CustomersAndLoyaltyPage() {
     e.preventDefault();
     if (!tenant?.slug) return;
 
+    const spendAmount = Number(settingsFormData.spendAmountPerPoint);
+    if (isNaN(spendAmount) || spendAmount <= 0) {
+      toast.error("Spend amount per point must be greater than 0");
+      return;
+    }
+
+    const pointVal = Number(settingsFormData.pointValue);
+    if (isNaN(pointVal) || pointVal <= 0) {
+      toast.error("Point redemption value must be greater than 0");
+      return;
+    }
+
+    const minRedeem = Number(settingsFormData.minPointsToRedeem);
+    if (isNaN(minRedeem) || minRedeem < 0) {
+      toast.error("Minimum points to redeem must be 0 or greater");
+      return;
+    }
+
+    const maxOrder = settingsFormData.maxPointsPerOrder.trim()
+      ? Number(settingsFormData.maxPointsPerOrder)
+      : null;
+    if (maxOrder !== null && (isNaN(maxOrder) || maxOrder <= 0)) {
+      toast.error("Max points per order must be greater than 0");
+      return;
+    }
+
+    const expireDays = settingsFormData.expireAfterDays.trim()
+      ? Number(settingsFormData.expireAfterDays)
+      : null;
+    if (expireDays !== null && (isNaN(expireDays) || expireDays < 1)) {
+      toast.error("Expiry duration must be at least 1 day");
+      return;
+    }
+
     try {
       setIsSavingSettings(true);
       const saved = await updateLoyaltySettingsApi(tenant.slug, {
-        isEnabled: settings.isEnabled,
-        spendAmountPerPoint: settings.spendAmountPerPoint,
-        pointValue: settings.pointValue,
-        minPointsToRedeem: settings.minPointsToRedeem,
-        maxPointsPerOrder: settings.maxPointsPerOrder ?? undefined,
-        expireAfterDays: settings.expireAfterDays ?? undefined,
+        isEnabled: settingsFormData.isEnabled,
+        spendAmountPerPoint: spendAmount,
+        pointValue: pointVal,
+        minPointsToRedeem: Math.round(minRedeem),
+        maxPointsPerOrder: maxOrder !== null ? Math.round(maxOrder) : null,
+        expireAfterDays: expireDays !== null ? Math.round(expireDays) : null,
       });
+
       setSettings(saved);
+      setSettingsFormData({
+        isEnabled: saved.isEnabled,
+        spendAmountPerPoint: String(saved.spendAmountPerPoint),
+        pointValue: String(saved.pointValue),
+        minPointsToRedeem: String(saved.minPointsToRedeem),
+        maxPointsPerOrder:
+          saved.maxPointsPerOrder != null ? String(saved.maxPointsPerOrder) : "",
+        expireAfterDays:
+          saved.expireAfterDays != null ? String(saved.expireAfterDays) : "",
+      });
 
       toast.success("Loyalty settings updated successfully!", {
         description: `Guests earn 1 pt per ${money(saved.spendAmountPerPoint)} spent. Redemption value: ${money(saved.pointValue)}/pt.`,
       });
     } catch (err: any) {
+      console.error("Failed to update loyalty settings:", err);
       toast.error(err.message || "Failed to update loyalty settings");
     } finally {
       setIsSavingSettings(false);
@@ -1061,8 +1131,10 @@ function CustomersAndLoyaltyPage() {
                 </div>
                 <Switch
                   id="program-active"
-                  checked={settings.isEnabled}
-                  onCheckedChange={(checked) => setSettings({ ...settings, isEnabled: checked })}
+                  checked={settingsFormData.isEnabled}
+                  onCheckedChange={(checked) =>
+                    setSettingsFormData((prev) => ({ ...prev, isEnabled: checked }))
+                  }
                 />
               </CardContent>
             </Card>
@@ -1089,13 +1161,16 @@ function CustomersAndLoyaltyPage() {
                         id="spend-per-point"
                         type="number"
                         min={1}
+                        step="any"
                         className="pl-8"
-                        value={settings.spendAmountPerPoint}
+                        value={settingsFormData.spendAmountPerPoint}
+                        placeholder="100"
+                        required
                         onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            spendAmountPerPoint: Number(e.target.value) || 1,
-                          })
+                          setSettingsFormData((prev) => ({
+                            ...prev,
+                            spendAmountPerPoint: e.target.value,
+                          }))
                         }
                       />
                     </div>
@@ -1126,15 +1201,17 @@ function CustomersAndLoyaltyPage() {
                       <Input
                         id="point-value"
                         type="number"
-                        step="0.1"
-                        min={0.1}
+                        step="any"
+                        min={0.01}
                         className="pl-8"
-                        value={settings.pointValue}
+                        value={settingsFormData.pointValue}
+                        placeholder="1.0"
+                        required
                         onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            pointValue: Number(e.target.value) || 0.1,
-                          })
+                          setSettingsFormData((prev) => ({
+                            ...prev,
+                            pointValue: e.target.value,
+                          }))
                         }
                       />
                     </div>
@@ -1164,12 +1241,13 @@ function CustomersAndLoyaltyPage() {
                       id="min-redeem"
                       type="number"
                       min={0}
-                      value={settings.minPointsToRedeem}
+                      value={settingsFormData.minPointsToRedeem}
+                      placeholder="0"
                       onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          minPointsToRedeem: Number(e.target.value) || 0,
-                        })
+                        setSettingsFormData((prev) => ({
+                          ...prev,
+                          minPointsToRedeem: e.target.value,
+                        }))
                       }
                     />
                     <p className="text-[11px] text-muted-foreground">
@@ -1183,13 +1261,13 @@ function CustomersAndLoyaltyPage() {
                       id="max-order"
                       type="number"
                       min={1}
-                      value={settings.maxPointsPerOrder ?? ""}
+                      value={settingsFormData.maxPointsPerOrder}
                       placeholder="No limit"
                       onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          maxPointsPerOrder: e.target.value ? Number(e.target.value) : null,
-                        })
+                        setSettingsFormData((prev) => ({
+                          ...prev,
+                          maxPointsPerOrder: e.target.value,
+                        }))
                       }
                     />
                     <p className="text-[11px] text-muted-foreground">
@@ -1202,14 +1280,14 @@ function CustomersAndLoyaltyPage() {
                     <Input
                       id="expiry-days"
                       type="number"
-                      min={30}
-                      value={settings.expireAfterDays ?? ""}
+                      min={1}
+                      value={settingsFormData.expireAfterDays}
                       placeholder="Never expires"
                       onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          expireAfterDays: e.target.value ? Number(e.target.value) : null,
-                        })
+                        setSettingsFormData((prev) => ({
+                          ...prev,
+                          expireAfterDays: e.target.value,
+                        }))
                       }
                     />
                     <p className="text-[11px] text-muted-foreground">

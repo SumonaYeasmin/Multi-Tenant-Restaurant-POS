@@ -36,8 +36,8 @@ export interface UpdateLoyaltySettingsInput {
   spendAmountPerPoint?: number;
   pointValue?: number;
   minPointsToRedeem?: number;
-  maxPointsPerOrder?: number;
-  expireAfterDays?: number;
+  maxPointsPerOrder?: number | null;
+  expireAfterDays?: number | null;
 }
 
 export interface CreateLoyaltyTierInput {
