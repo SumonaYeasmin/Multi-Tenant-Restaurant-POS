@@ -92,6 +92,18 @@ export async function getLoyaltyTiersApi(
 }
 
 /**
+ * Fetch a single loyalty tier by ID
+ */
+export async function getTierByIdApi(
+  tenantSlug: string,
+  tierId: string,
+): Promise<BackendLoyaltyTier> {
+  return backendFetch<BackendLoyaltyTier>(
+    `/tenants/${tenantSlug}/loyalty/tiers/${tierId}`,
+  );
+}
+
+/**
  * Create a new loyalty tier
  */
 export async function createLoyaltyTierApi(

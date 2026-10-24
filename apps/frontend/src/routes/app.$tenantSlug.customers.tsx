@@ -68,6 +68,7 @@ import {
   getLoyaltySettingsApi,
   updateLoyaltySettingsApi,
   getLoyaltyTiersApi,
+  getTierByIdApi,
   createLoyaltyTierApi,
   updateLoyaltyTierApi,
   deleteLoyaltyTierApi,
@@ -119,6 +120,7 @@ function CustomersAndLoyaltyPage() {
     updatedAt: "",
   });
   const [tiers, setTiers] = useState<BackendLoyaltyTier[]>([]);
+  const [isLoadingTiers, setIsLoadingTiers] = useState(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Search & Filtering
@@ -199,14 +201,17 @@ function CustomersAndLoyaltyPage() {
   const loadLoyaltyData = useCallback(async () => {
     if (!tenant?.slug) return;
     try {
+      setIsLoadingTiers(true);
       const [fetchedSettings, fetchedTiers] = await Promise.all([
         getLoyaltySettingsApi(tenant.slug).catch(() => null),
         getLoyaltyTiersApi(tenant.slug).catch(() => []),
       ]);
       if (fetchedSettings) setSettings(fetchedSettings);
-      if (fetchedTiers) setTiers(fetchedTiers);
+      if (fetchedTiers) setTiers(fetchedTiers.sort((a, b) => a.minSpend - b.minSpend));
     } catch (err) {
       console.warn("Could not load loyalty settings or tiers:", err);
+    } finally {
+      setIsLoadingTiers(false);
     }
   }, [tenant?.slug]);
 
@@ -904,18 +909,48 @@ function CustomersAndLoyaltyPage() {
                 Guests automatically advance tiers when their spending reaches the threshold.
               </p>
             </div>
-            <Button
-              onClick={openCreateTierModal}
-              size="sm"
-              className="gap-1.5"
-            >
-              <Plus className="size-4" /> Add New Tier
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadLoyaltyData}
+                disabled={isLoadingTiers}
+                className="gap-1.5 h-9"
+                title="Refresh Tiers from Backend"
+              >
+                <RefreshCw className={`size-3.5 ${isLoadingTiers ? "animate-spin" : ""}`} />
+                <span>Refresh</span>
+              </Button>
+              <Button
+                onClick={openCreateTierModal}
+                size="sm"
+                className="gap-1.5 h-9 shadow-sm"
+              >
+                <Plus className="size-4" /> Add New Tier
+              </Button>
+            </div>
           </div>
 
-          {/* Tier Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {tiers.map((tier, idx) => (
+          {/* Tier Cards Grid / Loading State / Empty State */}
+          {isLoadingTiers ? (
+            <div className="py-16 text-center text-muted-foreground">
+              <Loader2 className="size-8 animate-spin mx-auto text-primary mb-3" />
+              <p className="text-sm font-medium">Loading loyalty tiers from backend...</p>
+            </div>
+          ) : tiers.length === 0 ? (
+            <div className="py-16 text-center border rounded-xl bg-card p-6">
+              <Crown className="size-10 mx-auto text-muted-foreground/40 mb-3" />
+              <p className="font-semibold text-base">No loyalty tiers configured yet</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">
+                Create membership tiers like Bronze, Silver, or Gold to reward frequent diners.
+              </p>
+              <Button onClick={openCreateTierModal} size="sm" className="gap-1.5">
+                <Plus className="size-4" /> Create Your First Tier
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {tiers.map((tier, idx) => (
               <Card
                 key={tier.id}
                 className="relative overflow-hidden border shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
@@ -1005,7 +1040,8 @@ function CustomersAndLoyaltyPage() {
                 </CardFooter>
               </Card>
             ))}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ========================================================================= */}
