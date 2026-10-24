@@ -65,3 +65,32 @@ export async function getFinanceLedgerApi(
   const endpoint = `/tenants/${tenantSlug}/finance/ledger${qs ? `?${qs}` : ""}`;
   return backendFetch<BackendLedgerResponse>(endpoint);
 }
+
+export interface CreatePaymentInput {
+  method: "CASH" | "CARD" | "MOBILE" | "cash" | "card" | "mobile";
+  amount: number;
+  tendered?: number;
+  change?: number;
+  reference?: string;
+}
+
+/**
+ * Record a payment for an existing order in backend PostgreSQL (CREATE Payment)
+ */
+export async function createOrderPaymentApi(
+  tenantSlug: string,
+  orderId: string,
+  input: CreatePaymentInput,
+) {
+  return backendFetch<{ payment: BackendLedgerRow; order: any }>(
+    `/tenants/${tenantSlug}/orders/${orderId}/payments`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...input,
+        method: String(input.method).toUpperCase(),
+      }),
+    },
+  );
+}
+

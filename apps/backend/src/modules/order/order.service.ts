@@ -2,11 +2,13 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrderLineDto } from './dto/create-order-line.dto';
+import { CreateOrderPaymentDto } from './dto/create-order-payment.dto';
 import { GetOrdersQueryDto } from './dto/get-orders-query.dto';
 import {
   KitchenStatus,
   OrderStatus,
   OrderType,
+  PaymentMethod,
   Prisma,
   TableStatus,
 } from '../../../prisma/generated/client';
@@ -642,5 +644,111 @@ export class OrderService {
         branch: { select: { id: true, name: true } },
       },
     });
+  }
+
+  /**
+   * Record a payment on an existing order (Take payment / Split payment)
+   */
+  async addPayment(
+    tenantSlug: string,
+    orderId: string,
+    dto: CreateOrderPaymentDto,
+  ) {
+    // 1. Verify tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    });
+    if (!tenant) throw new NotFoundException('Restaurant');
+
+    // 2. Fetch order
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, tenantId: tenant.id },
+      include: {
+        payments: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order');
+
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException('Cannot add payment to a cancelled order');
+    }
+
+    const due = this.round2(Math.max(0, order.total - order.paid));
+    if (due <= 0.004) {
+      throw new BadRequestException('Order is already fully paid');
+    }
+
+    const amount = this.round2(Math.min(dto.amount, due));
+    if (amount <= 0) {
+      throw new BadRequestException('Payment amount must be greater than 0');
+    }
+
+    let tendered = dto.tendered ? this.round2(dto.tendered) : amount;
+    let change = 0;
+
+    if (dto.method === PaymentMethod.CASH) {
+      if (tendered < amount) {
+        throw new BadRequestException('Tendered cash is less than payment amount');
+      }
+      change = dto.change !== undefined ? this.round2(dto.change) : this.round2(tendered - amount);
+    } else {
+      tendered = amount;
+      change = 0;
+    }
+
+    // 3. Atomic transaction: create payment & update order paid total
+    const result = await this.prisma.$transaction(async (tx) => {
+      const payment = await tx.orderPayment.create({
+        data: {
+          orderId: order.id,
+          method: dto.method,
+          amount,
+          tendered,
+          change,
+          reference: dto.reference?.trim() || '',
+        },
+      });
+
+      const newPaid = this.round2(order.paid + amount);
+      const isFullyPaid = newPaid >= order.total - 0.004;
+
+      const orderUpdateData: Prisma.OrderUpdateInput = {
+        paid: newPaid,
+      };
+
+      if (isFullyPaid && order.status === OrderStatus.SERVED) {
+        orderUpdateData.status = OrderStatus.COMPLETED;
+        orderUpdateData.completedAt = new Date();
+
+        if (order.tableId) {
+          await tx.diningTable.update({
+            where: { id: order.tableId },
+            data: {
+              status: TableStatus.CLEANING,
+              currentOrderId: null,
+            },
+          });
+        }
+      }
+
+      const updatedOrder = await tx.order.update({
+        where: { id: order.id },
+        data: orderUpdateData,
+        include: {
+          lines: { include: { modifiers: true } },
+          payments: true,
+          refunds: true,
+          table: true,
+          branch: { select: { id: true, name: true } },
+        },
+      });
+
+      return {
+        payment,
+        order: updatedOrder,
+      };
+    });
+
+    return result;
   }
 }
