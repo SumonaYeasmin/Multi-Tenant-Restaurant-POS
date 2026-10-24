@@ -774,6 +774,35 @@ export async function listTables(tenantId: string, branchId: string): Promise<Di
 }
 
 export async function setTableStatus(tenantId: string, tableId: string, status: TableStatus): Promise<DiningTable> {
+  const statusMap: Record<string, TableStatus> = {
+    AVAILABLE: "available",
+    OCCUPIED: "occupied",
+    RESERVED: "reserved",
+    CLEANING: "cleaning",
+  };
+
+  try {
+    const res = await backendFetch<any>(`/tenants/${tenantId}/tables/${encodeURIComponent(tableId)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: status.toUpperCase() }),
+    });
+
+    if (res && res.id) {
+      const db = tenantDb(tenantId);
+      const target = db.tables.find((x) => x.id === tableId || x.id === res.id);
+      if (target) {
+        target.status = statusMap[res.status] || status;
+        commit(tenantId);
+        return target;
+      }
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status !== 503 && err.status !== 404) {
+      throw err;
+    }
+    console.warn("Could not update table status via backend, updating local store:", err);
+  }
+
   await latency(80, 200);
   const t = tenantDb(tenantId).tables.find((x) => x.id === tableId);
   if (!t) throw new ApiError(404, "Table not found.");
@@ -793,9 +822,67 @@ export interface CreateTableInput {
 }
 
 export async function createTable(tenantId: string, input: CreateTableInput): Promise<DiningTable> {
+  const trimmedName = input.name.trim();
+
+  try {
+    const payload = {
+      branchId: input.branchId,
+      name: trimmedName,
+      seats: input.seats || 4,
+      area: input.area?.trim() || "Main hall",
+      shape: input.shape || "square",
+      status: "AVAILABLE",
+    };
+
+    const res = await backendFetch<any>(`/tenants/${tenantId}/tables`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    if (res && res.id) {
+      const statusMap: Record<string, TableStatus> = {
+        AVAILABLE: "available",
+        OCCUPIED: "occupied",
+        RESERVED: "reserved",
+        CLEANING: "cleaning",
+      };
+
+      const mapped: DiningTable = {
+        id: res.id,
+        tenantId: res.tenantId || tenantId,
+        branchId: res.branchId || input.branchId,
+        name: res.name || trimmedName,
+        seats: res.seats ?? (input.seats || 4),
+        area: res.area || input.area || "Main hall",
+        status: statusMap[res.status] || (res.status?.toLowerCase() as TableStatus) || "available",
+        currentOrderId: res.currentOrderId || null,
+        x: res.x ?? 0,
+        y: res.y ?? 0,
+        shape: (res.shape?.toLowerCase() as any) || input.shape || "square",
+      };
+
+      const db = tenantDb(tenantId);
+      const existingIdx = db.tables.findIndex(
+        (t) => t.id === mapped.id || (t.branchId === mapped.branchId && t.name.toLowerCase() === mapped.name.toLowerCase()),
+      );
+      if (existingIdx >= 0) {
+        db.tables[existingIdx] = mapped;
+      } else {
+        db.tables.push(mapped);
+      }
+      commit(tenantId);
+
+      return mapped;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status !== 503) {
+      throw err;
+    }
+    console.warn("Could not create table via backend, falling back to local store:", err);
+  }
+
   await latency(120, 250);
   const db = tenantDb(tenantId);
-  const trimmedName = input.name.trim();
   const exists = db.tables.find(
     (t) => t.branchId === input.branchId && t.name.toLowerCase() === trimmedName.toLowerCase(),
   );

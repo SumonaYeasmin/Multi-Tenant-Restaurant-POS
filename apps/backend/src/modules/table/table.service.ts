@@ -43,13 +43,25 @@ export class TableService {
     const tenant = await this.resolveTenant(tenantSlug);
 
     // 2. Verify that branch exists and belongs to this tenant
-    const branch = await this.prisma.branch.findFirst({
-      where: {
-        id: dto.branchId,
-        tenantId: tenant.id,
-        isActive: true,
-      },
-    });
+    let branch = null;
+    if (dto.branchId) {
+      branch = await this.prisma.branch.findFirst({
+        where: {
+          id: dto.branchId,
+          tenantId: tenant.id,
+          isActive: true,
+        },
+      });
+    }
+
+    if (!branch) {
+      branch = await this.prisma.branch.findFirst({
+        where: {
+          tenantId: tenant.id,
+          isActive: true,
+        },
+      });
+    }
 
     if (!branch) {
       throw new NotFoundException('Branch');
@@ -192,9 +204,12 @@ export class TableService {
     // 2. Fetch table
     const table = await this.prisma.diningTable.findFirst({
       where: {
-        id: tableId,
         tenantId: tenant.id,
         isDeleted: false,
+        OR: [
+          { id: tableId },
+          { name: tableId },
+        ],
       },
       include: {
         branch: {
@@ -248,9 +263,12 @@ export class TableService {
     // 2. Verify table exists for this tenant
     const table = await this.prisma.diningTable.findFirst({
       where: {
-        id: tableId,
         tenantId: tenant.id,
         isDeleted: false,
+        OR: [
+          { id: tableId },
+          { name: tableId },
+        ],
       },
     });
 
@@ -297,7 +315,7 @@ export class TableService {
 
     // 5. Update the table record
     const updatedTable = await this.prisma.diningTable.update({
-      where: { id: tableId },
+      where: { id: table.id },
       data: {
         ...(dto.name !== undefined && { name: dto.name.trim() }),
         ...(dto.branchId !== undefined && { branchId: dto.branchId }),
@@ -324,9 +342,12 @@ export class TableService {
     // 2. Verify table exists
     const table = await this.prisma.diningTable.findFirst({
       where: {
-        id: tableId,
         tenantId: tenant.id,
         isDeleted: false,
+        OR: [
+          { id: tableId },
+          { name: tableId },
+        ],
       },
     });
 
@@ -337,7 +358,7 @@ export class TableService {
     // 3. Safety check: Cannot delete table if occupied or has active orders
     const activeOrder = await this.prisma.order.findFirst({
       where: {
-        tableId,
+        tableId: table.id,
         status: {
           in: [
             OrderStatus.IN_KITCHEN,
@@ -356,7 +377,7 @@ export class TableService {
 
     // 4. Perform soft delete
     await this.prisma.diningTable.update({
-      where: { id: tableId },
+      where: { id: table.id },
       data: {
         isDeleted: true,
         deletedAt: new Date(),
@@ -383,9 +404,12 @@ export class TableService {
     // 2. Verify table exists for this tenant
     const table = await this.prisma.diningTable.findFirst({
       where: {
-        id: tableId,
         tenantId: tenant.id,
         isDeleted: false,
+        OR: [
+          { id: tableId },
+          { name: tableId },
+        ],
       },
     });
 
@@ -395,7 +419,7 @@ export class TableService {
 
     // 3. Update the table status
     const updatedTable = await this.prisma.diningTable.update({
-      where: { id: tableId },
+      where: { id: table.id },
       data: { status },
       include: {
         branch: {
