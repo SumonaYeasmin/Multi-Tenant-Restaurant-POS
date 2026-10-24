@@ -144,6 +144,7 @@ export class OrderService {
           type: dto.type,
           tableId: dto.tableId || null,
           tableName: tableName || null,
+          customerId: dto.customerId || null,
           customerName: dto.customerName?.trim() || '',
           customerPhone: dto.customerPhone?.trim() || '',
           deliveryAddress: dto.deliveryAddress?.trim() || null,

@@ -2,7 +2,7 @@ model Customer {
   id            String    @id @default(uuid())
   tenantId      String
   name          String
-  phone         String?
+  phone         String
   email         String?
   address       String?   @default("")
   loyaltyPoints Int       @default(0)
