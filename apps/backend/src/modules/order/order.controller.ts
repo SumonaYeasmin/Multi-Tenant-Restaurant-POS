@@ -18,6 +18,7 @@ import {
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrderLineDto } from './dto/create-order-line.dto';
+import { CreateOrderPaymentDto } from './dto/create-order-payment.dto';
 import { GetOrdersQueryDto } from './dto/get-orders-query.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -236,6 +237,43 @@ export class OrderController {
     return ResponseHelper.success(
       order,
       `Order ${order.orderNumber} marked as served`,
+    );
+  }
+
+  @Post(':tenantSlug/orders/:orderId/payments')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.PAYMENTS_PROCESS)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Record a payment for an existing order (Take payment / Split bill)',
+    description:
+      'Creates a new payment record (CASH, CARD, MOBILE) for an active order, increments paid total, computes change, and marks order completed if served.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'saffron-ember',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'orderId',
+    example: 'uuid',
+    description: 'Order ID',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Payment recorded successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Order cancelled, already paid, or invalid amount' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async addPayment(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: CreateOrderPaymentDto,
+  ) {
+    const result = await this.orderService.addPayment(tenantSlug, orderId, dto);
+    return ResponseHelper.created(
+      result,
+      `Payment of ${dto.amount} recorded successfully for order ${result.order.orderNumber}`,
     );
   }
 }

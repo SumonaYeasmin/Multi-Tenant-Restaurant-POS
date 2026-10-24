@@ -63,23 +63,26 @@ model LoyaltySettings {
 }
 
 model LoyaltyTier {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   tenantId        String
   name            String
-  minSpend        Float    @default(0.0) // এই Tier অর্জনের জন্য ন্যূনতম মোট খরচ (Threshold)
-  minPoints       Int      @default(0) // বা ন্যূনতম পয়েন্ট (Threshold)
-  pointMultiplier Float    @default(1.0) // পয়েন্ট উপার্জনের গুণক (যেমন: 1.0x, 1.25x, 1.5x)
-  discountPercent Float    @default(0.0) // এই Tier-এর গ্রাহকের জন্য অতিরিক্ত শতকরা ছাড় (%)
-  description     String?  @default("")
-  color           String?  @default("#3B82F6")
-  sortOrder       Int      @default(0)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  minSpend        Float     @default(0.0) // এই Tier অর্জনের জন্য ন্যূনতম মোট খরচ (Threshold)
+  minPoints       Int       @default(0) // বা ন্যূনতম পয়েন্ট (Threshold)
+  pointMultiplier Float     @default(1.0) // পয়েন্ট উপার্জনের গুণক (যেমন: 1.0x, 1.25x, 1.5x)
+  discountPercent Float     @default(0.0) // এই Tier-এর গ্রাহকের জন্য অতিরিক্ত শতকরা ছাড় (%)
+  description     String?   @default("")
+  color           String?   @default("#3B82F6")
+  sortOrder       Int       @default(0)
+  isActive        Boolean   @default(true)
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   customers Customer[]
 
-  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, isDeleted])
   @@map("loyalty_tiers")
 }
