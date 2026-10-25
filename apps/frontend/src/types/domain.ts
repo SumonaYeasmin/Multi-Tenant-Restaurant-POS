@@ -222,13 +222,20 @@ export interface Order {
   completedAt: string | null;
 }
 
+export type NotificationType = "ORDER" | "INVENTORY" | "RESERVATION" | "CASH" | "STAFF" | "SYSTEM";
+
 export interface Notification {
   id: string;
   tenantId: string;
+  branchId?: string | null | undefined;
+  type?: NotificationType | undefined;
   title: string;
   body: string;
   createdAt: string;
   read: boolean;
+  link?: string | null | undefined;
+  metadata?: Record<string, unknown> | null | undefined;
+  updatedAt?: string | undefined;
 }
 
 // ---------- Stage 2: catalog, stock operations, purchasing ----------
