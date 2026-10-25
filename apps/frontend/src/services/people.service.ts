@@ -10,6 +10,8 @@ import {
   updatePromotionApi,
   validatePromotionApi,
 } from "./promotion.service";
+import { type Permission, ROLE_PERMISSIONS } from "@/config/permissions.config";
+
 import type {
   AttendanceRecord,
   Branch,
@@ -1045,6 +1047,55 @@ export async function deletePromotion(
       db.promotions = db.promotions.filter((p) => p.id !== id);
       commit(tenantId);
       return { success: true, message: "Promotion deleted locally" };
+    }
+    throw err;
+  }
+}
+
+// ---------- Tenant Roles & Permissions ----------
+export async function getTenantRolesApi(
+  tenantSlug: string
+): Promise<Record<RoleId, Permission[]>> {
+  try {
+    const res = await backendFetch<any[]>(`/tenants/${tenantSlug}/roles`);
+    if (Array.isArray(res)) {
+      const result: Partial<Record<RoleId, Permission[]>> = {};
+      for (const r of res) {
+        const roleKey = r.role?.toLowerCase() as RoleId;
+        if (roleKey && Array.isArray(r.permissions)) {
+          result[roleKey] = r.permissions as Permission[];
+        }
+      }
+      return {
+        ...ROLE_PERMISSIONS,
+        ...result,
+      } as Record<RoleId, Permission[]>;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for roles, falling back to local defaults");
+    } else {
+      console.warn("Could not fetch tenant roles, using defaults", err);
+    }
+  }
+  return { ...ROLE_PERMISSIONS };
+}
+
+export async function updateRolePermissionsApi(
+  tenantSlug: string,
+  role: RoleId,
+  permissions: Permission[]
+): Promise<any> {
+  try {
+    return await backendFetch(`/tenants/${tenantSlug}/roles/${role}/permissions`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ permissions }),
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable, simulated role update");
+      return { success: true };
     }
     throw err;
   }
