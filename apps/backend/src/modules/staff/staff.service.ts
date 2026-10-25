@@ -3,22 +3,33 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
 import { UserRole } from '../../../prisma/generated/client';
-import { NotFoundException } from '../../common/exceptions/business.exception';
+import {
+  ConflictException,
+  NotFoundException,
+} from '../../common/exceptions/business.exception';
 import { DEFAULT_ROLE_PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @Injectable()
 export class StaffService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createStaff(tenantSlug: string, dto: CreateStaffDto) {
-    // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+  private async resolveTenant(tenantSlug: string) {
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
       throw new NotFoundException('Restaurant');
     }
+
+    return tenant;
+  }
+
+  async createStaff(tenantSlug: string, dto: CreateStaffDto) {
+    // 1. Verify tenant exists
+    const tenant = await this.resolveTenant(tenantSlug);
 
     // 2. Ensure TenantRole exists for this tenant
     let tenantRole = await this.prisma.tenantRole.findUnique({
@@ -59,13 +70,7 @@ export class StaffService {
   }
 
   async getStaffList(tenantSlug: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-    });
-
-    if (!tenant) {
-      throw new NotFoundException('Restaurant');
-    }
+    const tenant = await this.resolveTenant(tenantSlug);
 
     return this.prisma.staffMember.findMany({
       where: { tenantId: tenant.id },
@@ -74,13 +79,7 @@ export class StaffService {
   }
 
   async getStaffById(tenantSlug: string, staffId: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-    });
-
-    if (!tenant) {
-      throw new NotFoundException('Restaurant');
-    }
+    const tenant = await this.resolveTenant(tenantSlug);
 
     const staff = await this.prisma.staffMember.findFirst({
       where: {
@@ -101,13 +100,7 @@ export class StaffService {
     staffId: string,
     dto: UpdateStaffDto,
   ) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-    });
-
-    if (!tenant) {
-      throw new NotFoundException('Restaurant');
-    }
+    const tenant = await this.resolveTenant(tenantSlug);
 
     const existingStaff = await this.prisma.staffMember.findFirst({
       where: {
@@ -118,6 +111,26 @@ export class StaffService {
 
     if (!existingStaff) {
       throw new NotFoundException('Staff member');
+    }
+
+    // Ensure restaurant keeps at least one active owner
+    if (
+      existingStaff.role === UserRole.OWNER &&
+      ((dto.role && dto.role !== UserRole.OWNER) || dto.active === false)
+    ) {
+      const remainingActiveOwners = await this.prisma.staffMember.count({
+        where: {
+          tenantId: tenant.id,
+          role: UserRole.OWNER,
+          active: true,
+          id: { not: staffId },
+        },
+      });
+      if (remainingActiveOwners === 0) {
+        throw new ConflictException(
+          'The restaurant must keep at least one active owner.',
+        );
+      }
     }
 
     let roleId = existingStaff.roleId;
@@ -162,13 +175,7 @@ export class StaffService {
   }
 
   async deleteStaff(tenantSlug: string, staffId: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-    });
-
-    if (!tenant) {
-      throw new NotFoundException('Restaurant');
-    }
+    const tenant = await this.resolveTenant(tenantSlug);
 
     const existingStaff = await this.prisma.staffMember.findFirst({
       where: {
@@ -179,6 +186,22 @@ export class StaffService {
 
     if (!existingStaff) {
       throw new NotFoundException('Staff member');
+    }
+
+    if (existingStaff.role === UserRole.OWNER) {
+      const remainingActiveOwners = await this.prisma.staffMember.count({
+        where: {
+          tenantId: tenant.id,
+          role: UserRole.OWNER,
+          active: true,
+          id: { not: staffId },
+        },
+      });
+      if (remainingActiveOwners === 0) {
+        throw new ConflictException(
+          'The restaurant must keep at least one active owner.',
+        );
+      }
     }
 
     await this.prisma.staffMember.delete({

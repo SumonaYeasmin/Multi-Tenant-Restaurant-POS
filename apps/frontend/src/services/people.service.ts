@@ -19,6 +19,7 @@ import type {
   Promotion,
   Reservation,
   ReservationStatus,
+  RoleId,
   Shift,
   StaffMember,
 } from "@/types/domain";
@@ -342,7 +343,43 @@ export async function deleteReservation(tenantId: string, id: string): Promise<{
 }
 
 // ---------- Staff ----------
+function toFrontendStaff(s: any): StaffMember {
+  return {
+    id: s.id,
+    tenantId: s.tenantId,
+    userId: s.userId ?? null,
+    name: s.name,
+    email: s.email ?? "",
+    phone: s.phone ?? "",
+    role: (s.role?.toLowerCase() ?? "waiter") as RoleId,
+    branchIds: Array.isArray(s.branchIds)
+      ? s.branchIds.includes("all")
+        ? "all"
+        : s.branchIds
+      : "all",
+    hourlyRate: typeof s.hourlyRate === "number" ? s.hourlyRate : Number(s.hourlyRate) || 0,
+    active: s.active ?? true,
+  };
+}
+
 export async function listStaff(tenantId: string): Promise<StaffMember[]> {
+  try {
+    const res = await backendFetch<any[]>(`/tenants/${tenantId}/staff`);
+    if (Array.isArray(res)) {
+      const mapped = res.map(toFrontendStaff);
+      const db = tenantDb(tenantId);
+      db.staff = mapped;
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for staff list, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   return tenantDb(tenantId).staff;
 }
@@ -350,20 +387,69 @@ export async function listStaff(tenantId: string): Promise<StaffMember[]> {
 export type StaffInput = Omit<StaffMember, "id" | "tenantId" | "userId"> & { id?: string | undefined };
 
 export async function saveStaff(tenantId: string, input: StaffInput): Promise<StaffMember> {
-  await latency();
-  const db = tenantDb(tenantId);
-  if (!input.name.trim()) throw new ApiError(422, "Name is required.");
+  const name = input.name.trim();
+  if (!name) throw new ApiError(422, "Name is required.");
   if (input.hourlyRate < 0) throw new ApiError(422, "Hourly rate can't be negative.");
   if (input.branchIds !== "all" && input.branchIds.length === 0) throw new ApiError(422, "Assign at least one branch.");
+
+  const db = tenantDb(tenantId);
   const existing = input.id ? db.staff.find((s) => s.id === input.id) : undefined;
-  if (input.id && !existing) throw new ApiError(404, "Staff member not found.");
   if (existing?.role === "owner" && (input.role !== "owner" || !input.active)) {
     const owners = db.staff.filter((s) => s.role === "owner" && s.active && s.id !== existing.id);
     if (owners.length === 0) throw new ApiError(409, "The restaurant must keep at least one active owner.");
   }
+
+  try {
+    const body = {
+      name,
+      email: input.email?.trim() || undefined,
+      phone: input.phone?.trim() || undefined,
+      role: input.role.toUpperCase(),
+      hourlyRate: Number(input.hourlyRate) || 0,
+      branchIds: input.branchIds === "all" ? ["all"] : input.branchIds,
+      active: input.active,
+    };
+
+    let backendRes: any;
+    if (input.id) {
+      backendRes = await backendFetch<any>(`/tenants/${tenantId}/staff/${input.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } else {
+      backendRes = await backendFetch<any>(`/tenants/${tenantId}/staff`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
+
+    if (backendRes && backendRes.id) {
+      const saved = toFrontendStaff(backendRes);
+      const idx = db.staff.findIndex((s) => s.id === saved.id);
+      if (idx >= 0) {
+        db.staff[idx] = saved;
+      } else {
+        db.staff.unshift(saved);
+      }
+      commit(tenantId);
+      return saved;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 503 || (input.id && err.status === 404))) {
+      console.warn("Backend unavailable or record not found on backend, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
+  // Fallback to local DB
+  await latency();
+  if (input.id && !existing) throw new ApiError(404, "Staff member not found.");
   const { id: _id, ...rest } = input;
   void _id;
-  const data = { ...rest, name: input.name.trim(), email: input.email.trim(), phone: input.phone.trim() };
+  const data = { ...rest, name, email: input.email.trim(), phone: input.phone.trim() };
   if (existing) {
     Object.assign(existing, data);
     for (const s of db.shifts) if (s.staffId === existing.id) s.staffName = existing.name;
