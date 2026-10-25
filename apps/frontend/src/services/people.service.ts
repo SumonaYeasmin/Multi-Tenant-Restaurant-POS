@@ -1144,7 +1144,7 @@ export function getCustomRoles(tenantSlug: string): CustomRole[] {
 
 export function saveCustomRole(
   tenantSlug: string,
-  roleInput: Omit<CustomRole, "id" | "isCustom" | "createdAt"> & { id?: string }
+  roleInput: Omit<CustomRole, "id" | "isCustom" | "createdAt"> & { id?: string | undefined }
 ): CustomRole {
   const roles = getCustomRoles(tenantSlug);
   const now = new Date().toISOString();

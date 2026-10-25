@@ -5,9 +5,8 @@ export const Route = createFileRoute("/app/$tenantSlug/team")({
   head: () => ({
     meta: [
       { title: "Team — Tablewise POS" },
-      { name: "description", content: "Staff directory and roles & permissions." },
+      { name: "description", content: "Staff directory and roles." },
     ],
   }),
   component: () => <Outlet />,
 });
-

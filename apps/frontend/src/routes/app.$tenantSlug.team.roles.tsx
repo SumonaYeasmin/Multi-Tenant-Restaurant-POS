@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import {
   AlertCircle,
@@ -14,6 +14,7 @@ import {
   Sparkles,
   Trash2,
   Undo2,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { RequirePermission } from "@/features/tenant/require-permission";
@@ -430,9 +431,15 @@ function Roles() {
         description="Configure role-based access control and system permissions matrix for your restaurant team."
         actions={
           <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-1.5 shadow-2xs">
+              <Link to="/app/$tenantSlug/team" params={{ tenantSlug: tenant.slug }}>
+                <Users className="size-4 text-primary" /> Staff directory
+              </Link>
+            </Button>
             {canEdit && (
               <Button
                 onClick={() => setIsCreatingRole(true)}
+                size="sm"
                 className="gap-1.5 font-medium shadow-xs"
               >
                 <Plus className="size-4" /> Create role
