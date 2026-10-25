@@ -465,6 +465,8 @@ export interface Expense {
   createdAt: string;
 }
 
+export type StaffStatus = "active" | "invited" | "draft" | "inactive";
+
 export interface StaffMember {
   id: string;
   tenantId: string;
@@ -476,6 +478,9 @@ export interface StaffMember {
   branchIds: string[] | "all";
   hourlyRate: number;
   active: boolean;
+  status?: StaffStatus;
+  inviteToken?: string | null;
+  invitedAt?: string | null;
 }
 
 export interface Shift {

@@ -69,6 +69,10 @@ model StaffMember {
   branchIds         String[] @default([])
   active            Boolean   @default(true)
   customPermissions String[]  @default([])
+  status            String    @default("ACTIVE")
+  inviteToken       String?
+  invitedAt         DateTime?
+  inviteExpiresAt   DateTime?
   isDeleted         Boolean   @default(false)
   deletedAt         DateTime?
 
@@ -80,6 +84,7 @@ model StaffMember {
   user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, isDeleted])
+  @@index([inviteToken])
   @@map("staff_members")
 }
 

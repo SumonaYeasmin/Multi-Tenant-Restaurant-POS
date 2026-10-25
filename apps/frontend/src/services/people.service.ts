@@ -22,6 +22,7 @@ import type {
   RoleId,
   Shift,
   StaffMember,
+  StaffStatus,
 } from "@/types/domain";
 
 // Customers & loyalty, reservations, staff, shifts, attendance, branches, promotions.
@@ -344,6 +345,12 @@ export async function deleteReservation(tenantId: string, id: string): Promise<{
 
 // ---------- Staff ----------
 function toFrontendStaff(s: any): StaffMember {
+  const status: StaffStatus = s.status
+    ? (s.status.toLowerCase() as StaffStatus)
+    : s.active
+      ? "active"
+      : "inactive";
+
   return {
     id: s.id,
     tenantId: s.tenantId,
@@ -358,7 +365,10 @@ function toFrontendStaff(s: any): StaffMember {
         : s.branchIds
       : "all",
     hourlyRate: typeof s.hourlyRate === "number" ? s.hourlyRate : Number(s.hourlyRate) || 0,
-    active: s.active ?? true,
+    active: s.active ?? (status === "active"),
+    status,
+    inviteToken: s.inviteToken ?? null,
+    invitedAt: s.invitedAt ?? null,
   };
 }
 
@@ -384,7 +394,11 @@ export async function listStaff(tenantId: string): Promise<StaffMember[]> {
   return tenantDb(tenantId).staff;
 }
 
-export type StaffInput = Omit<StaffMember, "id" | "tenantId" | "userId"> & { id?: string | undefined };
+export type StaffInput = Omit<StaffMember, "id" | "tenantId" | "userId"> & {
+  id?: string | undefined;
+  status?: StaffStatus;
+  sendInvite?: boolean;
+};
 
 export async function saveStaff(tenantId: string, input: StaffInput): Promise<StaffMember> {
   const name = input.name.trim();
@@ -400,6 +414,7 @@ export async function saveStaff(tenantId: string, input: StaffInput): Promise<St
   }
 
   try {
+    const isDraft = input.status === "draft";
     const body = {
       name,
       email: input.email?.trim() || undefined,
@@ -408,6 +423,8 @@ export async function saveStaff(tenantId: string, input: StaffInput): Promise<St
       hourlyRate: Number(input.hourlyRate) || 0,
       branchIds: input.branchIds === "all" ? ["all"] : input.branchIds,
       active: input.active,
+      status: input.status ? input.status.toUpperCase() : undefined,
+      sendInvite: isDraft ? false : (input.sendInvite ?? true),
     };
 
     let backendRes: any;
@@ -498,6 +515,107 @@ export async function deleteStaff(tenantId: string, id: string): Promise<{ succe
   db.staff.splice(idx, 1);
   commit(tenantId);
   return { success: true, message: "Staff member removed successfully" };
+}
+
+export async function reinviteStaff(tenantId: string, staffId: string): Promise<{ success: boolean; message: string; inviteToken?: string }> {
+  try {
+    const res = await backendFetch<any>(`/tenants/${tenantId}/staff/${staffId}/invite`, {
+      method: "POST",
+    });
+    if (res?.staff) {
+      const updated = toFrontendStaff(res.staff);
+      const db = tenantDb(tenantId);
+      const idx = db.staff.findIndex((s) => s.id === updated.id);
+      if (idx >= 0) db.staff[idx] = updated;
+      commit(tenantId);
+    }
+    return {
+      success: true,
+      message: res?.message || "Invitation sent successfully",
+      inviteToken: res?.inviteToken,
+    };
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 503 || err.status === 404)) {
+      console.warn("Backend unavailable, falling back to local simulation");
+    } else {
+      throw err;
+    }
+  }
+
+  await latency();
+  const db = tenantDb(tenantId);
+  const s = db.staff.find((x) => x.id === staffId);
+  if (!s) throw new ApiError(404, "Staff member not found.");
+  s.status = "invited";
+  s.active = false;
+  s.invitedAt = new Date().toISOString();
+  s.inviteToken = uid("inv");
+  commit(tenantId);
+  return { success: true, message: `Invitation sent to ${s.email || s.name}` };
+}
+
+export interface InviteDetails {
+  id: string;
+  name: string;
+  email: string;
+  role: RoleId;
+  tenantName: string;
+  tenantSlug: string;
+}
+
+export async function getInviteDetails(token: string): Promise<InviteDetails> {
+  try {
+    const res = await backendFetch<any>(`/auth/invite/${token}`);
+    if (res) {
+      return {
+        id: res.id,
+        name: res.name,
+        email: res.email,
+        role: (res.role?.toLowerCase() ?? "waiter") as RoleId,
+        tenantName: res.tenantName,
+        tenantSlug: res.tenantSlug,
+      };
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable, falling back to mock invite");
+    } else {
+      throw err;
+    }
+  }
+
+  await latency();
+  return {
+    id: "mock_staff",
+    name: "Team Member",
+    email: "staff@example.com",
+    role: "waiter",
+    tenantName: "Saffron & Ember",
+    tenantSlug: "saffron-ember",
+  };
+}
+
+export async function acceptInvite(data: { token: string; password: string; name?: string }): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await backendFetch<any>(`/auth/accept-invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    return {
+      success: true,
+      message: res?.message || "Invitation accepted successfully",
+    };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable, simulated accept");
+    } else {
+      throw err;
+    }
+  }
+
+  await latency();
+  return { success: true, message: "Welcome aboard! Your account is activated." };
 }
 
 // ---------- Shifts ----------
