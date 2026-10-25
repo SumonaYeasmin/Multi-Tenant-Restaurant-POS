@@ -14,6 +14,7 @@ import {
   Search,
   Sun,
   UtensilsCrossed,
+  X,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { RestaurantThemeModal } from "@/features/theme/restaurant-theme-modal";
@@ -24,7 +25,8 @@ import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { setColorMode, toggleSidebar } from "@/features/ui/ui.slice";
 import { setBranch } from "@/features/tenant/tenant.slice";
 import { useSignOut } from "@/features/auth/require-session";
-import { useMarkNotificationsReadMutation, useMarkSingleNotificationReadMutation, useNotificationsQuery } from "@/app/api";
+import { useMarkNotificationsReadMutation, useNotificationsQuery } from "@/app/api";
+import { useRealtimeNotifications } from "@/features/notifications/use-realtime-notifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -124,24 +126,28 @@ function Brand({ collapsed }: { collapsed: boolean }) {
 
 function Notifications() {
   const { tenant } = useTenant();
+  useRealtimeNotifications(tenant.id);
   const { data = [] } = useNotificationsQuery(tenant.id, {
     pollingInterval: 30000,
     refetchOnFocus: true,
   });
   const [markRead] = useMarkNotificationsReadMutation();
-  const [markSingleRead] = useMarkSingleNotificationReadMutation();
   const [open, setOpen] = useState(false);
   const unread = data.filter((n) => !n.read).length;
 
-  const handleItemClick = (n: (typeof data)[number]) => {
-    if (!n.read) {
-      markSingleRead({ tenantId: tenant.id, notificationId: n.id });
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (nextOpen && unread > 0) {
+      markRead(tenant.id);
     }
+  };
+
+  const handleItemClick = (n: (typeof data)[number]) => {
     setOpen(false);
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`} className="relative">
           <Bell className="size-4" />
@@ -155,15 +161,15 @@ function Notifications() {
       <PopoverContent align="end" className="w-80 p-0 shadow-lg">
         <div className="flex items-center justify-between border-b px-4 py-2.5">
           <span className="text-sm font-semibold">Notifications</span>
-          {unread > 0 && (
-            <button
-              type="button"
-              onClick={() => markRead(tenant.id)}
-              className="text-xs font-medium text-primary hover:underline focus:outline-none"
-            >
-              Mark all read
-            </button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setOpen(false)}
+            className="size-6 text-muted-foreground hover:text-foreground -mr-1 rounded-sm"
+            aria-label="Close"
+          >
+            <X className="size-3.5" />
+          </Button>
         </div>
         <ul className="max-h-80 divide-y overflow-y-auto">
           {data.length === 0 && <li className="px-4 py-6 text-center text-sm text-muted-foreground">You're all caught up.</li>}

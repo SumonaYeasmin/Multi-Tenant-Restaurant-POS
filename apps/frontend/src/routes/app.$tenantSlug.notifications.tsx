@@ -25,6 +25,7 @@ import {
   useMarkSingleNotificationReadMutation,
   useNotificationsQuery,
 } from "@/app/api";
+import { useRealtimeNotifications } from "@/features/notifications/use-realtime-notifications";
 import { PageHeader, EmptyState, SkeletonCard } from "@/components/common/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,6 +49,7 @@ export const Route = createFileRoute("/app/$tenantSlug/notifications")({
 function NotificationsPage() {
   const { tenant } = useTenant();
   const navigate = useNavigate();
+  useRealtimeNotifications(tenant.id);
   const {
     data: notifications = [],
     isLoading,
