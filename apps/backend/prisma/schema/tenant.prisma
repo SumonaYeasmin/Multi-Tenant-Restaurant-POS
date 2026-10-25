@@ -37,6 +37,7 @@ model Tenant {
   loyaltyTiers        LoyaltyTier[]
   loyaltyTransactions LoyaltyTransaction[]
   promotions          Promotion[]
+  notifications       Notification[]
 
   @@map("tenants")
 }
@@ -111,6 +112,7 @@ model Branch {
   tables            DiningTable[]
   orders            Order[]
   reservations      Reservation[]
+  notifications     Notification[]
 
   @@unique([tenantId, name])
   @@map("branches")
