@@ -43,26 +43,45 @@ export class OrderService {
   }
 
   /**
-   * Create a new order (Supports both "Send" and "Send & Pay")
+   * Helper: Resolve tenant by either slug or id
    */
-  async createOrder(tenantSlug: string, dto: CreateOrderDto) {
-    // 1. Verify tenant exists and fetch tax & service charge rates
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+  private async resolveTenant(tenantSlugOrId: string) {
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlugOrId }, { id: tenantSlugOrId }],
+      },
     });
 
     if (!tenant) {
       throw new NotFoundException('Restaurant');
     }
+    return tenant;
+  }
+
+  /**
+   * Create a new order (Supports both "Send" and "Send & Pay")
+   */
+  async createOrder(tenantSlug: string, dto: CreateOrderDto) {
+    // 1. Verify tenant exists and fetch tax & service charge rates
+    const tenant = await this.resolveTenant(tenantSlug);
 
     // 2. Verify branch belongs to this tenant
-    const branch = await this.prisma.branch.findFirst({
+    let branch = await this.prisma.branch.findFirst({
       where: {
         id: dto.branchId,
         tenantId: tenant.id,
         isActive: true,
       },
     });
+
+    if (!branch) {
+      branch = await this.prisma.branch.findFirst({
+        where: {
+          tenantId: tenant.id,
+          isActive: true,
+        },
+      });
+    }
 
     if (!branch) {
       throw new NotFoundException('Branch');
@@ -72,9 +91,12 @@ export class OrderService {
     let tableName = dto.tableName;
     if (dto.type === OrderType.DINE_IN) {
       if (dto.tableId) {
-        const table = await this.prisma.diningTable.findFirst({
+        let table = await this.prisma.diningTable.findFirst({
           where: {
-            id: dto.tableId,
+            OR: [
+              { id: dto.tableId },
+              { name: dto.tableName || dto.tableId },
+            ],
             tenantId: tenant.id,
             branchId: branch.id,
             isDeleted: false,
@@ -82,16 +104,43 @@ export class OrderService {
         });
 
         if (!table) {
-          throw new NotFoundException('Dining table');
+          table = await this.prisma.diningTable.findFirst({
+            where: {
+              tenantId: tenant.id,
+              branchId: branch.id,
+              isDeleted: false,
+            },
+          });
         }
 
-        tableName = tableName || table.name;
+        if (table) {
+          dto.tableId = table.id;
+          tableName = tableName || table.name;
+        } else {
+          dto.tableId = undefined;
+        }
       }
     } else if (dto.type === OrderType.DELIVERY) {
       if (!dto.deliveryAddress?.trim() || !dto.customerPhone?.trim()) {
         throw new BadRequestException(
           'Delivery order requires customer phone number and delivery address',
         );
+      }
+    }
+
+    // Verify customer exists if customerId is passed
+    let customerId = dto.customerId;
+    if (customerId) {
+      const cust = await this.prisma.customer.findFirst({
+        where: { id: customerId, tenantId: tenant.id, isDeleted: false },
+      });
+      if (!cust && dto.customerPhone) {
+        const custByPhone = await this.prisma.customer.findFirst({
+          where: { phone: dto.customerPhone, tenantId: tenant.id, isDeleted: false },
+        });
+        customerId = custByPhone?.id;
+      } else if (!cust) {
+        customerId = undefined;
       }
     }
 
@@ -135,6 +184,19 @@ export class OrderService {
     // 5. Generate human-readable Order Number
     const orderNumber = await this.generateOrderNumber(tenant.id);
 
+    // Filter valid menuItem IDs to avoid foreign key errors on custom/mock items
+    const menuItemIds = dto.lines
+      .map((l) => l.menuItemId || l.itemId)
+      .filter((id): id is string => Boolean(id));
+
+    const existingMenuItems = menuItemIds.length
+      ? await this.prisma.menuItem.findMany({
+          where: { id: { in: menuItemIds }, tenantId: tenant.id },
+          select: { id: true },
+        })
+      : [];
+    const validMenuItemIdSet = new Set(existingMenuItems.map((m) => m.id));
+
     // 6. Execute atomic Prisma Transaction
     const order = await this.prisma.$transaction(async (tx) => {
       // A. Create the Order with nested OrderLines and Modifiers
@@ -146,7 +208,7 @@ export class OrderService {
           type: dto.type,
           tableId: dto.tableId || null,
           tableName: tableName || null,
-          customerId: dto.customerId || null,
+          customerId: customerId || null,
           customerName: dto.customerName?.trim() || '',
           customerPhone: dto.customerPhone?.trim() || '',
           deliveryAddress: dto.deliveryAddress?.trim() || null,
@@ -166,25 +228,29 @@ export class OrderService {
 
           // Nested create for Order Lines and their Modifiers
           lines: {
-            create: dto.lines.map((line) => ({
-              menuItemId: line.menuItemId || line.itemId || null,
-              name: line.name,
-              variantId: line.variantId || null,
-              variantName: line.variantName || null,
-              qty: line.qty,
-              unitPrice: line.unitPrice,
-              notes: line.notes || '',
-              modifiers: line.modifiers?.length
-                ? {
-                    create: line.modifiers.map((m) => ({
-                      groupId: m.groupId || null,
-                      optionId: m.optionId || null,
-                      name: m.name,
-                      price: m.price,
-                    })),
-                  }
-                : undefined,
-            })),
+            create: dto.lines.map((line) => {
+              const rawItemId = line.menuItemId || line.itemId;
+              const validItemId = rawItemId && validMenuItemIdSet.has(rawItemId) ? rawItemId : null;
+              return {
+                menuItemId: validItemId,
+                name: line.name,
+                variantId: line.variantId || null,
+                variantName: line.variantName || null,
+                qty: line.qty,
+                unitPrice: line.unitPrice,
+                notes: line.notes || '',
+                modifiers: line.modifiers?.length
+                  ? {
+                      create: line.modifiers.map((m) => ({
+                        groupId: m.groupId || null,
+                        optionId: m.optionId || null,
+                        name: m.name,
+                        price: m.price,
+                      })),
+                    }
+                  : undefined,
+              };
+            }),
           },
 
           // Nested create for Payment if "Send & Pay" was clicked
@@ -239,13 +305,7 @@ export class OrderService {
    */
   async getOrders(tenantSlug: string, query?: GetOrdersQueryDto) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-    });
-
-    if (!tenant) {
-      throw new NotFoundException('Restaurant');
-    }
+    const tenant = await this.resolveTenant(tenantSlug);
 
     // 2. Build where filter
     const where: Prisma.OrderWhereInput = {
@@ -357,18 +417,15 @@ export class OrderService {
    */
   async getOrderById(tenantSlug: string, orderId: string) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-    });
-
-    if (!tenant) {
-      throw new NotFoundException('Restaurant');
-    }
+    const tenant = await this.resolveTenant(tenantSlug);
 
     // 2. Fetch order with lines, modifiers, payments, refunds and table
     const order = await this.prisma.order.findFirst({
       where: {
-        id: orderId,
+        OR: [
+          { id: orderId },
+          { orderNumber: orderId },
+        ],
         tenantId: tenant.id,
       },
       include: {
@@ -413,13 +470,7 @@ export class OrderService {
     newLines: CreateOrderLineDto[],
   ) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-    });
-
-    if (!tenant) {
-      throw new NotFoundException('Restaurant');
-    }
+    const tenant = await this.resolveTenant(tenantSlug);
 
     // 2. Fetch existing order
     const existingOrder = await this.prisma.order.findFirst({
@@ -484,14 +535,28 @@ export class OrderService {
 
     const grandTotal = this.round2(netAmount + serviceCharge + tax);
 
+    // Validate menuItem IDs to prevent FK violations
+    const addedMenuItemIds = newLines
+      .map((l) => l.menuItemId || l.itemId)
+      .filter((id): id is string => Boolean(id));
+    const validAddedMenuItems = addedMenuItemIds.length
+      ? await this.prisma.menuItem.findMany({
+          where: { id: { in: addedMenuItemIds }, tenantId: tenant.id },
+          select: { id: true },
+        })
+      : [];
+    const validAddedMenuItemSet = new Set(validAddedMenuItems.map((m) => m.id));
+
     // 4. Save new lines and update order totals in a transaction
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
       // Create new lines and their modifiers
       for (const line of newLines) {
+        const rawItemId = line.menuItemId || line.itemId;
+        const validItemId = rawItemId && validAddedMenuItemSet.has(rawItemId) ? rawItemId : null;
         await tx.orderLine.create({
           data: {
             orderId: existingOrder.id,
-            menuItemId: line.menuItemId || line.itemId || null,
+            menuItemId: validItemId,
             name: line.name,
             variantId: line.variantId || null,
             variantName: line.variantName || null,
@@ -548,15 +613,24 @@ export class OrderService {
 
   /**
    * Advance kitchen ticket status (NEW -> PREPARING -> READY -> BUMPED)
+   * or set to a specific kitchen status if targetStatus is provided
    */
-  async advanceKitchenStatus(tenantSlug: string, orderId: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-    });
-    if (!tenant) throw new NotFoundException('Restaurant');
+  async advanceKitchenStatus(
+    tenantSlug: string,
+    orderId: string,
+    targetStatus?: KitchenStatus,
+  ) {
+    const tenant = await this.resolveTenant(tenantSlug);
 
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId: tenant.id },
+      where: {
+        tenantId: tenant.id,
+        OR: [
+          { id: orderId },
+          { orderNumber: orderId },
+          { orderNumber: `#${orderId.replace(/^#/, '')}` },
+        ],
+      },
     });
     if (!order) throw new NotFoundException('Order');
 
@@ -571,7 +645,7 @@ export class OrderService {
       [KitchenStatus.BUMPED]: null,
     };
 
-    const nextStatus = KITCHEN_FLOW[order.kitchenStatus];
+    const nextStatus = targetStatus || KITCHEN_FLOW[order.kitchenStatus];
     if (!nextStatus) {
       throw new BadRequestException('Kitchen ticket already bumped');
     }
@@ -588,7 +662,7 @@ export class OrderService {
     }
 
     return this.prisma.order.update({
-      where: { id: orderId },
+      where: { id: order.id },
       data: updateData,
       include: {
         lines: { include: { modifiers: true } },
@@ -602,13 +676,17 @@ export class OrderService {
    * Mark order as SERVED (Food delivered to table by waiter)
    */
   async markOrderServed(tenantSlug: string, orderId: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-    });
-    if (!tenant) throw new NotFoundException('Restaurant');
+    const tenant = await this.resolveTenant(tenantSlug);
 
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId: tenant.id },
+      where: {
+        tenantId: tenant.id,
+        OR: [
+          { id: orderId },
+          { orderNumber: orderId },
+          { orderNumber: `#${orderId.replace(/^#/, '')}` },
+        ],
+      },
     });
     if (!order) throw new NotFoundException('Order');
 
@@ -636,7 +714,7 @@ export class OrderService {
     }
 
     return this.prisma.order.update({
-      where: { id: orderId },
+      where: { id: order.id },
       data: updateData,
       include: {
         lines: { include: { modifiers: true } },
@@ -655,14 +733,18 @@ export class OrderService {
     dto: CreateOrderPaymentDto,
   ) {
     // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-    });
-    if (!tenant) throw new NotFoundException('Restaurant');
+    const tenant = await this.resolveTenant(tenantSlug);
 
     // 2. Fetch order
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId: tenant.id },
+      where: {
+        tenantId: tenant.id,
+        OR: [
+          { id: orderId },
+          { orderNumber: orderId },
+          { orderNumber: `#${orderId.replace(/^#/, '')}` },
+        ],
+      },
       include: {
         payments: true,
       },

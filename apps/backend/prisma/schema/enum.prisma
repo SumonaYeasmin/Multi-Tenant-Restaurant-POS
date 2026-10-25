@@ -112,3 +112,11 @@ enum DiscountKind {
   AMOUNT
 }
 
+enum NotificationType {
+  ORDER
+  INVENTORY
+  RESERVATION
+  CASH
+  STAFF
+  SYSTEM
+}

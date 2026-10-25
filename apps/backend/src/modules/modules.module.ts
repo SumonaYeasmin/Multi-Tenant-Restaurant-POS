@@ -21,6 +21,7 @@ import { CustomerModule } from './customer/customer.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { FinanceModule } from './finance/finance.module';
 import { PromotionModule } from './promotion/promotion.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { PromotionModule } from './promotion/promotion.module';
     LoyaltyModule,
     FinanceModule,
     PromotionModule,
+    NotificationsModule,
   ],
   exports: [
     TenantRoleModule,
@@ -69,6 +71,7 @@ import { PromotionModule } from './promotion/promotion.module';
     LoyaltyModule,
     FinanceModule,
     PromotionModule,
+    NotificationsModule,
   ],
 })
 export class ModulesModule {}

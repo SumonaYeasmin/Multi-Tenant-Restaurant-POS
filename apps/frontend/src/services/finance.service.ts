@@ -34,14 +34,14 @@ export interface BackendLedgerResponse {
 }
 
 export interface GetLedgerQueryOptions {
-  branchId?: string;
-  kind?: "all" | "payment" | "refund";
-  method?: string;
-  startDate?: string;
-  endDate?: string;
-  search?: string;
-  limit?: number;
-  offset?: number;
+  branchId?: string | undefined;
+  kind?: "all" | "payment" | "refund" | undefined;
+  method?: string | undefined;
+  startDate?: string | undefined;
+  endDate?: string | undefined;
+  search?: string | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
 }
 
 /**

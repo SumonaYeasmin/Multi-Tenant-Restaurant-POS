@@ -49,19 +49,20 @@ export interface CustomersListResponse {
 export interface CreateCustomerInput {
   name: string;
   phone: string;
-  address?: string;
-  notes?: string;
-  initialPoints?: number;
-  tierId?: string;
+  address?: string | undefined;
+  notes?: string | undefined;
+  initialPoints?: number | undefined;
+  tierId?: string | undefined;
 }
 
 export interface UpdateCustomerInput {
-  name?: string;
-  phone?: string;
-  address?: string;
-  notes?: string;
-  loyaltyPoints?: number;
-  isActive?: boolean;
+  name?: string | undefined;
+  phone?: string | undefined;
+  address?: string | undefined;
+  notes?: string | undefined;
+  loyaltyPoints?: number | undefined;
+  tierId?: string | undefined;
+  isActive?: boolean | undefined;
 }
 
 /**
@@ -70,12 +71,12 @@ export interface UpdateCustomerInput {
 export async function getCustomersApi(
   tenantSlug: string,
   params?: {
-    search?: string;
-    name?: string;
-    phone?: string;
-    page?: number;
-    limit?: number;
-  },
+    search?: string | undefined;
+    name?: string | undefined;
+    phone?: string | undefined;
+    page?: number | undefined;
+    limit?: number | undefined;
+  } | undefined,
 ): Promise<CustomersListResponse> {
   const query = new URLSearchParams();
   if (params?.search) query.append("search", params.search);
