@@ -14,8 +14,6 @@ export type SubNavTo =
   | "/app/$tenantSlug/finance/cash"
   | "/app/$tenantSlug/finance/expenses"
   | "/app/$tenantSlug/team"
-  | "/app/$tenantSlug/team/shifts"
-  | "/app/$tenantSlug/team/attendance"
   | "/app/$tenantSlug/team/roles";
 
 /** Tab-style links between sibling pages of one module. */
