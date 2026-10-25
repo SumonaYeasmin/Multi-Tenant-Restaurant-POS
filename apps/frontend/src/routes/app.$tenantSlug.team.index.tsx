@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Building2, Loader2, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import { RequirePermission } from "@/features/tenant/require-permission";
 import { useTenant } from "@/features/tenant/tenant-context";
@@ -14,12 +14,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { getCustomRoles } from "@/services/people.service";
 import type { RoleId, StaffMember } from "@/types/domain";
 
 export const Route = createFileRoute("/app/$tenantSlug/team/")({
@@ -76,7 +86,20 @@ function Staff() {
                 {s.userId && <Badge variant="info" className="ml-2">Sign-in</Badge>}
                 <p className="text-xs text-muted-foreground">{s.email || s.phone || "—"}</p>
               </td>
-              <td className={td}>{ROLE_LABELS[s.role]}</td>
+              <td className={td}>
+                {s.customRoleName ? (
+                  <div className="flex flex-col items-start gap-0.5">
+                    <Badge variant="outline" className="text-xs font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30">
+                      {s.customRoleName}
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      Base: {ROLE_LABELS[s.role] || s.role}
+                    </span>
+                  </div>
+                ) : (
+                  <span>{ROLE_LABELS[s.role] || s.role}</span>
+                )}
+              </td>
               <td className={td}>{s.branchIds === "all" ? "All branches" : s.branchIds.map(bName).join(", ")}</td>
               <td className={td}>{s.hourlyRate ? money(s.hourlyRate) : "—"}</td>
               <td className={td}>
@@ -121,6 +144,7 @@ function StaffDialog({ s, onClose }: { s: StaffMember | null; onClose: () => voi
   const { tenant, branches: contextBranches } = useTenant();
   const branchesQuery = useAllBranchesQuery(tenant.id);
   const [save, { isLoading }] = useSaveStaffMutation();
+  const customRoles = useMemo(() => getCustomRoles(tenant.slug), [tenant.slug]);
 
   const availableBranches = (branchesQuery.data && branchesQuery.data.length > 0)
     ? branchesQuery.data
@@ -131,6 +155,7 @@ function StaffDialog({ s, onClose }: { s: StaffMember | null; onClose: () => voi
     email: s?.email ?? "",
     phone: s?.phone ?? "",
     role: s?.role ?? ("waiter" as RoleId),
+    customRoleName: s?.customRoleName ?? "",
     hourlyRate: String(s?.hourlyRate ?? 0),
     active: s?.active ?? true,
   });
@@ -179,6 +204,8 @@ function StaffDialog({ s, onClose }: { s: StaffMember | null; onClose: () => voi
       name: v.name.trim(),
       email: v.email.trim(),
       phone: v.phone.trim(),
+      role: v.role,
+      customRoleName: v.customRoleName?.trim() || undefined,
       hourlyRate: num(v.hourlyRate) || 0,
       branchIds: all ? ("all" as const) : picked,
       status: statusOverride ?? (s?.status || (v.email.trim() && !s ? "invited" : "active")),
@@ -284,21 +311,65 @@ function StaffDialog({ s, onClose }: { s: StaffMember | null; onClose: () => voi
 
           {/* Role selector */}
           <div className="space-y-1.5">
-            <Label htmlFor="staff-role" className="text-sm font-medium">
-              Staff Role <span className="text-destructive">*</span>
-            </Label>
-            <Select value={v.role} onValueChange={(val) => setV({ ...v, role: val as RoleId })}>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="staff-role" className="text-sm font-medium">
+                Staff Role <span className="text-destructive">*</span>
+              </Label>
+              {v.customRoleName && (
+                <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">
+                  Custom role (Base: {ROLE_LABELS[v.role]})
+                </span>
+              )}
+            </div>
+            <Select
+              value={v.customRoleName ? `custom:${v.customRoleName}` : `standard:${v.role}`}
+              onValueChange={(val) => {
+                if (val.startsWith("custom:")) {
+                  const cName = val.replace("custom:", "");
+                  const found = customRoles.find((cr) => cr.name === cName);
+                  setV({
+                    ...v,
+                    customRoleName: cName,
+                    role: found ? found.baseRole : "waiter",
+                  });
+                } else {
+                  const stdRole = val.replace("standard:", "") as RoleId;
+                  setV({
+                    ...v,
+                    customRoleName: "",
+                    role: stdRole,
+                  });
+                }
+              }}
+            >
               <SelectTrigger id="staff-role" className="h-10 w-full">
                 <SelectValue placeholder="Select staff role" />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(ROLE_LABELS).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>
-                    {label}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  <SelectLabel className="text-xs uppercase font-semibold text-muted-foreground">Standard Roles</SelectLabel>
+                  {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={`standard:${key}`}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+                {customRoles.length > 0 && (
+                  <SelectGroup>
+                    <SelectSeparator />
+                    <SelectLabel className="text-xs uppercase font-semibold text-purple-600 dark:text-purple-400">Custom Roles</SelectLabel>
+                    {customRoles.map((cr) => (
+                      <SelectItem key={cr.id} value={`custom:${cr.name}`}>
+                        {cr.name} ({ROLE_LABELS[cr.baseRole]})
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
               </SelectContent>
             </Select>
+            <p className="text-[11px] text-muted-foreground">
+              To configure custom roles &amp; capabilities, visit Team &gt; Roles &amp; Permissions.
+            </p>
           </div>
 
           {/* Branch Access Section */}

@@ -1,6 +1,7 @@
 import { ApiError, commit, latency, tenantDb, uid } from "@/mocks/db";
 import type { TenantDb } from "@/mocks/seed";
 import { round2 } from "@/lib/pricing";
+import { readJson, storageKey, writeJson } from "@/lib/persistence";
 import { backendFetch } from "./api-client";
 import {
   createPromotionApi,
@@ -15,6 +16,7 @@ import { type Permission, ROLE_PERMISSIONS } from "@/config/permissions.config";
 import type {
   AttendanceRecord,
   Branch,
+  CustomRole,
   Customer,
   LoyaltyTier,
   Order,
@@ -380,10 +382,18 @@ function toFrontendStaff(s: any): StaffMember {
 }
 
 export async function listStaff(tenantId: string): Promise<StaffMember[]> {
+  const customRoleMap = getStaffCustomRoles(tenantId);
   try {
     const res = await backendFetch<any[]>(`/tenants/${tenantId}/staff`);
     if (Array.isArray(res)) {
-      const mapped = res.map(toFrontendStaff);
+      const mapped: StaffMember[] = res.map((s) => {
+        const item = toFrontendStaff(s);
+        const customName = customRoleMap[item.id];
+        if (customName) {
+          item.customRoleName = customName;
+        }
+        return item;
+      });
       const db = tenantDb(tenantId);
       db.staff = mapped;
       commit(tenantId);
@@ -398,13 +408,19 @@ export async function listStaff(tenantId: string): Promise<StaffMember[]> {
   }
 
   await latency();
-  return tenantDb(tenantId).staff;
+  return tenantDb(tenantId).staff.map((s): StaffMember => {
+    const customName = customRoleMap[s.id];
+    if (customName) {
+      return { ...s, customRoleName: customName };
+    }
+    return s;
+  });
 }
 
 export type StaffInput = Omit<StaffMember, "id" | "tenantId" | "userId"> & {
   id?: string | undefined;
-  status?: StaffStatus;
-  sendInvite?: boolean;
+  status?: StaffStatus | undefined;
+  sendInvite?: boolean | undefined;
 };
 
 export async function saveStaff(tenantId: string, input: StaffInput): Promise<StaffMember> {
@@ -451,6 +467,12 @@ export async function saveStaff(tenantId: string, input: StaffInput): Promise<St
 
     if (backendRes && backendRes.id) {
       const saved = toFrontendStaff(backendRes);
+      if (input.customRoleName) {
+        setStaffCustomRole(tenantId, saved.id, input.customRoleName);
+        saved.customRoleName = input.customRoleName;
+      } else if (input.id) {
+        setStaffCustomRole(tenantId, saved.id, undefined);
+      }
       const idx = db.staff.findIndex((s) => s.id === saved.id);
       if (idx >= 0) {
         db.staff[idx] = saved;
@@ -476,11 +498,22 @@ export async function saveStaff(tenantId: string, input: StaffInput): Promise<St
   const data = { ...rest, name, email: input.email.trim(), phone: input.phone.trim() };
   if (existing) {
     Object.assign(existing, data);
+    if (input.customRoleName) {
+      setStaffCustomRole(tenantId, existing.id, input.customRoleName);
+      existing.customRoleName = input.customRoleName;
+    } else {
+      setStaffCustomRole(tenantId, existing.id, undefined);
+      delete existing.customRoleName;
+    }
     for (const s of db.shifts) if (s.staffId === existing.id) s.staffName = existing.name;
     commit(tenantId);
     return existing;
   }
   const s: StaffMember = { id: uid("stf"), tenantId, userId: null, ...data };
+  if (input.customRoleName) {
+    setStaffCustomRole(tenantId, s.id, input.customRoleName);
+    s.customRoleName = input.customRoleName;
+  }
   db.staff.push(s);
   commit(tenantId);
   return s;
@@ -495,6 +528,8 @@ export async function deleteStaff(tenantId: string, id: string): Promise<{ succe
       throw new ApiError(409, "The restaurant must keep at least one active owner.");
     }
   }
+
+  setStaffCustomRole(tenantId, id, undefined);
 
   try {
     const res = await backendFetch<{ success?: boolean; message?: string }>(`/tenants/${tenantId}/staff/${id}`, {
@@ -1099,5 +1134,85 @@ export async function updateRolePermissionsApi(
     }
     throw err;
   }
+}
+
+// ---------- Tenant Custom Roles Management ----------
+export function getCustomRoles(tenantSlug: string): CustomRole[] {
+  const roles = readJson<CustomRole[]>(storageKey("custom-roles", tenantSlug));
+  return Array.isArray(roles) ? roles : [];
+}
+
+export function saveCustomRole(
+  tenantSlug: string,
+  roleInput: Omit<CustomRole, "id" | "isCustom" | "createdAt"> & { id?: string }
+): CustomRole {
+  const roles = getCustomRoles(tenantSlug);
+  const now = new Date().toISOString();
+  if (roleInput.id) {
+    const idx = roles.findIndex((r) => r.id === roleInput.id);
+    const existing = idx >= 0 ? roles[idx] : undefined;
+    if (existing) {
+      const updated: CustomRole = {
+        id: existing.id,
+        isCustom: true,
+        createdAt: existing.createdAt,
+        name: roleInput.name,
+        baseRole: roleInput.baseRole,
+        permissions: roleInput.permissions,
+        description: roleInput.description,
+        color: roleInput.color,
+      };
+      roles[idx] = updated;
+      writeJson(storageKey("custom-roles", tenantSlug), roles);
+      return updated;
+    }
+  }
+  const newRole: CustomRole = {
+    id: `crole_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    name: roleInput.name.trim(),
+    description: roleInput.description?.trim(),
+    color: roleInput.color || "purple",
+    baseRole: roleInput.baseRole,
+    permissions: Array.isArray(roleInput.permissions) ? roleInput.permissions : [],
+    isCustom: true,
+    createdAt: now,
+  };
+  roles.push(newRole);
+  writeJson(storageKey("custom-roles", tenantSlug), roles);
+  return newRole;
+}
+
+export function updateCustomRolePermissions(
+  tenantSlug: string,
+  roleId: string,
+  permissions: Permission[]
+): void {
+  const roles = getCustomRoles(tenantSlug);
+  const idx = roles.findIndex((r) => r.id === roleId);
+  const target = idx >= 0 ? roles[idx] : undefined;
+  if (target) {
+    target.permissions = permissions;
+    writeJson(storageKey("custom-roles", tenantSlug), roles);
+  }
+}
+
+export function deleteCustomRole(tenantSlug: string, roleId: string): void {
+  const roles = getCustomRoles(tenantSlug);
+  const filtered = roles.filter((r) => r.id !== roleId);
+  writeJson(storageKey("custom-roles", tenantSlug), filtered);
+}
+
+export function getStaffCustomRoles(tenantSlug: string): Record<string, string> {
+  return readJson<Record<string, string>>(storageKey("staff-custom-roles", tenantSlug)) || {};
+}
+
+export function setStaffCustomRole(tenantSlug: string, staffId: string, customRoleName?: string): void {
+  const map = getStaffCustomRoles(tenantSlug);
+  if (customRoleName) {
+    map[staffId] = customRoleName;
+  } else {
+    delete map[staffId];
+  }
+  writeJson(storageKey("staff-custom-roles", tenantSlug), map);
 }
 

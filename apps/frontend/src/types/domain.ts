@@ -467,6 +467,17 @@ export interface Expense {
 
 export type StaffStatus = "active" | "invited" | "draft" | "inactive";
 
+export interface CustomRole {
+  id: string;
+  name: string;
+  description?: string | undefined;
+  color?: string | undefined;
+  baseRole: RoleId;
+  permissions: string[];
+  isCustom: true;
+  createdAt: string;
+}
+
 export interface StaffMember {
   id: string;
   tenantId: string;
@@ -475,14 +486,15 @@ export interface StaffMember {
   email: string;
   phone: string;
   role: RoleId;
+  customRoleName?: string | undefined;
   branchIds: string[] | "all";
   hourlyRate: number;
   active: boolean;
-  status?: StaffStatus;
+  status?: StaffStatus | undefined;
   inviteToken?: string | null;
   invitedAt?: string | null;
   inviteUrl?: string | null;
-  emailSent?: boolean;
+  emailSent?: boolean | undefined;
 }
 
 export interface Shift {
