@@ -481,6 +481,8 @@ export interface StaffMember {
   status?: StaffStatus;
   inviteToken?: string | null;
   invitedAt?: string | null;
+  inviteUrl?: string | null;
+  emailSent?: boolean;
 }
 
 export interface Shift {

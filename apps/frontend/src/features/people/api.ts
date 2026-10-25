@@ -51,7 +51,7 @@ export const peopleApi = api3.injectEndpoints({
     staff: b.query<StaffMember[], string>({ queryFn: (t) => run(() => people.listStaff(t)), providesTags: ["Staff"] }),
     saveStaff: b.mutation<StaffMember, T<people.StaffInput>>({ queryFn: ({ tenantId, ...i }) => run(() => people.saveStaff(tenantId, i)), invalidatesTags: ["Staff", "Shift"] }),
     deleteStaff: b.mutation<{ success: boolean; message: string }, T<{ id: string }>>({ queryFn: ({ tenantId, id }) => run(() => people.deleteStaff(tenantId, id)), invalidatesTags: ["Staff", "Shift"] }),
-    reinviteStaff: b.mutation<{ success: boolean; message: string; inviteToken?: string }, T<{ id: string }>>({ queryFn: ({ tenantId, id }) => run(() => people.reinviteStaff(tenantId, id)), invalidatesTags: ["Staff"] }),
+    reinviteStaff: b.mutation<{ success: boolean; message: string; inviteToken?: string; inviteUrl?: string; emailSent?: boolean }, T<{ id: string }>>({ queryFn: ({ tenantId, id }) => run(() => people.reinviteStaff(tenantId, id)), invalidatesTags: ["Staff"] }),
     shifts: b.query<Shift[], T<{ branchId: string }>>({ queryFn: ({ tenantId, branchId }) => run(() => people.listShifts(tenantId, branchId)), providesTags: ["Shift"] }),
     saveShift: b.mutation<Shift, T<people.ShiftInput>>({ queryFn: ({ tenantId, ...i }) => run(() => people.saveShift(tenantId, i)), invalidatesTags: ["Shift"] }),
     deleteShift: b.mutation<{ ok: true }, T<{ id: string }>>({ queryFn: ({ tenantId, id }) => run(() => people.deleteShift(tenantId, id)), invalidatesTags: ["Shift"] }),

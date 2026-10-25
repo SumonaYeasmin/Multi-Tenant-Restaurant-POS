@@ -369,6 +369,8 @@ function toFrontendStaff(s: any): StaffMember {
     status,
     inviteToken: s.inviteToken ?? null,
     invitedAt: s.invitedAt ?? null,
+    inviteUrl: s.inviteUrl || (s.inviteToken && typeof window !== "undefined" ? `${window.location.origin}/invite?token=${s.inviteToken}` : null),
+    emailSent: s.emailSent ?? undefined,
   };
 }
 
@@ -517,7 +519,10 @@ export async function deleteStaff(tenantId: string, id: string): Promise<{ succe
   return { success: true, message: "Staff member removed successfully" };
 }
 
-export async function reinviteStaff(tenantId: string, staffId: string): Promise<{ success: boolean; message: string; inviteToken?: string }> {
+export async function reinviteStaff(
+  tenantId: string,
+  staffId: string
+): Promise<{ success: boolean; message: string; inviteToken?: string; inviteUrl?: string; emailSent?: boolean }> {
   try {
     const res = await backendFetch<any>(`/tenants/${tenantId}/staff/${staffId}/invite`, {
       method: "POST",
@@ -533,6 +538,8 @@ export async function reinviteStaff(tenantId: string, staffId: string): Promise<
       success: true,
       message: res?.message || "Invitation sent successfully",
       inviteToken: res?.inviteToken,
+      inviteUrl: res?.inviteUrl,
+      emailSent: res?.emailSent,
     };
   } catch (err) {
     if (err instanceof ApiError && (err.status === 503 || err.status === 404)) {
@@ -550,8 +557,10 @@ export async function reinviteStaff(tenantId: string, staffId: string): Promise<
   s.active = false;
   s.invitedAt = new Date().toISOString();
   s.inviteToken = uid("inv");
+  const inviteUrl = typeof window !== "undefined" ? `${window.location.origin}/invite?token=${s.inviteToken}` : `/invite?token=${s.inviteToken}`;
+  s.inviteUrl = inviteUrl;
   commit(tenantId);
-  return { success: true, message: `Invitation sent to ${s.email || s.name}` };
+  return { success: true, message: `Invitation created for ${s.email || s.name}`, inviteToken: s.inviteToken, inviteUrl };
 }
 
 export interface InviteDetails {

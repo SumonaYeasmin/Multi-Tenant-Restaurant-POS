@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Building2, Loader2, Mail, Pencil, Plus, Send, Trash2 } from "lucide-react";
+import { Building2, Copy, Loader2, Mail, Pencil, Plus, Send, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { RequirePermission } from "@/features/tenant/require-permission";
 import { useTenant } from "@/features/tenant/tenant-context";
 import { useMoney } from "@/features/tenant/use-money";
@@ -46,6 +47,14 @@ function Staff() {
   const bName = (id: string) => branches.find((b) => b.id === id)?.name ?? id;
   const canEdit = can("staff.manage");
 
+  const copyInviteLink = (tokenOrUrl: string) => {
+    const url = tokenOrUrl.startsWith("http")
+      ? tokenOrUrl
+      : `${window.location.origin}/invite?token=${tokenOrUrl}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Invitation link copied to clipboard!");
+  };
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -71,13 +80,29 @@ function Staff() {
                 {s.status === "invited" ? (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Badge variant="warning">Invited</Badge>
+                    {s.inviteToken && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-1.5 text-[11px] gap-1 text-primary hover:text-primary"
+                        title="Copy invitation link"
+                        onClick={() => copyInviteLink(s.inviteUrl || s.inviteToken!)}
+                      >
+                        <Copy className="size-3" /> Copy link
+                      </Button>
+                    )}
                     {canEdit && s.email && (
                       <Button
                         size="sm"
                         variant="outline"
                         className="h-6 px-1.5 text-[11px] gap-1"
                         title="Resend invitation link"
-                        onClick={() => withToast(reinvite({ tenantId: tenant.id, id: s.id }), "Invitation resent")}
+                        onClick={async () => {
+                          const res = await withToast(reinvite({ tenantId: tenant.id, id: s.id }), "Invitation resent");
+                          if (res?.inviteUrl) {
+                            toast.info("Invite URL available. Click 'Copy link' to copy it.");
+                          }
+                        }}
                       >
                         <Send className="size-3" /> Re-invite
                       </Button>
@@ -92,7 +117,12 @@ function Staff() {
                         variant="outline"
                         className="h-6 px-1.5 text-[11px] gap-1"
                         title="Send invitation link"
-                        onClick={() => withToast(reinvite({ tenantId: tenant.id, id: s.id }), "Invitation sent")}
+                        onClick={async () => {
+                          const res = await withToast(reinvite({ tenantId: tenant.id, id: s.id }), "Invitation sent");
+                          if (res?.inviteUrl) {
+                            toast.info("Invitation created! Click 'Copy link' to copy it.");
+                          }
+                        }}
                       >
                         <Mail className="size-3" /> Send invite
                       </Button>
@@ -199,7 +229,13 @@ function StaffDialog({ s, onClose }: { s: StaffMember | null; onClose: () => voi
       sendInvite: statusOverride === "draft" ? false : true,
     };
     const toastMsg = statusOverride === "draft" ? "Saved as draft" : v.email.trim() && !s ? "Staff invited" : "Staff saved";
-    if (await withToast(save(input), toastMsg)) onClose();
+    const res = await withToast(save(input), toastMsg);
+    if (res) {
+      if (res.inviteUrl) {
+        toast.info("Invite URL available in staff list via 'Copy link' button.");
+      }
+      onClose();
+    }
   };
 
   return (

@@ -43,7 +43,7 @@ export class StaffService {
     restaurantName: string,
     role: string,
     inviteToken: string,
-  ) {
+  ): Promise<{ sent: boolean; inviteUrl: string; isPlaceholder?: boolean; error?: string }> {
     const inviteUrl = `http://localhost:5173/invite?token=${inviteToken}`;
     const subject = `You're invited to join ${restaurantName} on Tablewise POS`;
     const content = `
@@ -67,8 +67,13 @@ export class StaffService {
     `;
 
     const html = baseEmailTemplate(`Team Invitation - ${restaurantName}`, content);
-    await this.emailService.sendEmail(to, subject, html);
-    this.logger.log(`[STAFF_INVITE] Invitation email sent to ${to}. URL: ${inviteUrl}`);
+    const result = await this.emailService.sendEmail(to, subject, html);
+    if (result.success) {
+      this.logger.log(`[STAFF_INVITE] Invitation email delivered via SMTP to ${to}. URL: ${inviteUrl}`);
+    } else {
+      this.logger.warn(`[STAFF_INVITE] Email delivery skipped or failed (${result.error || 'SMTP placeholder'}). Invitation URL: ${inviteUrl}`);
+    }
+    return { sent: result.success, inviteUrl, isPlaceholder: result.isPlaceholder, error: result.error };
   }
 
   async createStaff(tenantSlug: string, dto: CreateStaffDto) {
@@ -133,8 +138,9 @@ export class StaffService {
     });
 
     // 5. Send email if invited
+    let emailResult: { sent: boolean; inviteUrl: string; isPlaceholder?: boolean; error?: string } | null = null;
     if (inviteToken && staff.email) {
-      await this.sendInvitationEmail(
+      emailResult = await this.sendInvitationEmail(
         staff.email,
         staff.name,
         tenant.name,
@@ -143,7 +149,11 @@ export class StaffService {
       );
     }
 
-    return staff;
+    return {
+      ...staff,
+      inviteUrl: emailResult?.inviteUrl || (inviteToken ? `http://localhost:5173/invite?token=${inviteToken}` : null),
+      emailSent: emailResult?.sent || false,
+    };
   }
 
   async getStaffList(tenantSlug: string) {
@@ -327,7 +337,7 @@ export class StaffService {
       },
     });
 
-    await this.sendInvitationEmail(
+    const emailResult = await this.sendInvitationEmail(
       staff.email,
       staff.name,
       tenant.name,
@@ -337,8 +347,12 @@ export class StaffService {
 
     return {
       success: true,
-      message: `Invitation sent to ${staff.email}`,
+      message: emailResult.sent
+        ? `Invitation email sent to ${staff.email}`
+        : `Invitation created! URL: ${emailResult.inviteUrl}`,
       inviteToken,
+      inviteUrl: emailResult.inviteUrl,
+      emailSent: emailResult.sent,
       staff: updated,
     };
   }
