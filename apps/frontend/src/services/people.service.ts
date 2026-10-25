@@ -297,6 +297,50 @@ export async function setReservationStatus(tenantId: string, id: string, status:
   return r;
 }
 
+export async function deleteReservation(tenantId: string, id: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const backendRes = await backendFetch<{ success?: boolean; message?: string }>(`/tenants/${tenantId}/reservations/${id}`, {
+      method: "DELETE",
+    });
+
+    const db = tenantDb(tenantId);
+    const target = db.reservations.find((r) => r.id === id);
+    if (target?.tableId) {
+      const t = db.tables.find((x) => x.id === target.tableId);
+      if (t && t.status === "reserved") t.status = "available";
+    }
+    db.reservations = db.reservations.filter((r) => r.id !== id);
+    commit(tenantId);
+
+    return {
+      success: true,
+      message: backendRes?.message || "Reservation deleted successfully",
+    };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for deleting reservation, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
+  // Fallback to local DB
+  await latency();
+  const db = tenantDb(tenantId);
+  const idx = db.reservations.findIndex((x) => x.id === id);
+  const r = db.reservations[idx];
+  if (idx < 0 || !r) throw new ApiError(404, "Reservation not found.");
+  if (r.status === "seated") throw new ApiError(409, "Cannot delete an active seated reservation.");
+
+  if (r.tableId) {
+    const t = db.tables.find((x) => x.id === r.tableId);
+    if (t && t.status === "reserved") t.status = "available";
+  }
+  db.reservations.splice(idx, 1);
+  commit(tenantId);
+  return { success: true, message: "Reservation deleted successfully" };
+}
+
 // ---------- Staff ----------
 export async function listStaff(tenantId: string): Promise<StaffMember[]> {
   await latency();

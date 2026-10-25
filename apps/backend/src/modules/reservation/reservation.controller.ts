@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -318,5 +319,51 @@ export class ReservationController {
       reservation,
       'Reservation updated successfully',
     );
+  }
+
+  @Delete(':tenantSlug/reservations/:reservationId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.RESERVATIONS_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Soft delete a reservation',
+    description:
+      'Soft deletes a table reservation by setting isDeleted to true and releases any reserved dining table occupancy.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'reservationId',
+    example: 'uuid',
+    description: 'Reservation ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reservation deleted successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Reservation or restaurant not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Cannot delete an active seated reservation',
+  })
+  async deleteReservation(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('reservationId') reservationId: string,
+  ) {
+    const result = await this.reservationService.deleteReservation(
+      tenantSlug,
+      reservationId,
+    );
+    return ResponseHelper.success(result, 'Reservation deleted successfully');
   }
 }

@@ -115,6 +115,7 @@ export class ReservationService {
         where: {
           tenantId: tenant.id,
           tableId: table.id,
+          isDeleted: false,
           status: {
             in: [ReservationStatus.BOOKED, ReservationStatus.SEATED],
           },
@@ -193,6 +194,7 @@ export class ReservationService {
 
     const where: Prisma.ReservationWhereInput = {
       tenantId: tenant.id,
+      isDeleted: false,
     };
 
     if (query.branchId) {
@@ -290,6 +292,7 @@ export class ReservationService {
       where: {
         id: reservationId,
         tenantId: tenant.id,
+        isDeleted: false,
       },
       include: {
         table: {
@@ -456,6 +459,7 @@ export class ReservationService {
       where: {
         id: reservationId,
         tenantId: tenant.id,
+        isDeleted: false,
       },
       include: {
         table: true,
@@ -614,6 +618,7 @@ export class ReservationService {
       where: {
         id: reservationId,
         tenantId: tenant.id,
+        isDeleted: false,
       },
     });
 
@@ -623,6 +628,21 @@ export class ReservationService {
 
     if (reservation.status !== ReservationStatus.BOOKED) {
       throw new ConflictException('Only booked reservations can be edited.');
+    }
+
+    let targetBranchId = reservation.branchId;
+    if (dto.branchId && dto.branchId !== reservation.branchId) {
+      const branch = await this.prisma.branch.findFirst({
+        where: {
+          tenantId: tenant.id,
+          isActive: true,
+          OR: [{ id: dto.branchId }, { name: dto.branchId }],
+        },
+      });
+      if (!branch) {
+        throw new NotFoundException('Branch');
+      }
+      targetBranchId = branch.id;
     }
 
     const customerName = dto.customerName?.trim() ?? reservation.customerName;
@@ -667,6 +687,7 @@ export class ReservationService {
           where: {
             tenantId: tenant.id,
             tableId: table.id,
+            isDeleted: false,
             id: { not: reservation.id },
             status: {
               in: [ReservationStatus.BOOKED, ReservationStatus.SEATED],
@@ -694,6 +715,53 @@ export class ReservationService {
         assignedTableId = null;
         assignedTableName = null;
       }
+    } else if (assignedTableId && (dto.at || dto.durationMin || dto.partySize)) {
+      // Table was not changed, but timing or party size changed: check capacity & collision on existing table
+      const table = await this.prisma.diningTable.findFirst({
+        where: {
+          id: assignedTableId,
+          tenantId: tenant.id,
+          isDeleted: false,
+        },
+      });
+
+      if (table) {
+        if (table.seats < partySize) {
+          throw new BadRequestException(
+            `${table.name} seats only ${table.seats}.`,
+          );
+        }
+
+        const reqStart = bookingDate.getTime();
+        const reqEnd = reqStart + durationMin * 60000;
+        const maxLookbackMs = 8 * 60 * 60 * 1000;
+
+        const candidates = await this.prisma.reservation.findMany({
+          where: {
+            tenantId: tenant.id,
+            tableId: table.id,
+            isDeleted: false,
+            id: { not: reservation.id },
+            status: {
+              in: [ReservationStatus.BOOKED, ReservationStatus.SEATED],
+            },
+            at: {
+              gte: new Date(reqStart - maxLookbackMs),
+              lte: new Date(reqEnd),
+            },
+          },
+        });
+
+        for (const existing of candidates) {
+          const existStart = existing.at.getTime();
+          const existEnd = existStart + existing.durationMin * 60000;
+          if (reqStart < existEnd && existStart < reqEnd) {
+            throw new ConflictException(
+              `${table.name} is already booked for ${existing.customerName} at that time.`,
+            );
+          }
+        }
+      }
     }
 
     return this.prisma.reservation.update({
@@ -704,6 +772,7 @@ export class ReservationService {
         partySize,
         at: bookingDate,
         durationMin,
+        branchId: targetBranchId,
         tableId: assignedTableId,
         tableName: assignedTableName,
         notes,
@@ -725,6 +794,85 @@ export class ReservationService {
           },
         },
       },
+    });
+  }
+
+  /**
+   * Soft delete a reservation (sets isDeleted: true, deletedAt: now)
+   */
+  async deleteReservation(tenantSlug: string, reservationId: string) {
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Restaurant');
+    }
+
+    const reservation = await this.prisma.reservation.findFirst({
+      where: {
+        id: reservationId,
+        tenantId: tenant.id,
+        isDeleted: false,
+      },
+    });
+
+    if (!reservation) {
+      throw new NotFoundException('Reservation');
+    }
+
+    if (reservation.status === ReservationStatus.SEATED) {
+      throw new ConflictException(
+        'Cannot delete a reservation that is currently seated. Please complete or cancel the dining session first.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // If reservation had an assigned table, check if we need to release table status
+      if (reservation.tableId) {
+        const table = await tx.diningTable.findFirst({
+          where: {
+            id: reservation.tableId,
+            tenantId: tenant.id,
+            isDeleted: false,
+          },
+        });
+
+        if (table && table.status === TableStatus.RESERVED) {
+          // Check if there are other active reservations holding this table
+          const otherActive = await tx.reservation.findFirst({
+            where: {
+              tenantId: tenant.id,
+              tableId: table.id,
+              id: { not: reservation.id },
+              isDeleted: false,
+              status: ReservationStatus.BOOKED,
+            },
+          });
+
+          if (!otherActive) {
+            await tx.diningTable.update({
+              where: { id: table.id },
+              data: { status: TableStatus.AVAILABLE },
+            });
+          }
+        }
+      }
+
+      await tx.reservation.update({
+        where: { id: reservation.id },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Reservation deleted successfully',
+      };
     });
   }
 }

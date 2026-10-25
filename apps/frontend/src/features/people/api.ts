@@ -20,8 +20,9 @@ export const peopleApi = api3.injectEndpoints({
 
     // ---- Reservations ----
     reservations: b.query<Reservation[], T<{ branchId: string }>>({ queryFn: ({ tenantId, branchId }) => run(() => people.listReservations(tenantId, branchId)), providesTags: ["Reservation"] }),
-    saveReservation: b.mutation<Reservation, T<people.ReservationInput>>({ queryFn: ({ tenantId, ...i }) => run(() => people.saveReservation(tenantId, i)), invalidatesTags: ["Reservation"] }),
+    saveReservation: b.mutation<Reservation, T<people.ReservationInput>>({ queryFn: ({ tenantId, ...i }) => run(() => people.saveReservation(tenantId, i)), invalidatesTags: ["Reservation", "Table", "Dashboard"] }),
     setReservationStatus: b.mutation<Reservation, T<{ id: string; status: ReservationStatus }>>({ queryFn: ({ tenantId, id, status }) => run(() => people.setReservationStatus(tenantId, id, status)), invalidatesTags: ["Reservation", "Table", "Dashboard"] }),
+    deleteReservation: b.mutation<{ success: boolean; message: string }, T<{ id: string }>>({ queryFn: ({ tenantId, id }) => run(() => people.deleteReservation(tenantId, id)), invalidatesTags: ["Reservation", "Table", "Dashboard"] }),
 
     // ---- Delivery ----
     deliveries: b.query<Order[], T<{ branchId: string }>>({ queryFn: ({ tenantId, branchId }) => run(() => money.listDeliveries(tenantId, branchId)), providesTags: ["Delivery", { type: "Order", id: "LIST" }] }),
@@ -73,6 +74,7 @@ export const {
   useReservationsQuery,
   useSaveReservationMutation,
   useSetReservationStatusMutation,
+  useDeleteReservationMutation,
   useDeliveriesQuery,
   useRidersQuery,
   useSaveRiderMutation,
