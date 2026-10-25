@@ -691,7 +691,7 @@ export const hoursWorked = (a: AttendanceRecord, now = Date.now()) => round2(((a
 export async function listAllBranches(tenantId: string): Promise<Branch[]> {
   try {
     const backendBranches = await backendFetch<Branch[]>(`/tenants/${tenantId}/branches`);
-    if (Array.isArray(backendBranches)) {
+    if (Array.isArray(backendBranches) && backendBranches.length > 0) {
       const db = tenantDb(tenantId);
       db.branches = backendBranches.map((b) => ({
         id: b.id,
@@ -704,11 +704,7 @@ export async function listAllBranches(tenantId: string): Promise<Branch[]> {
       return db.branches;
     }
   } catch (err) {
-    if (err instanceof ApiError && err.status === 503) {
-      console.warn("Backend unavailable for branches, falling back to local DB");
-    } else {
-      throw err;
-    }
+    console.warn("Backend unavailable or unauthorized for branches, using local DB:", err);
   }
 
   await latency();
