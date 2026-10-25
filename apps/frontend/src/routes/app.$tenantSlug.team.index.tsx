@@ -8,7 +8,7 @@ import { useAllBranchesQuery, useDeleteStaffMutation, useSaveStaffMutation, useS
 import { withToast } from "@/features/tenant/use-mutation-toast";
 import { ROLE_LABELS } from "@/config/permissions.config";
 import { Confirm, DataTable, td } from "@/components/common/confirm";
-import { EmptyState, ErrorState } from "@/components/common/states";
+import { EmptyState, ErrorState, PageHeader } from "@/components/common/states";
 import { num } from "@/components/common/field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,10 +48,22 @@ function Staff() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{canEdit ? "Add staff as drafts or send email invitations. Staff receive a link to set their own password." : "Only the owner can change staff and roles."}</p>
-        {canEdit && <Button onClick={() => setEditing("new")}><Plus className="size-4" /> Add staff</Button>}
-      </div>
+      <PageHeader
+        title="Staff"
+        description={
+          canEdit
+            ? "Add staff as drafts or send email invitations. Staff receive a link to set their own password."
+            : "Only the owner can change staff and roles."
+        }
+        actions={
+          canEdit && (
+            <Button onClick={() => setEditing("new")}>
+              <Plus className="size-4" /> Add staff
+            </Button>
+          )
+        }
+      />
+
       {list.isLoading && <Skeleton className="h-48" />}
       {list.isError && <ErrorState message="Couldn't load staff." onRetry={list.refetch} />}
       {list.data && list.data.length === 0 && <EmptyState title="No staff yet" />}

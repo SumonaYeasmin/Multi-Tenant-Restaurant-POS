@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { Check, Minus, Search, Shield, ShieldCheck, Users } from "lucide-react";
 import { RequirePermission } from "@/features/tenant/require-permission";
 import { PERMISSION_LABELS, ROLE_LABELS, ROLE_PERMISSIONS, type Permission } from "@/config/permissions.config";
+import { PageHeader } from "@/components/common/states";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { RoleId } from "@/types/domain";
@@ -91,13 +92,10 @@ function Roles() {
 
   return (
     <div className="space-y-6">
-      {/* Header Description */}
-      <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold tracking-tight">Roles & Permissions Matrix</h2>
-        <p className="text-sm text-muted-foreground">
-          Define access control across your restaurant. Every screen, button, and action checks these capabilities before granting access.
-        </p>
-      </div>
+      <PageHeader
+        title="Roles & permissions"
+        description="Define access control across your restaurant. Every screen, button, and action checks these capabilities before granting access."
+      />
 
       {/* Role Summary Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">

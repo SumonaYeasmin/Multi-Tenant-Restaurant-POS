@@ -12,9 +12,8 @@ export type SubNavTo =
   | "/app/$tenantSlug/inventory/stock-counts"
   | "/app/$tenantSlug/finance"
   | "/app/$tenantSlug/finance/cash"
-  | "/app/$tenantSlug/finance/expenses"
-  | "/app/$tenantSlug/team"
-  | "/app/$tenantSlug/team/roles";
+  | "/app/$tenantSlug/finance/expenses";
+
 
 /** Tab-style links between sibling pages of one module. */
 export function SubNav({ items }: { items: { to: SubNavTo; label: string; perm?: Permission }[] }) {
