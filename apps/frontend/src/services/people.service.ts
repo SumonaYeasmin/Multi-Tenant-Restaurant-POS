@@ -462,6 +462,44 @@ export async function saveStaff(tenantId: string, input: StaffInput): Promise<St
   return s;
 }
 
+export async function deleteStaff(tenantId: string, id: string): Promise<{ success: boolean; message: string }> {
+  const db = tenantDb(tenantId);
+  const existing = db.staff.find((s) => s.id === id);
+  if (existing?.role === "owner") {
+    const activeOwners = db.staff.filter((s) => s.role === "owner" && s.active && s.id !== id);
+    if (activeOwners.length === 0) {
+      throw new ApiError(409, "The restaurant must keep at least one active owner.");
+    }
+  }
+
+  try {
+    const res = await backendFetch<{ success?: boolean; message?: string }>(`/tenants/${tenantId}/staff/${id}`, {
+      method: "DELETE",
+    });
+
+    db.staff = db.staff.filter((s) => s.id !== id);
+    commit(tenantId);
+
+    return {
+      success: true,
+      message: res?.message || "Staff member removed successfully",
+    };
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 503 || err.status === 404)) {
+      console.warn("Backend unavailable or record not found on backend, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
+  await latency();
+  const idx = db.staff.findIndex((s) => s.id === id);
+  if (idx < 0) throw new ApiError(404, "Staff member not found.");
+  db.staff.splice(idx, 1);
+  commit(tenantId);
+  return { success: true, message: "Staff member removed successfully" };
+}
+
 // ---------- Shifts ----------
 export async function listShifts(tenantId: string, branchId: string): Promise<Shift[]> {
   await latency();

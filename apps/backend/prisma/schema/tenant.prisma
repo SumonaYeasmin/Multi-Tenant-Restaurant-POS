@@ -67,8 +67,10 @@ model StaffMember {
   phone             String?
   hourlyRate        Float    @default(0.0)
   branchIds         String[] @default([])
-  active            Boolean  @default(true)
-  customPermissions String[] @default([])
+  active            Boolean   @default(true)
+  customPermissions String[]  @default([])
+  isDeleted         Boolean   @default(false)
+  deletedAt         DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -77,6 +79,7 @@ model StaffMember {
   tenantRole TenantRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
   user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([tenantId, isDeleted])
   @@map("staff_members")
 }
 

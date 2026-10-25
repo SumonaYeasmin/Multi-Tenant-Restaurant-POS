@@ -50,6 +50,7 @@ export const peopleApi = api3.injectEndpoints({
     // ---- Staff, shifts, attendance ----
     staff: b.query<StaffMember[], string>({ queryFn: (t) => run(() => people.listStaff(t)), providesTags: ["Staff"] }),
     saveStaff: b.mutation<StaffMember, T<people.StaffInput>>({ queryFn: ({ tenantId, ...i }) => run(() => people.saveStaff(tenantId, i)), invalidatesTags: ["Staff", "Shift"] }),
+    deleteStaff: b.mutation<{ success: boolean; message: string }, T<{ id: string }>>({ queryFn: ({ tenantId, id }) => run(() => people.deleteStaff(tenantId, id)), invalidatesTags: ["Staff", "Shift"] }),
     shifts: b.query<Shift[], T<{ branchId: string }>>({ queryFn: ({ tenantId, branchId }) => run(() => people.listShifts(tenantId, branchId)), providesTags: ["Shift"] }),
     saveShift: b.mutation<Shift, T<people.ShiftInput>>({ queryFn: ({ tenantId, ...i }) => run(() => people.saveShift(tenantId, i)), invalidatesTags: ["Shift"] }),
     deleteShift: b.mutation<{ ok: true }, T<{ id: string }>>({ queryFn: ({ tenantId, id }) => run(() => people.deleteShift(tenantId, id)), invalidatesTags: ["Shift"] }),
@@ -90,6 +91,7 @@ export const {
   useDeleteExpenseMutation,
   useStaffQuery,
   useSaveStaffMutation,
+  useDeleteStaffMutation,
   useShiftsQuery,
   useSaveShiftMutation,
   useDeleteShiftMutation,

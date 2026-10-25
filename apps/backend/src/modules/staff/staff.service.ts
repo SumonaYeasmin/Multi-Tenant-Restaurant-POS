@@ -73,7 +73,7 @@ export class StaffService {
     const tenant = await this.resolveTenant(tenantSlug);
 
     return this.prisma.staffMember.findMany({
-      where: { tenantId: tenant.id },
+      where: { tenantId: tenant.id, isDeleted: false },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -85,6 +85,7 @@ export class StaffService {
       where: {
         id: staffId,
         tenantId: tenant.id,
+        isDeleted: false,
       },
     });
 
@@ -106,6 +107,7 @@ export class StaffService {
       where: {
         id: staffId,
         tenantId: tenant.id,
+        isDeleted: false,
       },
     });
 
@@ -181,6 +183,7 @@ export class StaffService {
       where: {
         id: staffId,
         tenantId: tenant.id,
+        isDeleted: false,
       },
     });
 
@@ -194,6 +197,7 @@ export class StaffService {
           tenantId: tenant.id,
           role: UserRole.OWNER,
           active: true,
+          isDeleted: false,
           id: { not: staffId },
         },
       });
@@ -204,10 +208,15 @@ export class StaffService {
       }
     }
 
-    await this.prisma.staffMember.delete({
+    await this.prisma.staffMember.update({
       where: { id: staffId },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        active: false,
+      },
     });
 
-    return { id: staffId };
+    return { id: staffId, success: true, message: 'Staff member removed successfully' };
   }
 }

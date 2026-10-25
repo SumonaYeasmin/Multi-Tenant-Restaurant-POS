@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Loader2, Pencil, Plus } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { RequirePermission } from "@/features/tenant/require-permission";
 import { useTenant } from "@/features/tenant/tenant-context";
 import { useMoney } from "@/features/tenant/use-money";
-import { useAllBranchesQuery, useSaveStaffMutation, useStaffQuery } from "@/features/people/api";
+import { useAllBranchesQuery, useDeleteStaffMutation, useSaveStaffMutation, useStaffQuery } from "@/features/people/api";
 import { withToast } from "@/features/tenant/use-mutation-toast";
 import { ROLE_LABELS } from "@/config/permissions.config";
-import { DataTable, td } from "@/components/common/confirm";
+import { Confirm, DataTable, td } from "@/components/common/confirm";
 import { EmptyState, ErrorState } from "@/components/common/states";
 import { Field, num } from "@/components/common/field";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ function Staff() {
   const money = useMoney();
   const list = useStaffQuery(tenant.id);
   const branches = useAllBranchesQuery(tenant.id);
+  const [deleteStaff] = useDeleteStaffMutation();
   const [editing, setEditing] = useState<StaffMember | "new" | null>(null);
   const bName = (id: string) => branches.data?.find((b) => b.id === id)?.name ?? id;
   const canEdit = can("staff.manage");
@@ -54,7 +55,24 @@ function Staff() {
               <td className={td}>{s.branchIds === "all" ? "All branches" : s.branchIds.map(bName).join(", ")}</td>
               <td className={td}>{s.hourlyRate ? money(s.hourlyRate) : "—"}</td>
               <td className={td}>{s.active ? <Badge variant="success">Active</Badge> : <Badge variant="muted">Inactive</Badge>}</td>
-              <td className={`${td} text-right`}>{canEdit && <Button size="icon" variant="ghost" aria-label={`Edit ${s.name}`} onClick={() => setEditing(s)}><Pencil className="size-4" /></Button>}</td>
+              <td className={`${td} text-right space-x-1 whitespace-nowrap`}>
+                {canEdit && (
+                  <>
+                    <Button size="icon" variant="ghost" aria-label={`Edit ${s.name}`} onClick={() => setEditing(s)}>
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Confirm
+                      title={`Remove ${s.name}?`}
+                      body="This will soft delete the staff member from the active directory."
+                      onConfirm={() => withToast(deleteStaff({ tenantId: tenant.id, id: s.id }), "Staff member removed")}
+                    >
+                      <Button size="icon" variant="ghost" aria-label={`Delete ${s.name}`} className="text-destructive hover:bg-destructive/10">
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </Confirm>
+                  </>
+                )}
+              </td>
             </tr>
           ))}
         </DataTable>
