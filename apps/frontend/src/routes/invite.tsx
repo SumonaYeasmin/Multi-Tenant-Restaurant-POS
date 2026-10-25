@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ROLE_LABELS } from "@/config/permissions.config";
+import { useAppDispatch } from "@/app/hooks";
+import { signedIn } from "@/features/auth/session.slice";
 import { acceptInvite, getInviteDetails, type InviteDetails } from "@/services/people.service";
 
 const inviteSearchSchema = z.object({
@@ -36,6 +38,7 @@ const schema = z.object({
 
 function InvitePage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { token } = Route.useSearch();
   const [details, setDetails] = useState<InviteDetails | null>(null);
   const [isLoading, setIsLoading] = useState(!!token);
@@ -98,7 +101,17 @@ function InvitePage() {
             setIsSubmitting(true);
             try {
               if (token) {
-                await acceptInvite({ token, password: v.password, name: v.name });
+                const res = await acceptInvite({ token, password: v.password, name: v.name });
+                if (res?.user) {
+                  dispatch(signedIn(res.user.id));
+                  toast.success(`Welcome aboard, ${v.name}! Opening your workspace...`);
+                  const targetSlug = res.tenantSlug || details?.tenantSlug || "saffron-ember";
+                  navigate({
+                    to: "/app/$tenantSlug",
+                    params: { tenantSlug: targetSlug },
+                  });
+                  return;
+                }
               }
               toast.success(`Welcome aboard, ${v.name}! Your account is now active.`);
               navigate({ to: "/login" });
@@ -109,6 +122,7 @@ function InvitePage() {
             }
           })}
         >
+
           {details?.email && (
             <div className="space-y-1.5">
               <Label>Email address</Label>

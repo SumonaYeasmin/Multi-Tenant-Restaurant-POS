@@ -44,7 +44,8 @@ export class StaffService {
     role: string,
     inviteToken: string,
   ): Promise<{ sent: boolean; inviteUrl: string; isPlaceholder?: boolean; error?: string }> {
-    const inviteUrl = `http://localhost:5173/invite?token=${inviteToken}`;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const inviteUrl = `${frontendUrl}/invite?token=${inviteToken}`;
     const subject = `You're invited to join ${restaurantName} on Tablewise POS`;
     const content = `
       <p style="font-size: 16px; margin-bottom: 20px;">Hello <strong>${name}</strong>,</p>
@@ -151,7 +152,7 @@ export class StaffService {
 
     return {
       ...staff,
-      inviteUrl: emailResult?.inviteUrl || (inviteToken ? `http://localhost:5173/invite?token=${inviteToken}` : null),
+      inviteUrl: emailResult?.inviteUrl || (inviteToken ? `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite?token=${inviteToken}` : null),
       emailSent: emailResult?.sent || false,
     };
   }
@@ -459,6 +460,12 @@ export class StaffService {
         email: user.email,
         role: user.role,
       },
+      tenant: {
+        id: staff.tenant.id,
+        name: staff.tenant.name,
+        slug: staff.tenant.slug,
+      },
     };
   }
 }
+

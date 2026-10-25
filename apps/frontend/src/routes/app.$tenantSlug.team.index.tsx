@@ -1,11 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Building2, Copy, Loader2, Mail, Pencil, Plus, Send, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { Building2, Loader2, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import { RequirePermission } from "@/features/tenant/require-permission";
 import { useTenant } from "@/features/tenant/tenant-context";
 import { useMoney } from "@/features/tenant/use-money";
-import { useAllBranchesQuery, useDeleteStaffMutation, useReinviteStaffMutation, useSaveStaffMutation, useStaffQuery } from "@/features/people/api";
+import { useAllBranchesQuery, useDeleteStaffMutation, useSaveStaffMutation, useStaffQuery } from "@/features/people/api";
 import { withToast } from "@/features/tenant/use-mutation-toast";
 import { ROLE_LABELS } from "@/config/permissions.config";
 import { Confirm, DataTable, td } from "@/components/common/confirm";
@@ -42,18 +41,10 @@ function Staff() {
     : (contextBranches && contextBranches.length > 0 ? contextBranches : []);
 
   const [deleteStaff] = useDeleteStaffMutation();
-  const [reinvite] = useReinviteStaffMutation();
   const [editing, setEditing] = useState<StaffMember | "new" | null>(null);
+
   const bName = (id: string) => branches.find((b) => b.id === id)?.name ?? id;
   const canEdit = can("staff.manage");
-
-  const copyInviteLink = (tokenOrUrl: string) => {
-    const url = tokenOrUrl.startsWith("http")
-      ? tokenOrUrl
-      : `${window.location.origin}/invite?token=${tokenOrUrl}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Invitation link copied to clipboard!");
-  };
 
   return (
     <div>
@@ -78,56 +69,9 @@ function Staff() {
               <td className={td}>{s.hourlyRate ? money(s.hourlyRate) : "—"}</td>
               <td className={td}>
                 {s.status === "invited" ? (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Badge variant="warning">Invited</Badge>
-                    {s.inviteToken && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-1.5 text-[11px] gap-1 text-primary hover:text-primary"
-                        title="Copy invitation link"
-                        onClick={() => copyInviteLink(s.inviteUrl || s.inviteToken!)}
-                      >
-                        <Copy className="size-3" /> Copy link
-                      </Button>
-                    )}
-                    {canEdit && s.email && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-1.5 text-[11px] gap-1"
-                        title="Resend invitation link"
-                        onClick={async () => {
-                          const res = await withToast(reinvite({ tenantId: tenant.id, id: s.id }), "Invitation resent");
-                          if (res?.inviteUrl) {
-                            toast.info("Invite URL available. Click 'Copy link' to copy it.");
-                          }
-                        }}
-                      >
-                        <Send className="size-3" /> Re-invite
-                      </Button>
-                    )}
-                  </div>
+                  <Badge variant="warning">Invited</Badge>
                 ) : s.status === "draft" ? (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Badge variant="muted">Draft</Badge>
-                    {canEdit && s.email && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-1.5 text-[11px] gap-1"
-                        title="Send invitation link"
-                        onClick={async () => {
-                          const res = await withToast(reinvite({ tenantId: tenant.id, id: s.id }), "Invitation sent");
-                          if (res?.inviteUrl) {
-                            toast.info("Invitation created! Click 'Copy link' to copy it.");
-                          }
-                        }}
-                      >
-                        <Mail className="size-3" /> Send invite
-                      </Button>
-                    )}
-                  </div>
+                  <Badge variant="muted">Draft</Badge>
                 ) : s.active ? (
                   <Badge variant="success">Active</Badge>
                 ) : (
@@ -228,14 +172,8 @@ function StaffDialog({ s, onClose }: { s: StaffMember | null; onClose: () => voi
       status: statusOverride ?? (s?.status || (v.email.trim() && !s ? "invited" : "active")),
       sendInvite: statusOverride === "draft" ? false : true,
     };
-    const toastMsg = statusOverride === "draft" ? "Saved as draft" : v.email.trim() && !s ? "Staff invited" : "Staff saved";
-    const res = await withToast(save(input), toastMsg);
-    if (res) {
-      if (res.inviteUrl) {
-        toast.info("Invite URL available in staff list via 'Copy link' button.");
-      }
-      onClose();
-    }
+    const toastMsg = statusOverride === "draft" ? "Saved as draft" : v.email.trim() && !s ? "Invitation email sent" : "Staff saved";
+    if (await withToast(save(input), toastMsg)) onClose();
   };
 
   return (

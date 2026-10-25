@@ -23,7 +23,10 @@ import type {
   Shift,
   StaffMember,
   StaffStatus,
+  User,
 } from "@/types/domain";
+import { registerUser } from "./platform.service";
+
 
 // Customers & loyalty, reservations, staff, shifts, attendance, branches, promotions.
 // Future REST: /tenants/:tenantId/customers, /reservations, /staff, /shifts, /attendance, /branches, /promotions
@@ -604,16 +607,65 @@ export async function getInviteDetails(token: string): Promise<InviteDetails> {
   };
 }
 
-export async function acceptInvite(data: { token: string; password: string; name?: string }): Promise<{ success: boolean; message: string }> {
+export interface AcceptInviteResponse {
+  success: boolean;
+  message: string;
+  user?: User;
+  tenantSlug?: string;
+  staff?: any;
+}
+
+export async function acceptInvite(data: {
+  token: string;
+  password: string;
+  name?: string;
+}): Promise<AcceptInviteResponse> {
   try {
     const res = await backendFetch<any>(`/auth/accept-invite`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
+
+    if (res?.tokens?.accessToken) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("pos_access_token", res.tokens.accessToken);
+        localStorage.setItem("accessToken", res.tokens.accessToken);
+      }
+    }
+
+    const role = (res?.user?.role?.toLowerCase() || res?.staff?.role?.toLowerCase() || "waiter") as RoleId;
+    const tenantId = res?.tenant?.id || "t_saffron";
+    const tenantSlug = res?.tenant?.slug || "saffron-ember";
+    const staffBranch = res?.staff?.branchId;
+
+    const userObj: User = {
+      id: res?.user?.id || `u_${Date.now()}`,
+      name: data.name?.trim() || res?.staff?.name || res?.user?.name || "Staff Member",
+      email: res?.user?.email || res?.staff?.email || "",
+      initials: (data.name || res?.staff?.name || "SM")
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase(),
+      memberships: [
+        {
+          tenantId,
+          role,
+          branchIds: staffBranch ? [staffBranch] : "all",
+        },
+      ],
+    };
+
+    registerUser(userObj);
+
     return {
       success: true,
       message: res?.message || "Invitation accepted successfully",
+      user: userObj,
+      staff: res?.staff,
+      tenantSlug,
     };
   } catch (err) {
     if (err instanceof ApiError && err.status === 503) {
@@ -624,8 +676,22 @@ export async function acceptInvite(data: { token: string; password: string; name
   }
 
   await latency();
-  return { success: true, message: "Welcome aboard! Your account is activated." };
+  const mockUser: User = {
+    id: `u_${Date.now()}`,
+    name: data.name?.trim() || "Team Member",
+    email: "staff@example.com",
+    initials: "TM",
+    memberships: [{ tenantId: "t_saffron", role: "waiter", branchIds: "all" }],
+  };
+  registerUser(mockUser);
+  return {
+    success: true,
+    message: "Welcome aboard! Your account is activated.",
+    user: mockUser,
+    tenantSlug: "saffron-ember",
+  };
 }
+
 
 // ---------- Shifts ----------
 export async function listShifts(tenantId: string, branchId: string): Promise<Shift[]> {

@@ -68,6 +68,23 @@ export class AuthController {
     @ApiResponse({ status: 200, description: 'Invitation accepted and account activated' })
     async acceptInvite(@Body() dto: AcceptInviteDto) {
         const result = await this.staffService.acceptInvite(dto);
+        try {
+            if (result.staff?.email) {
+                const loginRes = await this.authService.login({
+                    email: result.staff.email,
+                    password: dto.password,
+                });
+                return ResponseHelper.success(
+                    {
+                        ...result,
+                        tokens: loginRes.data,
+                    },
+                    result.message,
+                );
+            }
+        } catch {
+            // If auto-login fails, return the regular accept result
+        }
         return ResponseHelper.success(result, result.message);
     }
-}
+}

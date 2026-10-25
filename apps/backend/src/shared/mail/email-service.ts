@@ -16,14 +16,14 @@ export class EmailService {
   constructor(private readonly configService: ConfigService) {}
 
   private getTransporter(): { transporter: nodemailer.Transporter | null; from: string; isPlaceholder: boolean } {
-    const host = this.configService.get<string>('mail.host') || process.env.SMTP_HOST || '';
+    const clean = (val: string | undefined | null) => (val ? String(val).replace(/^["']|["']$/g, '').trim() : '');
+    const host = clean(this.configService.get<string>('mail.host') || process.env.SMTP_HOST);
     const port = Number(this.configService.get<number>('mail.port') || process.env.SMTP_PORT) || 587;
     const secure = String(this.configService.get<string>('mail.secure') || process.env.SMTP_SECURE) === 'true';
-    const user = this.configService.get<string>('mail.user') || process.env.SMTP_USER || '';
-    const pass = this.configService.get<string>('mail.pass') || process.env.SMTP_PASS || '';
+    const user = clean(this.configService.get<string>('mail.user') || process.env.SMTP_USER);
+    const pass = clean(this.configService.get<string>('mail.pass') || process.env.SMTP_PASS);
     const from =
-      this.configService.get<string>('mail.from') ||
-      process.env.SMTP_FROM ||
+      clean(this.configService.get<string>('mail.from') || process.env.SMTP_FROM) ||
       `"Tablewise POS" <${user || 'noreply@tablewise.pos'}>`;
 
     const isPlaceholder =
