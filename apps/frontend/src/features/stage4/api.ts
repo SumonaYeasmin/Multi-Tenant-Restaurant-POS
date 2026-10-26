@@ -5,6 +5,7 @@ import type {
   AuditLog,
   AuditLogQueryParams,
   AuditLogStats,
+  PaginatedAuditLogs,
   FinancialReport,
   Integration,
   InventoryReport,
@@ -41,7 +42,7 @@ export const stage4Api = apiWithTags.injectEndpoints({
     }),
 
     // ---- Audit Logs ----
-    auditLogs: b.query<AuditLog[], T<AuditLogQueryParams>>({
+    auditLogs: b.query<PaginatedAuditLogs, T<AuditLogQueryParams>>({
       queryFn: ({ tenantId, ...params }) => run(() => stage4.listAuditLogs(tenantId, params)),
       providesTags: ["Audit"],
     }),

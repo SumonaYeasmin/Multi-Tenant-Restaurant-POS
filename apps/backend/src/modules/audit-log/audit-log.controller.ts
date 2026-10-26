@@ -53,7 +53,7 @@ export class AuditLogController {
     @Query() query: GetAuditLogsQueryDto,
   ) {
     const result = await this.auditLogService.findAll(tenantSlug, query);
-    return ResponseHelper.success(result.logs, 'Audit logs retrieved successfully');
+    return ResponseHelper.success(result, 'Audit logs retrieved successfully');
   }
 
   @Post(':tenantSlug/audit-logs')

@@ -6,6 +6,7 @@ import type {
   AuditLog,
   AuditLogQueryParams,
   AuditLogStats,
+  PaginatedAuditLogs,
   FinancialReport,
   Integration,
   InventoryReport,
@@ -254,10 +255,12 @@ export async function getOperationsReport(tenantId: string, branchId?: string, r
 
 // ---------- Audit Logs ----------
 
+export type PaginatedAuditLogsResult = AuditLog[] & PaginatedAuditLogs;
+
 export async function listAuditLogs(
   tenantId: string,
   queryOrEntity?: string | AuditLogQueryParams,
-): Promise<AuditLog[]> {
+): Promise<PaginatedAuditLogsResult> {
   const query: AuditLogQueryParams =
     typeof queryOrEntity === "string"
       ? { entity: queryOrEntity }
@@ -275,12 +278,37 @@ export async function listAuditLogs(
     if (query.limit) params.append("limit", String(query.limit));
 
     const qs = params.toString() ? `?${params.toString()}` : "";
-    const res = await backendFetch<AuditLog[] | { success: boolean; data: AuditLog[] }>(
+    const res = await backendFetch<any>(
       `/tenants/${tenantId}/audit-logs${qs}`,
     );
 
-    const rawLogs = Array.isArray(res) ? res : (res as any)?.data;
+    const rawLogs = Array.isArray(res) ? res : res?.logs ?? res?.data;
     if (Array.isArray(rawLogs)) {
+      const total =
+        typeof res?.total === "number"
+          ? res.total
+          : typeof res?.meta?.total === "number"
+          ? res.meta.total
+          : rawLogs.length;
+      const page =
+        typeof res?.page === "number"
+          ? res.page
+          : typeof res?.meta?.page === "number"
+          ? res.meta.page
+          : Number(query.page) || 1;
+      const limit =
+        typeof res?.limit === "number"
+          ? res.limit
+          : typeof res?.meta?.limit === "number"
+          ? res.meta.limit
+          : Number(query.limit) || 20;
+      const totalPages =
+        typeof res?.totalPages === "number"
+          ? res.totalPages
+          : typeof res?.meta?.totalPages === "number"
+          ? res.meta.totalPages
+          : Math.ceil(total / (limit || 1)) || 1;
+
       const mapped: AuditLog[] = rawLogs.map((l: any) => ({
         id: l.id,
         tenantId: l.tenantId || tenantId,
@@ -304,7 +332,14 @@ export async function listAuditLogs(
       if (!query.entity || query.entity === "all") {
         db.auditLogs = mapped;
       }
-      return mapped;
+
+      return Object.assign(mapped, {
+        logs: mapped,
+        total,
+        page,
+        limit,
+        totalPages,
+      }) as PaginatedAuditLogsResult;
     }
   } catch (err) {
     if (!(err instanceof ApiError && err.status === 503)) {
@@ -331,7 +366,20 @@ export async function listAuditLogs(
         (l.details && l.details.toLowerCase().includes(s)),
     );
   }
-  return [...list].sort((logA, logB) => logB.createdAt.localeCompare(logA.createdAt));
+  const sorted = [...list].sort((logA, logB) => logB.createdAt.localeCompare(logA.createdAt));
+  const page = Math.max(Number(query.page) || 1, 1);
+  const limit = Math.max(Number(query.limit) || 20, 1);
+  const total = sorted.length;
+  const totalPages = Math.ceil(total / limit) || 1;
+  const paged = sorted.slice((page - 1) * limit, page * limit);
+
+  return Object.assign(paged, {
+    logs: paged,
+    total,
+    page,
+    limit,
+    totalPages,
+  }) as PaginatedAuditLogsResult;
 }
 
 export async function recordAuditLog(

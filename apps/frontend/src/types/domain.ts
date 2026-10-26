@@ -582,6 +582,14 @@ export interface AuditLogQueryParams {
   limit?: number;
 }
 
+export interface PaginatedAuditLogs {
+  logs: AuditLog[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export type IntegrationCategory = "payments" | "delivery" | "accounting" | "notifications";
 
 export interface Integration {

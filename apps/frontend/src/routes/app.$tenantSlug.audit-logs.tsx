@@ -22,6 +22,10 @@ import {
   FileText,
   User,
   Radio,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { RequirePermission } from "@/features/tenant/require-permission";
@@ -31,6 +35,7 @@ import {
   useAuditLogStatsQuery,
   useRecordAuditLogMutation,
 } from "@/features/stage4/api";
+import * as stage4 from "@/services/stage4.service";
 import { PageHeader, EmptyState, SkeletonCard } from "@/components/common/states";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -95,6 +100,10 @@ function AuditLogsPage() {
   const [dateRange, setDateRange] = useState("all");
   const [search, setSearch] = useState("");
 
+  // Server-Side Pagination States
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+
   // Inspect Modal State
   const [inspectLog, setInspectLog] = useState<AuditLog | null>(null);
 
@@ -130,9 +139,9 @@ function AuditLogsPage() {
     return undefined;
   }, [dateRange]);
 
-  // Live Query from Backend with polling
+  // Server-side paginated query from Backend
   const {
-    data: logs = [],
+    data: auditData,
     isLoading,
     isFetching,
     refetch,
@@ -144,6 +153,8 @@ function AuditLogsPage() {
       branchId: branchFilter === "all" ? undefined : branchFilter,
       search: search.trim() ? search.trim() : undefined,
       startDate,
+      page,
+      limit,
     },
     {
       pollingInterval: 15000,
@@ -151,63 +162,136 @@ function AuditLogsPage() {
     },
   );
 
+  // Normalize backend paginated response
+  const logs = useMemo(() => {
+    if (!auditData) return [];
+    if (Array.isArray(auditData.logs)) return auditData.logs;
+    if (Array.isArray(auditData)) return auditData;
+    return [];
+  }, [auditData]);
+
+  const totalRecords = auditData?.total ?? logs.length;
+  const totalPages = auditData?.totalPages ?? Math.max(1, Math.ceil(totalRecords / limit));
+  const currentPage = auditData?.page ?? page;
+
   // Backend Audit Stats Query
   const { data: stats } = useAuditLogStatsQuery(tenant.id, {
     pollingInterval: 30000,
   });
 
-  // Client-side quick search over details or actor
-  const filteredLogs = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return logs;
-    return logs.filter(
-      (l) =>
-        l.summary.toLowerCase().includes(q) ||
-        l.actorName.toLowerCase().includes(q) ||
-        (l.details && l.details.toLowerCase().includes(q)) ||
-        (l.entityId && l.entityId.toLowerCase().includes(q)) ||
-        (l.ipAddress && l.ipAddress.toLowerCase().includes(q)),
-    );
-  }, [logs, search]);
+  // Filter change handlers that automatically reset to page 1
+  const handleEntityFilterChange = (val: string) => {
+    setEntityFilter(val);
+    setPage(1);
+  };
 
-  // Export to CSV
-  const handleExportCSV = () => {
-    if (!filteredLogs.length) {
-      toast.error("No audit logs to export");
-      return;
+  const handleActionFilterChange = (val: string) => {
+    setActionFilter(val);
+    setPage(1);
+  };
+
+  const handleBranchFilterChange = (val: string) => {
+    setBranchFilter(val);
+    setPage(1);
+  };
+
+  const handleDateRangeChange = (val: string) => {
+    setDateRange(val);
+    setPage(1);
+  };
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setPage(1);
+  };
+
+  const resetFilters = () => {
+    setEntityFilter("all");
+    setActionFilter("all");
+    setBranchFilter("all");
+    setDateRange("all");
+    setSearch("");
+    setPage(1);
+  };
+
+  const hasActiveFilters =
+    entityFilter !== "all" ||
+    actionFilter !== "all" ||
+    branchFilter !== "all" ||
+    dateRange !== "all" ||
+    search.trim() !== "";
+
+  // Page numbers for pagination control
+  const pageNumbers = useMemo(() => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, "...", totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages);
+      }
     }
-    const headers = [
-      "Timestamp",
-      "Actor Name",
-      "Actor Role",
-      "Action",
-      "Entity",
-      "Entity ID",
-      "Summary",
-      "Details",
-      "IP Address",
-    ];
-    const rows = filteredLogs.map((log) => [
-      `"${new Date(log.createdAt).toISOString()}"`,
-      `"${log.actorName || ""}"`,
-      `"${log.actorRole || ""}"`,
-      `"${log.action || ""}"`,
-      `"${log.entity || ""}"`,
-      `"${log.entityId || ""}"`,
-      `"${(log.summary || "").replace(/"/g, '""')}"`,
-      `"${(log.details || "").replace(/"/g, '""')}"`,
-      `"${log.ipAddress || ""}"`,
-    ]);
+    return pages;
+  }, [currentPage, totalPages]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `audit-trail-${tenant.slug}-${format(new Date(), "yyyy-MM-dd")}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Audit log trail exported to CSV");
+  // Export up to 1000 filtered records to CSV
+  const handleExportCSV = async () => {
+    try {
+      toast.info("Preparing full audit log export...");
+      const fullTrail = await stage4.listAuditLogs(tenant.id, {
+        entity: entityFilter === "all" ? undefined : entityFilter,
+        action: actionFilter === "all" ? undefined : actionFilter,
+        branchId: branchFilter === "all" ? undefined : branchFilter,
+        search: search.trim() ? search.trim() : undefined,
+        startDate,
+        page: 1,
+        limit: 1000,
+      });
+
+      const exportList = fullTrail.logs ?? (Array.isArray(fullTrail) ? fullTrail : []);
+      if (!exportList.length) {
+        toast.error("No audit logs to export");
+        return;
+      }
+      const headers = [
+        "Timestamp",
+        "Actor Name",
+        "Actor Role",
+        "Action",
+        "Entity",
+        "Entity ID",
+        "Summary",
+        "Details",
+        "IP Address",
+      ];
+      const rows = exportList.map((log) => [
+        `"${new Date(log.createdAt).toISOString()}"`,
+        `"${log.actorName || ""}"`,
+        `"${log.actorRole || ""}"`,
+        `"${log.action || ""}"`,
+        `"${log.entity || ""}"`,
+        `"${log.entityId || ""}"`,
+        `"${(log.summary || "").replace(/"/g, '""')}"`,
+        `"${(log.details || "").replace(/"/g, '""')}"`,
+        `"${log.ipAddress || ""}"`,
+      ]);
+
+      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `audit-trail-${tenant.slug}-${format(new Date(), "yyyy-MM-dd")}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`Exported ${exportList.length} audit logs to CSV`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to export audit logs");
+    }
   };
 
   // Submit manual audit note
@@ -232,7 +316,7 @@ function AuditLogsPage() {
         branchId: newLog.branchId === "all" ? undefined : newLog.branchId,
       }).unwrap();
 
-      toast.success("Audit entry recorded to immutable audit trail");
+      toast.success("Audit entry recorded to permanent audit trail");
       setCreateOpen(false);
       setNewLog({
         action: "update",
@@ -242,25 +326,11 @@ function AuditLogsPage() {
         details: "",
         branchId: "all",
       });
+      setPage(1);
       refetch();
     } catch (err: any) {
       toast.error(err?.message || "Failed to record audit log");
     }
-  };
-
-  const hasActiveFilters =
-    entityFilter !== "all" ||
-    actionFilter !== "all" ||
-    branchFilter !== "all" ||
-    dateRange !== "all" ||
-    search.trim() !== "";
-
-  const resetFilters = () => {
-    setEntityFilter("all");
-    setActionFilter("all");
-    setBranchFilter("all");
-    setDateRange("all");
-    setSearch("");
   };
 
   return (
@@ -272,11 +342,11 @@ function AuditLogsPage() {
             <h1 className="text-2xl font-bold tracking-tight">Audit Logs & Security Trail</h1>
             <Badge variant="outline" className="gap-1.5 py-0.5 px-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live Backend API
+              Backend Paginated API
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Tamper-evident operational audit trail tracking order voids, inventory changes, role updates, and system events.
+            Tamper-evident operational audit trail tracking order voids, inventory changes, role updates, and system events. Latest updates are displayed first.
           </p>
         </div>
 
@@ -296,7 +366,7 @@ function AuditLogsPage() {
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
-            disabled={filteredLogs.length === 0}
+            disabled={totalRecords === 0}
             className="gap-2"
           >
             <Download className="size-3.5" />
@@ -324,7 +394,7 @@ function AuditLogsPage() {
             <History className="size-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.total ?? logs.length}</div>
+            <div className="text-2xl font-bold">{stats?.total ?? totalRecords}</div>
             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
               <CheckCircle2 className="size-3 text-emerald-500" />
               Immutable database records
@@ -367,14 +437,14 @@ function AuditLogsPage() {
         <Card className="border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Active Filters Match
+              Filtered Records
             </CardTitle>
             <Layers className="size-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{filteredLogs.length}</div>
+            <div className="text-2xl font-bold">{totalRecords}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {hasActiveFilters ? "Filtered results currently viewed" : "All records currently displayed"}
+              Page {currentPage} of {totalPages} ({limit} per page)
             </p>
           </CardContent>
         </Card>
@@ -390,13 +460,13 @@ function AuditLogsPage() {
               <Input
                 placeholder="Search audit trail by summary, details, actor, or ID..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-9"
               />
               {search && (
                 <button
                   type="button"
-                  onClick={() => setSearch("")}
+                  onClick={() => handleSearchChange("")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="size-3.5" />
@@ -406,7 +476,7 @@ function AuditLogsPage() {
 
             {/* Entity Filter */}
             <div className="w-[160px]">
-              <Select value={entityFilter} onValueChange={setEntityFilter}>
+              <Select value={entityFilter} onValueChange={handleEntityFilterChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Entities" />
                 </SelectTrigger>
@@ -426,7 +496,7 @@ function AuditLogsPage() {
 
             {/* Action Filter */}
             <div className="w-[150px]">
-              <Select value={actionFilter} onValueChange={setActionFilter}>
+              <Select value={actionFilter} onValueChange={handleActionFilterChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Actions" />
                 </SelectTrigger>
@@ -447,7 +517,7 @@ function AuditLogsPage() {
             {/* Branch Filter if multi-branch */}
             {branches && branches.length > 0 && (
               <div className="w-[160px]">
-                <Select value={branchFilter} onValueChange={setBranchFilter}>
+                <Select value={branchFilter} onValueChange={handleBranchFilterChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="All Branches" />
                   </SelectTrigger>
@@ -465,7 +535,7 @@ function AuditLogsPage() {
 
             {/* Date Range Filter */}
             <div className="w-[140px]">
-              <Select value={dateRange} onValueChange={setDateRange}>
+              <Select value={dateRange} onValueChange={handleDateRangeChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Date Range" />
                 </SelectTrigger>
@@ -501,7 +571,7 @@ function AuditLogsPage() {
             <SkeletonCard key={i} />
           ))}
         </div>
-      ) : filteredLogs.length === 0 ? (
+      ) : logs.length === 0 ? (
         <EmptyState
           icon={<History className="size-9 text-muted-foreground" />}
           title="No audit events found"
@@ -524,7 +594,7 @@ function AuditLogsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead className="w-[170px]">Timestamp</TableHead>
+                  <TableHead className="w-[170px]">Timestamp (Latest First)</TableHead>
                   <TableHead className="w-[170px]">Actor</TableHead>
                   <TableHead className="w-[120px]">Action</TableHead>
                   <TableHead className="w-[130px]">Target Entity</TableHead>
@@ -534,7 +604,7 @@ function AuditLogsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLogs.map((log) => {
+                {logs.map((log) => {
                   const dateObj = new Date(log.createdAt);
                   return (
                     <TableRow
@@ -630,6 +700,102 @@ function AuditLogsPage() {
                 })}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Server-Side Pagination Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 border-t bg-muted/20 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              <span>
+                Showing <strong className="font-medium text-foreground">{totalRecords > 0 ? (currentPage - 1) * limit + 1 : 0}</strong> to{" "}
+                <strong className="font-medium text-foreground">{Math.min(currentPage * limit, totalRecords)}</strong> of{" "}
+                <strong className="font-medium text-foreground">{totalRecords}</strong> events
+              </span>
+              <div className="flex items-center gap-1.5 ml-0 sm:ml-4">
+                <span>Per page:</span>
+                <Select
+                  value={String(limit)}
+                  onValueChange={(val) => {
+                    setLimit(Number(val));
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-[70px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-7"
+                onClick={() => setPage(1)}
+                disabled={currentPage <= 1 || isFetching}
+                title="First Page"
+              >
+                <ChevronsLeft className="size-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-7"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1 || isFetching}
+                title="Previous Page"
+              >
+                <ChevronLeft className="size-3.5" />
+              </Button>
+
+              <div className="flex items-center gap-1 px-1">
+                {pageNumbers.map((p, idx) =>
+                  p === "..." ? (
+                    <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground">
+                      ...
+                    </span>
+                  ) : (
+                    <Button
+                      key={`page-${p}`}
+                      variant={p === currentPage ? "default" : "outline"}
+                      size="icon"
+                      className="size-7 text-xs font-mono"
+                      onClick={() => setPage(Number(p))}
+                      disabled={isFetching}
+                    >
+                      {p}
+                    </Button>
+                  ),
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-7"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages || isFetching}
+                title="Next Page"
+              >
+                <ChevronRight className="size-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-7"
+                onClick={() => setPage(totalPages)}
+                disabled={currentPage >= totalPages || isFetching}
+                title="Last Page"
+              >
+                <ChevronsRight className="size-3.5" />
+              </Button>
+            </div>
           </div>
         </Card>
       )}
