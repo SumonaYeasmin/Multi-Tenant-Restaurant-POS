@@ -594,13 +594,12 @@ function AuditLogsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead className="w-[170px]">Timestamp (Latest First)</TableHead>
-                  <TableHead className="w-[170px]">Actor</TableHead>
-                  <TableHead className="w-[120px]">Action</TableHead>
-                  <TableHead className="w-[130px]">Target Entity</TableHead>
-                  <TableHead>Summary & Context</TableHead>
-                  <TableHead className="w-[130px] hidden md:table-cell">Client Info</TableHead>
-                  <TableHead className="w-[80px] text-right">Details</TableHead>
+                  <TableHead className="w-[180px]">Timestamp (Latest First)</TableHead>
+                  <TableHead className="w-[180px]">Actor</TableHead>
+                  <TableHead className="w-[140px]">Action</TableHead>
+                  <TableHead className="w-[180px]">Target Entity</TableHead>
+                  <TableHead className="w-[150px]">Client Network</TableHead>
+                  <TableHead className="w-[100px] text-right">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -656,24 +655,14 @@ function AuditLogsPage() {
                           <span className="capitalize text-xs font-medium">{log.entity}</span>
                         </div>
                         {log.entityId && (
-                          <div className="font-mono text-[10px] text-muted-foreground truncate max-w-[110px]">
+                          <div className="font-mono text-[10px] text-muted-foreground truncate max-w-[130px]">
                             {log.entityId}
                           </div>
                         )}
                       </TableCell>
 
-                      {/* Summary & Details */}
-                      <TableCell>
-                        <p className="text-sm font-medium text-foreground">{log.summary}</p>
-                        {log.details && (
-                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                            {log.details}
-                          </p>
-                        )}
-                      </TableCell>
-
-                      {/* Client Info */}
-                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground font-mono">
+                      {/* Client Network */}
+                      <TableCell className="text-xs text-muted-foreground font-mono">
                         {log.ipAddress ? (
                           <div className="flex items-center gap-1">
                             <Globe className="size-3 opacity-60" />
@@ -687,12 +676,13 @@ function AuditLogsPage() {
                       {/* Inspect Button */}
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs gap-1.5 hover:bg-primary hover:text-primary-foreground transition-colors"
                           onClick={() => setInspectLog(log)}
                         >
-                          <Eye className="size-3.5 text-muted-foreground hover:text-foreground" />
+                          <Eye className="size-3.5" />
+                          <span>Inspect</span>
                         </Button>
                       </TableCell>
                     </TableRow>
