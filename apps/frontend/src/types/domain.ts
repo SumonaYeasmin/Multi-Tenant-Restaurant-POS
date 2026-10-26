@@ -549,15 +549,37 @@ export type AuditEntity = "order" | "inventory" | "staff" | "payment" | "table" 
 export interface AuditLog {
   id: string;
   tenantId: string;
-  branchId?: string;
-  actorId: string;
+  branchId?: string | null;
+  actorId?: string | null;
   actorName: string;
-  action: AuditAction;
-  entity: AuditEntity;
-  entityId?: string;
+  actorRole?: string | null;
+  action: AuditAction | string;
+  entity: AuditEntity | string;
+  entityId?: string | null;
   summary: string;
-  details?: string;
+  details?: string | null;
+  metadata?: Record<string, unknown> | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
   createdAt: string;
+}
+
+export interface AuditLogStats {
+  total: number;
+  today?: number;
+  criticalCount?: number;
+  byEntity?: Record<string, number>;
+}
+
+export interface AuditLogQueryParams {
+  entity?: string;
+  action?: string;
+  branchId?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
 }
 
 export type IntegrationCategory = "payments" | "delivery" | "accounting" | "notifications";

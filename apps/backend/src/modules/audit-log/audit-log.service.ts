@@ -140,15 +140,41 @@ export class AuditLogService {
   }
 
   /**
-   * Get audit statistics (counts by entity)
+   * Get audit statistics (counts by entity and time range)
    */
   async getStats(tenantSlugOrId: string) {
     const tenant = await this.resolveTenant(tenantSlugOrId);
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
 
-    const total = await this.prisma.auditLog.count({
-      where: { tenantId: tenant.id },
-    });
+    const [total, today, criticalCount, entityGroups] = await Promise.all([
+      this.prisma.auditLog.count({ where: { tenantId: tenant.id } }),
+      this.prisma.auditLog.count({
+        where: { tenantId: tenant.id, createdAt: { gte: startOfDay } },
+      }),
+      this.prisma.auditLog.count({
+        where: {
+          tenantId: tenant.id,
+          action: { in: ['void', 'refund', 'delete'] },
+        },
+      }),
+      this.prisma.auditLog.groupBy({
+        by: ['entity'],
+        where: { tenantId: tenant.id },
+        _count: { id: true },
+      }),
+    ]);
 
-    return { total };
+    const byEntity: Record<string, number> = {};
+    for (const g of entityGroups) {
+      byEntity[g.entity] = g._count.id;
+    }
+
+    return {
+      total,
+      today,
+      criticalCount,
+      byEntity,
+    };
   }
 }

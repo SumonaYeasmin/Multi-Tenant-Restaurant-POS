@@ -1,8 +1,11 @@
 import { commit, latency, tenantDb, uid, ApiError } from "@/mocks/db";
 import { TENANTS } from "@/mocks/platform";
+import { backendFetch } from "./api-client";
 import type {
   AuditEntity,
   AuditLog,
+  AuditLogQueryParams,
+  AuditLogStats,
   FinancialReport,
   Integration,
   InventoryReport,
@@ -251,39 +254,207 @@ export async function getOperationsReport(tenantId: string, branchId?: string, r
 
 // ---------- Audit Logs ----------
 
-export async function listAuditLogs(tenantId: string, entity?: string): Promise<AuditLog[]> {
+export async function listAuditLogs(
+  tenantId: string,
+  queryOrEntity?: string | AuditLogQueryParams,
+): Promise<AuditLog[]> {
+  const query: AuditLogQueryParams =
+    typeof queryOrEntity === "string"
+      ? { entity: queryOrEntity }
+      : (queryOrEntity ?? {});
+
+  try {
+    const params = new URLSearchParams();
+    if (query.entity && query.entity !== "all") params.append("entity", query.entity);
+    if (query.action && query.action !== "all") params.append("action", query.action);
+    if (query.branchId && query.branchId !== "all") params.append("branchId", query.branchId);
+    if (query.search?.trim()) params.append("search", query.search.trim());
+    if (query.startDate) params.append("startDate", query.startDate);
+    if (query.endDate) params.append("endDate", query.endDate);
+    if (query.page) params.append("page", String(query.page));
+    if (query.limit) params.append("limit", String(query.limit));
+
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const res = await backendFetch<AuditLog[] | { success: boolean; data: AuditLog[] }>(
+      `/tenants/${tenantId}/audit-logs${qs}`,
+    );
+
+    const rawLogs = Array.isArray(res) ? res : (res as any)?.data;
+    if (Array.isArray(rawLogs)) {
+      const mapped: AuditLog[] = rawLogs.map((l: any) => ({
+        id: l.id,
+        tenantId: l.tenantId || tenantId,
+        branchId: l.branchId ?? null,
+        actorId: l.actorId ?? null,
+        actorName: l.actorName || "System",
+        actorRole: l.actorRole ?? null,
+        action: l.action,
+        entity: l.entity,
+        entityId: l.entityId ?? null,
+        summary: l.summary,
+        details: l.details ?? null,
+        metadata: l.metadata ?? null,
+        ipAddress: l.ipAddress ?? null,
+        userAgent: l.userAgent ?? null,
+        createdAt: l.createdAt,
+      }));
+
+      // Cache / sync latest to tenantDb so offline fallback stays updated
+      const db = tenantDb(tenantId);
+      if (!query.entity || query.entity === "all") {
+        db.auditLogs = mapped;
+      }
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch audit logs from backend, falling back to local store:", err);
+    }
+  }
+
+  // Fallback to local in-memory store
   await latency(40, 100);
   const db = tenantDb(tenantId);
   let list = db.auditLogs ?? [];
-  if (entity && entity !== "all") {
-    list = list.filter((auditLog) => auditLog.entity === entity);
+  if (query.entity && query.entity !== "all") {
+    list = list.filter((auditLog) => auditLog.entity === query.entity);
   }
-  return list.sort((logA, logB) => logB.createdAt.localeCompare(logA.createdAt));
+  if (query.action && query.action !== "all") {
+    list = list.filter((auditLog) => auditLog.action === query.action);
+  }
+  if (query.search?.trim()) {
+    const s = query.search.trim().toLowerCase();
+    list = list.filter(
+      (l) =>
+        l.summary.toLowerCase().includes(s) ||
+        l.actorName.toLowerCase().includes(s) ||
+        (l.details && l.details.toLowerCase().includes(s)),
+    );
+  }
+  return [...list].sort((logA, logB) => logB.createdAt.localeCompare(logA.createdAt));
 }
 
 export async function recordAuditLog(
   tenantId: string,
   input: {
-    actorId: string;
+    actorId?: string;
     actorName: string;
+    actorRole?: string;
     action: any;
-    entity: AuditEntity;
+    entity: AuditEntity | string;
     entityId?: string;
     summary: string;
     details?: string;
+    branchId?: string;
+    metadata?: Record<string, unknown>;
   },
 ): Promise<AuditLog> {
+  try {
+    const res = await backendFetch<AuditLog | { success: boolean; data: AuditLog }>(
+      `/tenants/${tenantId}/audit-logs`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          actorId: input.actorId,
+          actorName: input.actorName?.trim() || "Current User",
+          actorRole: input.actorRole,
+          action: input.action,
+          entity: input.entity,
+          entityId: input.entityId,
+          summary: input.summary?.trim(),
+          details: input.details?.trim() || "",
+          branchId: input.branchId,
+          metadata: input.metadata,
+        }),
+      },
+    );
+
+    const saved = "id" in (res as any) ? (res as AuditLog) : (res as any)?.data;
+    if (saved?.id) {
+      const mapped: AuditLog = {
+        id: saved.id,
+        tenantId: saved.tenantId || tenantId,
+        branchId: saved.branchId ?? input.branchId ?? null,
+        actorId: saved.actorId ?? input.actorId ?? null,
+        actorName: saved.actorName || input.actorName || "Current User",
+        actorRole: saved.actorRole ?? input.actorRole ?? null,
+        action: saved.action,
+        entity: saved.entity,
+        entityId: saved.entityId ?? input.entityId ?? null,
+        summary: saved.summary,
+        details: saved.details ?? input.details ?? null,
+        metadata: saved.metadata ?? input.metadata ?? null,
+        ipAddress: saved.ipAddress ?? null,
+        userAgent: saved.userAgent ?? null,
+        createdAt: saved.createdAt || new Date().toISOString(),
+      };
+      const db = tenantDb(tenantId);
+      db.auditLogs ??= [];
+      db.auditLogs.unshift(mapped);
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not record audit log to backend, falling back to local store:", err);
+    }
+  }
+
+  // Fallback to local mock store
   const db = tenantDb(tenantId);
   db.auditLogs ??= [];
   const log: AuditLog = {
     id: uid("aud"),
     tenantId,
     createdAt: new Date().toISOString(),
-    ...input,
+    actorId: input.actorId || "u_owner",
+    actorName: input.actorName || "Current User",
+    actorRole: input.actorRole || "OWNER",
+    action: input.action,
+    entity: input.entity,
+    entityId: input.entityId,
+    summary: input.summary,
+    details: input.details,
+    metadata: input.metadata,
   };
   db.auditLogs.unshift(log);
   commit(tenantId);
   return log;
+}
+
+export async function getAuditLogStats(tenantId: string): Promise<AuditLogStats> {
+  try {
+    const res = await backendFetch<AuditLogStats | { success: boolean; data: AuditLogStats }>(
+      `/tenants/${tenantId}/audit-logs/stats`,
+    );
+    const stats = (res as any)?.data ?? res;
+    if (stats && typeof stats.total === "number") {
+      return stats;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch audit log stats from backend, falling back to local store:", err);
+    }
+  }
+
+  const db = tenantDb(tenantId);
+  const logs = db.auditLogs ?? [];
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const today = logs.filter((l) => new Date(l.createdAt) >= startOfDay).length;
+  const criticalCount = logs.filter((l) => ["void", "refund", "delete"].includes(l.action)).length;
+  const byEntity: Record<string, number> = {};
+  for (const l of logs) {
+    byEntity[l.entity] = (byEntity[l.entity] || 0) + 1;
+  }
+
+  return {
+    total: logs.length,
+    today,
+    criticalCount,
+    byEntity,
+  };
 }
 
 // ---------- Integrations ----------

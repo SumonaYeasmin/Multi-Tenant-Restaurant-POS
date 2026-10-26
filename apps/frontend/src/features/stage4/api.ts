@@ -1,7 +1,10 @@
 import { baseApi, run } from "@/app/base-api";
 import * as stage4 from "@/services/stage4.service";
 import type {
+  AuditEntity,
   AuditLog,
+  AuditLogQueryParams,
+  AuditLogStats,
   FinancialReport,
   Integration,
   InventoryReport,
@@ -38,9 +41,31 @@ export const stage4Api = apiWithTags.injectEndpoints({
     }),
 
     // ---- Audit Logs ----
-    auditLogs: b.query<AuditLog[], T<{ entity?: string | undefined }>>({
-      queryFn: ({ tenantId, entity }) => run(() => stage4.listAuditLogs(tenantId, entity)),
+    auditLogs: b.query<AuditLog[], T<AuditLogQueryParams>>({
+      queryFn: ({ tenantId, ...params }) => run(() => stage4.listAuditLogs(tenantId, params)),
       providesTags: ["Audit"],
+    }),
+    auditLogStats: b.query<AuditLogStats, string>({
+      queryFn: (tenantId) => run(() => stage4.getAuditLogStats(tenantId)),
+      providesTags: ["Audit"],
+    }),
+    recordAuditLog: b.mutation<
+      AuditLog,
+      T<{
+        actorId?: string;
+        actorName: string;
+        actorRole?: string;
+        action: string;
+        entity: AuditEntity | string;
+        entityId?: string;
+        summary: string;
+        details?: string;
+        branchId?: string;
+        metadata?: Record<string, unknown>;
+      }>
+    >({
+      queryFn: ({ tenantId, ...input }) => run(() => stage4.recordAuditLog(tenantId, input)),
+      invalidatesTags: ["Audit"],
     }),
 
     // ---- Integrations ----
@@ -68,6 +93,8 @@ export const {
   useInventoryReportQuery,
   useOperationsReportQuery,
   useAuditLogsQuery,
+  useAuditLogStatsQuery,
+  useRecordAuditLogMutation,
   useIntegrationsQuery,
   useToggleIntegrationMutation,
   useUpdateSettingsMutation,
