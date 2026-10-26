@@ -10,6 +10,9 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  ComposedChart,
+  Line,
+  Legend,
   PieChart,
   Pie,
   Cell,
@@ -23,6 +26,7 @@ import {
   Download,
   Package,
   Receipt,
+  RefreshCw,
   ShoppingCart,
   TrendingUp,
   Users,
@@ -69,7 +73,10 @@ function ReportsPage() {
 
   const branchParam = selectedBranch === "all" ? undefined : selectedBranch;
 
-  const sales = useSalesReportQuery({ tenantId: tenant.id, branchId: branchParam, range });
+  const sales = useSalesReportQuery(
+    { tenantId: tenant.id, branchId: branchParam, range },
+    { pollingInterval: 5000 },
+  );
   const financial = useFinancialReportQuery({ tenantId: tenant.id, branchId: branchParam, range });
   const inventory = useInventoryReportQuery({ tenantId: tenant.id, branchId: branchParam });
   const operations = useOperationsReportQuery({ tenantId: tenant.id, branchId: branchParam, range });
@@ -227,36 +234,139 @@ function ReportsPage() {
 
               {/* Charts */}
               <div className="grid gap-6 lg:grid-cols-7">
-                <Card className="lg:col-span-4">
-                  <CardHeader>
-                    <CardTitle>Sales Trend</CardTitle>
-                    <CardDescription>Daily revenue and order volume</CardDescription>
+                <Card className="lg:col-span-4 border-border/80 shadow-sm">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <CardTitle className="text-base font-semibold">Sales Trend</CardTitle>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold tracking-wide uppercase">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          Live Real-Time
+                        </span>
+                      </div>
+                      <CardDescription className="text-xs mt-0.5">
+                        Daily revenue and order volume (auto-synced)
+                      </CardDescription>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+                      onClick={() => sales.refetch()}
+                      disabled={sales.isFetching}
+                      title="Sync latest live orders"
+                    >
+                      <RefreshCw className={`size-3.5 ${sales.isFetching ? "animate-spin" : ""}`} />
+                      <span className="hidden sm:inline">Sync</span>
+                    </Button>
                   </CardHeader>
                   <CardContent>
                     <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={sales.data.dailySales}>
+                        <ComposedChart data={sales.data.dailySales} margin={{ top: 10, right: 10, left: 5, bottom: 0 }}>
                           <defs>
                             <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.4} />
-                              <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" opacity={0.2} stroke="var(--border)" />
-                          <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} />
-                          <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} tickFormatter={(val) => `${val}`} />
-                          <Tooltip
-                            contentStyle={{
-                              background: "var(--popover)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 8,
-                              fontSize: 12,
-                              color: "var(--foreground)",
-                            }}
-                            formatter={(val: any) => [money(Number(val)), "Sales"]}
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.15} stroke="var(--border)" vertical={false} />
+                          <XAxis
+                            dataKey="date"
+                            stroke="var(--muted-foreground)"
+                            fontSize={12}
+                            tickLine={false}
+                            axisLine={false}
                           />
-                          <Area type="monotone" dataKey="sales" stroke="var(--primary)" fill="url(#salesGrad)" />
-                        </AreaChart>
+                          <YAxis
+                            yAxisId="revenue"
+                            width={92}
+                            stroke="var(--muted-foreground)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(val) => (val === 0 ? "0" : money(val))}
+                          />
+                          <YAxis
+                            yAxisId="orders"
+                            width={35}
+                            orientation="right"
+                            stroke="var(--muted-foreground)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
+                            allowDecimals={false}
+                            tickFormatter={(val) => `${val}`}
+                          />
+                          <Tooltip
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload || !payload.length) return null;
+                              const data = payload[0].payload;
+                              const revenue = Number(data.sales || 0);
+                              const ordersCount = Number(data.orders || 0);
+                              const avg = ordersCount > 0 ? Math.round(revenue / ordersCount) : 0;
+                              return (
+                                <div className="rounded-lg border border-border bg-popover/95 p-3 shadow-xl backdrop-blur-md text-xs space-y-2 min-w-[170px]">
+                                  <div className="font-semibold text-foreground border-b border-border/50 pb-1 flex justify-between items-center">
+                                    <span>{data.fullDate || label}</span>
+                                    {label === "Today" && (
+                                      <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-500 font-mono text-[10px] rounded">
+                                        Today
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-between text-muted-foreground">
+                                    <span className="flex items-center gap-1.5">
+                                      <span className="size-2 rounded-full bg-primary inline-block"></span>
+                                      Revenue:
+                                    </span>
+                                    <span className="font-bold text-foreground font-mono">{money(revenue)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-muted-foreground">
+                                    <span className="flex items-center gap-1.5">
+                                      <span className="size-2 rounded-full bg-blue-500 inline-block"></span>
+                                      Orders:
+                                    </span>
+                                    <span className="font-bold text-blue-500 font-mono">{ordersCount} orders</span>
+                                  </div>
+                                  {ordersCount > 0 && (
+                                    <div className="flex items-center justify-between text-[11px] text-muted-foreground/80 pt-1 border-t border-border/30">
+                                      <span>Avg / Order:</span>
+                                      <span className="font-medium text-foreground font-mono">{money(avg)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }}
+                          />
+                          <Legend
+                            verticalAlign="top"
+                            height={32}
+                            formatter={(value) => <span className="text-xs text-muted-foreground font-medium">{value}</span>}
+                          />
+                          <Area
+                            yAxisId="revenue"
+                            type="monotone"
+                            dataKey="sales"
+                            name="Revenue"
+                            stroke="hsl(var(--primary))"
+                            strokeWidth={2.5}
+                            fill="url(#salesGrad)"
+                          />
+                          <Line
+                            yAxisId="orders"
+                            type="monotone"
+                            dataKey="orders"
+                            name="Order Volume"
+                            stroke="#3b82f6"
+                            strokeWidth={2.5}
+                            dot={{ r: 4, fill: "#3b82f6", strokeWidth: 1.5, stroke: "#ffffff" }}
+                            activeDot={{ r: 6, fill: "#2563eb", stroke: "#ffffff", strokeWidth: 2 }}
+                          />
+                        </ComposedChart>
                       </ResponsiveContainer>
                     </div>
                   </CardContent>

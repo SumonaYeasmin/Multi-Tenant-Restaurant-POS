@@ -612,7 +612,7 @@ export interface SalesReport {
   totalOrders: number;
   avgOrderValue: number;
   hourlySales: { hour: string; sales: number; orders: number }[];
-  dailySales: { date: string; sales: number; orders: number }[];
+  dailySales: { date: string; fullDate?: string; sales: number; orders: number }[];
   topItems: { itemId: string; name: string; qty: number; revenue: number }[];
   salesByCategory: { categoryId: string; name: string; revenue: number }[];
 }
