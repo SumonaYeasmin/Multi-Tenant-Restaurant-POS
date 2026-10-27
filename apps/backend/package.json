@@ -11,7 +11,7 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts,.js,.jsx,.tsx --fix",
     "start": "npx prisma generate && npx prisma migrate deploy && node dist/src/main",
-    "dev": "npx prisma generate && npx prisma migrate dev && nest start --watch",
+    "dev": "npx prisma generate && nest start --watch",
     "start:prod": "npx prisma migrate deploy && node dist/src/main",
     "start:docker": "prisma generate && prisma migrate deploy && node dist/src/main",
     "prisma:validate": "npx prisma validate",
@@ -37,8 +37,10 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.0.0",
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/throttler": "^6.5.0",
+    "@nestjs/websockets": "^11.0.0",
     "@pos/types": "*",
     "@pos/utils": "*",
     "@prisma/adapter-pg": "^7.4.2",
@@ -52,7 +54,8 @@
     "passport-jwt": "^4.0.1",
     "pg": "^8.20.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "socket.io": "^4.8.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

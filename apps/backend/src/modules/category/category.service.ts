@@ -12,9 +12,11 @@ export class CategoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createCategory(tenantSlug: string, dto: CreateCategoryDto) {
-    // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    // 1. Verify tenant exists (support both slug and id)
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -60,10 +62,12 @@ export class CategoryService {
     return category;
   }
 
-  async getAllCategories(tenantSlug: string, activeOnly?: boolean) {
-    // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+  async getAllCategories(tenantSlug: string, activeOnly: boolean = true) {
+    // 1. Verify tenant exists (support both slug and id)
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -81,9 +85,11 @@ export class CategoryService {
   }
 
   async getCategoryById(tenantSlug: string, categoryId: string) {
-    // 1. Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    // 1. Verify tenant exists (support both slug and id)
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ slug: tenantSlug }, { id: tenantSlug }],
+      },
     });
 
     if (!tenant) {
@@ -147,14 +153,25 @@ export class CategoryService {
   }
 
   async deleteCategory(tenantSlug: string, categoryId: string) {
-    // 1. Verify category exists for this tenant
-    await this.getCategoryById(tenantSlug, categoryId);
+  // ১টি মাত্র কুয়েরিতে টেন্যান্ট ভেরিফিকেশন এবং সফট ডিলিট একসাথে
+  const result = await this.prisma.category.updateMany({
+    where: {
+      id: categoryId,
+      tenant: {
+        slug: tenantSlug, // নিশ্চিত করা যে ক্যাটাগরি কেবল এই টেন্যান্টেরই
+      },
+      isActive: true, // অলরেডি ডিলিট হয়ে থাকলে অপ্রয়োজনীয় রাইট আটকাবে
+    },
+    data: {
+      isActive: false,
+    },
+  });
 
-    // 2. Delete category
-    await this.prisma.category.delete({
-      where: { id: categoryId },
-    });
-
-    return { message: 'Category deleted successfully' };
+  // যদি কোনো রো আপডেট না হয়, তার মানে ক্যাটাগরি নেই অথবা অন্য টেন্যান্টের
+  if (result.count === 0) {
+    throw new NotFoundException('Category not found or access denied');
   }
+
+  return { message: 'Category deleted successfully' };
+}
 }
