@@ -144,10 +144,10 @@ export async function getSalesReport(tenantId: string, branchId?: string, range 
   }));
 
   // Aggregate category sales for the active date range
-  const categorySalesMap = new Map<string, { categoryId: string; name: string; revenue: number }>();
+  const categorySalesMap = new Map<string, { categoryId: string; name: string; revenue: number; qty: number }>();
   for (const order of ordersForRange) {
     for (const line of order.lines ?? []) {
-      if (!line.name || line.name === "x") continue;
+      if (!line.name || line.name === "x" || line.name === "Item") continue;
       const menuItem = db.menuItems.find(
         (item) => item.id === line.itemId || item.name.toLowerCase() === line.name.toLowerCase()
       );
@@ -158,7 +158,9 @@ export async function getSalesReport(tenantId: string, branchId?: string, range 
         categoryId,
         name: categoryName,
         revenue: 0,
+        qty: 0,
       };
+      existing.qty += line.qty;
       existing.revenue += Math.round(line.unitPrice * line.qty);
       categorySalesMap.set(categoryId, existing);
     }
@@ -174,14 +176,22 @@ export async function getSalesReport(tenantId: string, branchId?: string, range 
           categoryId,
           name: category?.name ?? "General",
           revenue: 0,
+          qty: 0,
         };
+        existing.qty += line.qty;
         existing.revenue += Math.round(line.unitPrice * line.qty);
         categorySalesMap.set(categoryId, existing);
       }
     }
   }
 
-  const salesByCategory = Array.from(categorySalesMap.values()).sort((a, b) => b.revenue - a.revenue);
+  const rawCategories = Array.from(categorySalesMap.values()).sort((a, b) => b.revenue - a.revenue);
+  const totalCatRevenue = rawCategories.reduce((sum, c) => sum + c.revenue, 0);
+
+  const salesByCategory = rawCategories.map((c) => ({
+    ...c,
+    percentage: totalCatRevenue > 0 ? Math.round((c.revenue / totalCatRevenue) * 100) : 0,
+  }));
 
   // Dynamic daily aggregation
   const daysCount = range === "30d" ? 30 : 7;

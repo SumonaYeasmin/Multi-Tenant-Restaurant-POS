@@ -629,7 +629,13 @@ export interface SalesReport {
     percentage?: number;
     avgPrice?: number;
   }[];
-  salesByCategory: { categoryId: string; name: string; revenue: number }[];
+  salesByCategory: {
+    categoryId: string;
+    name: string;
+    revenue: number;
+    percentage?: number;
+    qty?: number;
+  }[];
 }
 
 export interface FinancialReport {
