@@ -22,6 +22,10 @@ describe("Stage 4: Reports, Audit Logs, Integrations & Settings", () => {
     expect(report.avgOrderValue).toBeGreaterThan(0);
     expect(report.dailySales.length).toBe(7);
     expect(report.topItems.length).toBeGreaterThan(0);
+    expect(report.topItems[0]?.name).toBeDefined();
+    expect(report.topItems[0]?.qty).toBeGreaterThan(0);
+    expect(report.topItems[0]?.revenue).toBeGreaterThan(0);
+    expect(typeof report.topItems[0]?.percentage).toBe("number");
     expect(report.hourlySales.length).toBe(8);
     expect(report.hourlySales[0]?.hour).toBe("08:00");
     expect(report.hourlySales[0]?.label).toBe("08:00 - 10:00");

@@ -621,7 +621,14 @@ export interface SalesReport {
     isPeak?: boolean;
   }[];
   dailySales: { date: string; fullDate?: string; sales: number; orders: number }[];
-  topItems: { itemId: string; name: string; qty: number; revenue: number }[];
+  topItems: {
+    itemId: string;
+    name: string;
+    qty: number;
+    revenue: number;
+    percentage?: number;
+    avgPrice?: number;
+  }[];
   salesByCategory: { categoryId: string; name: string; revenue: number }[];
 }
 

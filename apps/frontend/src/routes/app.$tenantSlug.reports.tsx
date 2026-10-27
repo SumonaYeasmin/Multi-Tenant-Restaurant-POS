@@ -518,35 +518,102 @@ function ReportsPage() {
 
               {/* Top Selling Items & Categories */}
               <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Top Selling Food Items</CardTitle>
-                    <CardDescription>Highest revenue generating dishes</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {sales.data.topItems.map((item, idx) => (
-                        <div key={item.itemId} className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="flex size-7 items-center justify-center rounded-full bg-muted font-bold text-xs">
-                              {idx + 1}
-                            </span>
-                            <div>
-                              <p className="font-medium text-sm">{item.name}</p>
-                              <p className="text-xs text-muted-foreground">{item.qty} units sold</p>
-                            </div>
-                          </div>
-                          <span className="font-semibold text-sm">{money(item.revenue)}</span>
-                        </div>
-                      ))}
+                <Card className="border-border/80 shadow-sm flex flex-col justify-between">
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base font-semibold">Top Selling Food Items</CardTitle>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold tracking-wide uppercase">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          Live Items
+                        </span>
+                      </div>
+                      <CardDescription className="text-xs mt-0.5">
+                        {range === "today"
+                          ? "Today's highest volume & revenue dishes"
+                          : `Top dishes ranked by revenue (${range === "30d" ? "last 30 days" : "last 7 days"})`}
+                      </CardDescription>
                     </div>
+                    {sales.data.topItems.length > 0 && (
+                      <span className="text-xs font-medium text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-full font-mono">
+                        {sales.data.topItems.reduce((acc, i) => acc + i.qty, 0)} items sold
+                      </span>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {sales.data.topItems.length === 0 ? (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <p className="text-sm">No food items sold in this period yet.</p>
+                        <p className="text-xs mt-1 text-muted-foreground/70">
+                          New orders placed in the POS will appear here live in real time.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3.5">
+                        {sales.data.topItems.map((item, idx) => {
+                          const percentage = item.percentage ?? 0;
+                          return (
+                            <div key={item.itemId} className="space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <span
+                                    className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                                      idx === 0
+                                        ? "bg-primary text-primary-foreground shadow-sm"
+                                        : idx === 1
+                                        ? "bg-muted text-foreground font-semibold"
+                                        : idx === 2
+                                        ? "bg-muted/80 text-muted-foreground font-semibold"
+                                        : "bg-muted/50 text-muted-foreground"
+                                    }`}
+                                  >
+                                    {idx + 1}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-sm text-foreground truncate" title={item.name}>
+                                      {item.name}
+                                    </p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                      <span className="font-semibold text-foreground">{item.qty} units</span> sold
+                                      {item.avgPrice ? ` • Avg: ${money(item.avgPrice)}` : ""}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="font-bold text-sm font-mono text-foreground">{money(item.revenue)}</p>
+                                  {percentage > 0 && (
+                                    <p className="text-[10px] text-muted-foreground font-medium">
+                                      {percentage}% of sales
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              {/* Visual Progress Bar */}
+                              <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
+                                  style={{ width: `${Math.max(percentage, 4)}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Sales by Menu Category</CardTitle>
-                    <CardDescription>Category contribution to revenue</CardDescription>
+                <Card className="border-border/80 shadow-sm flex flex-col justify-between">
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <div>
+                      <CardTitle className="text-base font-semibold">Sales by Menu Category</CardTitle>
+                      <CardDescription className="text-xs mt-0.5">
+                        Category contribution to food revenue
+                      </CardDescription>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="h-[220px]">
