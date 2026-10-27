@@ -400,8 +400,8 @@ function ReportsPage() {
                       if (peak && peak.orders > 0) {
                         return (
                           <div className="hidden sm:flex flex-col items-end text-right">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
-                              🔥 Peak: {peak.hour}
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-md">
+                              Peak: {peak.hour}
                             </span>
                             <span className="text-[10px] text-muted-foreground mt-0.5">
                               {peak.orders} orders • {money(peak.sales)}
@@ -419,21 +419,7 @@ function ReportsPage() {
                           data={sales.data.hourlySales}
                           margin={{ top: 10, right: 8, left: -20, bottom: 0 }}
                         >
-                          <defs>
-                            <linearGradient id="rushBarGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.95} />
-                              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.55} />
-                            </linearGradient>
-                            <linearGradient id="peakBarGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.95} />
-                              <stop offset="100%" stopColor="#d97706" stopOpacity={0.65} />
-                            </linearGradient>
-                            <linearGradient id="currentBarGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
-                              <stop offset="100%" stopColor="#059669" stopOpacity={0.65} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" opacity={0.15} stroke="var(--border)" vertical={false} />
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.2} stroke="var(--border)" vertical={false} />
                           <XAxis
                             dataKey="hour"
                             stroke="var(--muted-foreground)"
@@ -465,13 +451,8 @@ function ReportsPage() {
                                       {d.period && <div className="text-[10px] text-muted-foreground font-normal">{d.period}</div>}
                                     </div>
                                     {d.isPeak && ordersCount > 0 && (
-                                      <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-500 font-semibold text-[10px] rounded">
-                                        🔥 Peak
-                                      </span>
-                                    )}
-                                    {d.isCurrent && range === "today" && (
-                                      <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-500 font-semibold text-[10px] rounded">
-                                        ● Now
+                                      <span className="px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/20 font-semibold text-[10px] rounded">
+                                        Peak
                                       </span>
                                     )}
                                   </div>
@@ -486,10 +467,10 @@ function ReportsPage() {
                                     </div>
                                     <div className="flex items-center justify-between">
                                       <span className="text-muted-foreground flex items-center gap-1.5">
-                                        <span className="size-2 rounded-full bg-emerald-500 inline-block"></span>
+                                        <span className="size-2 rounded-full bg-muted-foreground/50 inline-block"></span>
                                         Rush Revenue:
                                       </span>
-                                      <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                                      <span className="font-bold text-foreground font-mono">
                                         {money(salesVal)}
                                       </span>
                                     </div>
@@ -504,16 +485,7 @@ function ReportsPage() {
                               );
                             }}
                           />
-                          <Bar dataKey="orders" radius={[6, 6, 0, 0]}>
-                            {sales.data.hourlySales.map((entry, index) => {
-                              const isPeak = entry.isPeak && entry.orders > 0;
-                              const isCurrent = entry.isCurrent && range === "today";
-                              let fill = "url(#rushBarGrad)";
-                              if (isPeak) fill = "url(#peakBarGrad)";
-                              else if (isCurrent) fill = "url(#currentBarGrad)";
-                              return <Cell key={`cell-${index}`} fill={fill} />;
-                            })}
-                          </Bar>
+                          <Bar dataKey="orders" fill="var(--primary)" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -528,7 +500,7 @@ function ReportsPage() {
                       </div>
                       <div className="p-1.5 rounded-md bg-muted/40">
                         <p className="text-[10px] text-muted-foreground uppercase font-medium">Rush Sales</p>
-                        <p className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                        <p className="text-xs font-bold font-mono text-foreground">
                           {money(sales.data.hourlySales.reduce((sum, h) => sum + h.sales, 0))}
                         </p>
                       </div>
