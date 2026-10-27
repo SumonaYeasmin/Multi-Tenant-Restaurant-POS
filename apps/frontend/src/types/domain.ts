@@ -222,13 +222,20 @@ export interface Order {
   completedAt: string | null;
 }
 
+export type NotificationType = "ORDER" | "INVENTORY" | "RESERVATION" | "CASH" | "STAFF" | "SYSTEM";
+
 export interface Notification {
   id: string;
   tenantId: string;
+  branchId?: string | null | undefined;
+  type?: NotificationType | undefined;
   title: string;
   body: string;
   createdAt: string;
   read: boolean;
+  link?: string | null | undefined;
+  metadata?: Record<string, unknown> | null | undefined;
+  updatedAt?: string | undefined;
 }
 
 // ---------- Stage 2: catalog, stock operations, purchasing ----------
@@ -465,6 +472,19 @@ export interface Expense {
   createdAt: string;
 }
 
+export type StaffStatus = "active" | "invited" | "draft" | "inactive";
+
+export interface CustomRole {
+  id: string;
+  name: string;
+  description?: string | undefined;
+  color?: string | undefined;
+  baseRole: RoleId;
+  permissions: string[];
+  isCustom: true;
+  createdAt: string;
+}
+
 export interface StaffMember {
   id: string;
   tenantId: string;
@@ -473,9 +493,15 @@ export interface StaffMember {
   email: string;
   phone: string;
   role: RoleId;
+  customRoleName?: string | undefined;
   branchIds: string[] | "all";
   hourlyRate: number;
   active: boolean;
+  status?: StaffStatus | undefined;
+  inviteToken?: string | null;
+  invitedAt?: string | null;
+  inviteUrl?: string | null;
+  emailSent?: boolean | undefined;
 }
 
 export interface Shift {
@@ -523,15 +549,45 @@ export type AuditEntity = "order" | "inventory" | "staff" | "payment" | "table" 
 export interface AuditLog {
   id: string;
   tenantId: string;
-  branchId?: string;
-  actorId: string;
+  branchId?: string | null;
+  actorId?: string | null;
   actorName: string;
-  action: AuditAction;
-  entity: AuditEntity;
-  entityId?: string;
+  actorRole?: string | null;
+  action: AuditAction | string;
+  entity: AuditEntity | string;
+  entityId?: string | null;
   summary: string;
-  details?: string;
+  details?: string | null;
+  metadata?: Record<string, unknown> | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
   createdAt: string;
+}
+
+export interface AuditLogStats {
+  total: number;
+  today?: number;
+  criticalCount?: number;
+  byEntity?: Record<string, number>;
+}
+
+export interface AuditLogQueryParams {
+  entity?: string;
+  action?: string;
+  branchId?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedAuditLogs {
+  logs: AuditLog[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export type IntegrationCategory = "payments" | "delivery" | "accounting" | "notifications";
@@ -556,7 +612,7 @@ export interface SalesReport {
   totalOrders: number;
   avgOrderValue: number;
   hourlySales: { hour: string; sales: number; orders: number }[];
-  dailySales: { date: string; sales: number; orders: number }[];
+  dailySales: { date: string; fullDate?: string; sales: number; orders: number }[];
   topItems: { itemId: string; name: string; qty: number; revenue: number }[];
   salesByCategory: { categoryId: string; name: string; revenue: number }[];
 }
