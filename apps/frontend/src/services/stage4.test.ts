@@ -6,6 +6,7 @@ import {
   getOperationsReport,
   listAuditLogs,
   recordAuditLog,
+  getAuditLogStats,
   listIntegrations,
   toggleIntegration,
   updateTenantSettings,
@@ -60,6 +61,16 @@ describe("Stage 4: Reports, Audit Logs, Integrations & Settings", () => {
     const logs = await listAuditLogs(demoTenantId, "order");
     expect(logs[0]?.id).toBe(created.id);
     expect(logs[0]?.summary).toBe("Voided test order due to mistake");
+
+    // Test with query filters object
+    const filtered = await listAuditLogs(demoTenantId, { entity: "order", search: "mistake" });
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered[0]?.summary).toContain("mistake");
+
+    // Test stats
+    const stats = await getAuditLogStats(demoTenantId);
+    expect(stats.total).toBeGreaterThan(0);
+    expect(stats.criticalCount).toBeGreaterThan(0);
   });
 
   it("toggles third party integrations and records an audit trail", async () => {
