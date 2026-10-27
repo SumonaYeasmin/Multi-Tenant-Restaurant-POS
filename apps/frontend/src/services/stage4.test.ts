@@ -22,6 +22,12 @@ describe("Stage 4: Reports, Audit Logs, Integrations & Settings", () => {
     expect(report.avgOrderValue).toBeGreaterThan(0);
     expect(report.dailySales.length).toBe(7);
     expect(report.topItems.length).toBeGreaterThan(0);
+    expect(report.hourlySales.length).toBe(8);
+    expect(report.hourlySales[0]?.hour).toBe("08:00");
+    expect(report.hourlySales[0]?.label).toBe("08:00 - 10:00");
+    expect(typeof report.hourlySales[0]?.orders).toBe("number");
+    expect(typeof report.hourlySales[0]?.sales).toBe("number");
+    expect(report.hourlySales.some((h) => h.isPeak)).toBe(true);
   });
 
   it("computes financial report with gross sales, tax, discounts and net profit", async () => {

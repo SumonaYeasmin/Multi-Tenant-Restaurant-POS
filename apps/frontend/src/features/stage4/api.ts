@@ -26,11 +26,11 @@ export const stage4Api = apiWithTags.injectEndpoints({
     // ---- Reports ----
     salesReport: b.query<SalesReport, T<{ branchId?: string | undefined; range?: string | undefined }>>({
       queryFn: ({ tenantId, branchId, range }) => run(() => stage4.getSalesReport(tenantId, branchId, range)),
-      providesTags: ["Reports", "Order"],
+      providesTags: ["Reports", { type: "Order", id: "LIST" }, "Order"],
     }),
     financialReport: b.query<FinancialReport, T<{ branchId?: string | undefined; range?: string | undefined }>>({
       queryFn: ({ tenantId, branchId, range }) => run(() => stage4.getFinancialReport(tenantId, branchId, range)),
-      providesTags: ["Reports", "Order"],
+      providesTags: ["Reports", { type: "Order", id: "LIST" }, "Order"],
     }),
     inventoryReport: b.query<InventoryReport, T<{ branchId?: string | undefined }>>({
       queryFn: ({ tenantId, branchId }) => run(() => stage4.getInventoryReport(tenantId, branchId)),
@@ -38,7 +38,7 @@ export const stage4Api = apiWithTags.injectEndpoints({
     }),
     operationsReport: b.query<OperationsReport, T<{ branchId?: string | undefined; range?: string | undefined }>>({
       queryFn: ({ tenantId, branchId, range }) => run(() => stage4.getOperationsReport(tenantId, branchId, range)),
-      providesTags: ["Reports", "Order"],
+      providesTags: ["Reports", { type: "Order", id: "LIST" }, "Order"],
     }),
 
     // ---- Audit Logs ----

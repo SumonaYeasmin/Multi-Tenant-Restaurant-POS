@@ -372,31 +372,173 @@ function ReportsPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="lg:col-span-3">
-                  <CardHeader>
-                    <CardTitle>Hourly Rush Times</CardTitle>
-                    <CardDescription>Order distribution by time of day</CardDescription>
+                <Card className="lg:col-span-3 border-border/80 shadow-sm flex flex-col justify-between">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base font-semibold">Hourly Rush Times</CardTitle>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold tracking-wide uppercase">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          Live Rush
+                        </span>
+                      </div>
+                      <CardDescription className="text-xs mt-0.5">
+                        {range === "today"
+                          ? "Today's live traffic & rush distribution"
+                          : `Peak order density (${range === "30d" ? "last 30 days" : "last 7 days"})`}
+                      </CardDescription>
+                    </div>
+                    {/* Peak Rush Badge */}
+                    {(() => {
+                      const peak = sales.data.hourlySales.reduce(
+                        (prev, curr) => (curr.orders > prev.orders ? curr : prev),
+                        sales.data.hourlySales[0] || { orders: 0, hour: "", label: "", sales: 0 },
+                      );
+                      if (peak && peak.orders > 0) {
+                        return (
+                          <div className="hidden sm:flex flex-col items-end text-right">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
+                              🔥 Peak: {peak.hour}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground mt-0.5">
+                              {peak.orders} orders • {money(peak.sales)}
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </CardHeader>
-                  <CardContent>
-                    <div className="h-[300px]">
+                  <CardContent className="space-y-3">
+                    <div className="h-[280px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={sales.data.hourlySales}>
-                          <CartesianGrid strokeDasharray="3 3" opacity={0.2} stroke="var(--border)" />
-                          <XAxis dataKey="hour" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} />
-                          <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} />
-                          <Tooltip
-                            contentStyle={{
-                              background: "var(--popover)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 8,
-                              fontSize: 12,
-                              color: "var(--foreground)",
-                            }}
-                            formatter={(val: any) => [val, "Orders"]}
+                        <BarChart
+                          data={sales.data.hourlySales}
+                          margin={{ top: 10, right: 8, left: -20, bottom: 0 }}
+                        >
+                          <defs>
+                            <linearGradient id="rushBarGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.95} />
+                              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.55} />
+                            </linearGradient>
+                            <linearGradient id="peakBarGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.95} />
+                              <stop offset="100%" stopColor="#d97706" stopOpacity={0.65} />
+                            </linearGradient>
+                            <linearGradient id="currentBarGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                              <stop offset="100%" stopColor="#059669" stopOpacity={0.65} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.15} stroke="var(--border)" vertical={false} />
+                          <XAxis
+                            dataKey="hour"
+                            stroke="var(--muted-foreground)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
                           />
-                          <Bar dataKey="orders" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                          <YAxis
+                            stroke="var(--muted-foreground)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
+                            allowDecimals={false}
+                            tickFormatter={(val) => `${val}`}
+                          />
+                          <Tooltip
+                            cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
+                            content={({ active, payload }) => {
+                              if (!active || !payload || !payload.length) return null;
+                              const d = payload[0].payload;
+                              const ordersCount = Number(d.orders || 0);
+                              const salesVal = Number(d.sales || 0);
+                              const avgVal = ordersCount > 0 ? Math.round(salesVal / ordersCount) : 0;
+                              return (
+                                <div className="rounded-lg border border-border bg-popover/95 p-3 shadow-xl backdrop-blur-md text-xs space-y-2 min-w-[185px]">
+                                  <div className="font-semibold text-foreground border-b border-border/50 pb-1 flex items-center justify-between">
+                                    <div>
+                                      <div className="font-bold text-foreground text-xs">{d.label || d.hour}</div>
+                                      {d.period && <div className="text-[10px] text-muted-foreground font-normal">{d.period}</div>}
+                                    </div>
+                                    {d.isPeak && ordersCount > 0 && (
+                                      <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-500 font-semibold text-[10px] rounded">
+                                        🔥 Peak
+                                      </span>
+                                    )}
+                                    {d.isCurrent && range === "today" && (
+                                      <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-500 font-semibold text-[10px] rounded">
+                                        ● Now
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="space-y-1 pt-0.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground flex items-center gap-1.5">
+                                        <span className="size-2 rounded-full bg-primary inline-block"></span>
+                                        Orders Volume:
+                                      </span>
+                                      <span className="font-bold text-foreground font-mono">{ordersCount} orders</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground flex items-center gap-1.5">
+                                        <span className="size-2 rounded-full bg-emerald-500 inline-block"></span>
+                                        Rush Revenue:
+                                      </span>
+                                      <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                                        {money(salesVal)}
+                                      </span>
+                                    </div>
+                                    {ordersCount > 0 && (
+                                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/30">
+                                        <span>Avg / Order:</span>
+                                        <span className="font-mono text-foreground">{money(avgVal)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }}
+                          />
+                          <Bar dataKey="orders" radius={[6, 6, 0, 0]}>
+                            {sales.data.hourlySales.map((entry, index) => {
+                              const isPeak = entry.isPeak && entry.orders > 0;
+                              const isCurrent = entry.isCurrent && range === "today";
+                              let fill = "url(#rushBarGrad)";
+                              if (isPeak) fill = "url(#peakBarGrad)";
+                              else if (isCurrent) fill = "url(#currentBarGrad)";
+                              return <Cell key={`cell-${index}`} fill={fill} />;
+                            })}
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>
+                    </div>
+
+                    {/* Footer KPI bar */}
+                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/40 text-center">
+                      <div className="p-1.5 rounded-md bg-muted/40">
+                        <p className="text-[10px] text-muted-foreground uppercase font-medium">Rush Orders</p>
+                        <p className="text-xs font-bold font-mono text-foreground">
+                          {sales.data.hourlySales.reduce((sum, h) => sum + h.orders, 0)}
+                        </p>
+                      </div>
+                      <div className="p-1.5 rounded-md bg-muted/40">
+                        <p className="text-[10px] text-muted-foreground uppercase font-medium">Rush Sales</p>
+                        <p className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                          {money(sales.data.hourlySales.reduce((sum, h) => sum + h.sales, 0))}
+                        </p>
+                      </div>
+                      <div className="p-1.5 rounded-md bg-muted/40">
+                        <p className="text-[10px] text-muted-foreground uppercase font-medium">Sync State</p>
+                        <p className="text-xs font-semibold text-emerald-500 flex items-center justify-center gap-1">
+                          <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          Real-time
+                        </p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

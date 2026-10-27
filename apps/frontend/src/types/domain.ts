@@ -611,7 +611,15 @@ export interface SalesReport {
   netSales: number;
   totalOrders: number;
   avgOrderValue: number;
-  hourlySales: { hour: string; sales: number; orders: number }[];
+  hourlySales: {
+    hour: string;
+    sales: number;
+    orders: number;
+    label?: string;
+    period?: string;
+    isCurrent?: boolean;
+    isPeak?: boolean;
+  }[];
   dailySales: { date: string; fullDate?: string; sales: number; orders: number }[];
   topItems: { itemId: string; name: string; qty: number; revenue: number }[];
   salesByCategory: { categoryId: string; name: string; revenue: number }[];
