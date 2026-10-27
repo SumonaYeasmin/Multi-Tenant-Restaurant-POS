@@ -183,54 +183,139 @@ function ReportsPage() {
             </div>
           ) : sales.data ? (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
-                    <DollarSign className="size-4 text-primary" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{money(sales.data.totalRevenue)}</div>
-                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                      <ArrowUpRight className="size-3 text-emerald-500" />
-                      <span>+12.5% from previous period</span>
-                    </p>
-                  </CardContent>
-                </Card>
+              {(() => {
+                const m = sales.data.metrics;
+                return (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {/* Card 1: Total Revenue */}
+                    <Card className="border-border/80 shadow-sm hover:shadow transition-shadow">
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+                        <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <DollarSign className="size-4 text-primary" />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold font-mono tracking-tight">{money(sales.data.totalRevenue)}</div>
+                        <div className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5 flex-wrap">
+                          {m?.revenueGrowth !== undefined ? (
+                            m.revenueGrowth > 0 ? (
+                              <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-semibold font-mono">
+                                <ArrowUpRight className="size-3.5" />
+                                +{m.revenueGrowth}%
+                              </span>
+                            ) : m.revenueGrowth < 0 ? (
+                              <span className="inline-flex items-center gap-0.5 text-rose-600 dark:text-rose-400 font-semibold font-mono">
+                                <ArrowDownRight className="size-3.5" />
+                                {m.revenueGrowth}%
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground font-mono font-medium">0.0%</span>
+                            )
+                          ) : null}
+                          <span>{m?.prevPeriodLabel ?? "vs previous period"}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Net Sales</CardTitle>
-                    <TrendingUp className="size-4 text-emerald-500" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{money(sales.data.netSales)}</div>
-                    <p className="text-xs text-muted-foreground mt-1">After item discounts</p>
-                  </CardContent>
-                </Card>
+                    {/* Card 2: Net Sales */}
+                    <Card className="border-border/80 shadow-sm hover:shadow transition-shadow">
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Net Sales</CardTitle>
+                        <div className="size-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                          <TrendingUp className="size-4 text-emerald-500" />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold font-mono tracking-tight">{money(sales.data.netSales)}</div>
+                        <div className="text-xs text-muted-foreground mt-1.5 flex items-center justify-between gap-1">
+                          {m?.totalDiscounts && m.totalDiscounts > 0 ? (
+                            <span className="text-amber-600 dark:text-amber-400 font-medium">
+                              -{money(m.totalDiscounts)} discounts applied
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">No discounts applied</span>
+                          )}
+                          {m?.grossSales ? (
+                            <span className="text-[11px] text-muted-foreground font-mono">
+                              Gross: {money(m.grossSales)}
+                            </span>
+                          ) : null}
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
-                    <ShoppingCart className="size-4 text-blue-500" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{sales.data.totalOrders}</div>
-                    <p className="text-xs text-muted-foreground mt-1">Completed orders</p>
-                  </CardContent>
-                </Card>
+                    {/* Card 3: Total Orders */}
+                    <Card className="border-border/80 shadow-sm hover:shadow transition-shadow">
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
+                        <div className="size-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                          <ShoppingCart className="size-4 text-blue-500" />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold font-mono tracking-tight">{sales.data.totalOrders}</div>
+                        <div className="text-xs text-muted-foreground mt-1.5 flex items-center justify-between gap-1 flex-wrap">
+                          <span>
+                            {m?.completedOrders ?? sales.data.totalOrders} completed
+                            {m?.activeOrders ? `, ${m.activeOrders} active` : ""}
+                          </span>
+                          {range !== "today" && m?.ordersAvgPerDay ? (
+                            <span className="text-[11px] text-muted-foreground font-mono">
+                              ~{m.ordersAvgPerDay}/day
+                            </span>
+                          ) : m?.ordersGrowth !== undefined ? (
+                            <span
+                              className={`text-[11px] font-mono font-semibold ${
+                                m.ordersGrowth >= 0
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : "text-rose-600 dark:text-rose-400"
+                              }`}
+                            >
+                              {m.ordersGrowth >= 0 ? `+${m.ordersGrowth}%` : `${m.ordersGrowth}%`}
+                            </span>
+                          ) : null}
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Average Order Value</CardTitle>
-                    <Receipt className="size-4 text-purple-500" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{money(sales.data.avgOrderValue)}</div>
-                    <p className="text-xs text-muted-foreground mt-1">Avg spend per guest</p>
-                  </CardContent>
-                </Card>
-              </div>
+                    {/* Card 4: Average Order Value */}
+                    <Card className="border-border/80 shadow-sm hover:shadow transition-shadow">
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Average Order Value</CardTitle>
+                        <div className="size-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                          <Receipt className="size-4 text-purple-500" />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold font-mono tracking-tight">{money(sales.data.avgOrderValue)}</div>
+                        <div className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5 flex-wrap">
+                          {m?.aovGrowth !== undefined ? (
+                            <>
+                              {m.aovGrowth > 0 ? (
+                                <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-semibold font-mono">
+                                  <ArrowUpRight className="size-3.5" />
+                                  +{m.aovGrowth}%
+                                </span>
+                              ) : m.aovGrowth < 0 ? (
+                                <span className="inline-flex items-center gap-0.5 text-rose-600 dark:text-rose-400 font-semibold font-mono">
+                                  <ArrowDownRight className="size-3.5" />
+                                  {m.aovGrowth}%
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground font-mono font-medium">0.0%</span>
+                              )}
+                              <span>{m.prevPeriodLabel}</span>
+                            </>
+                          ) : (
+                            <span>Avg spend per guest order</span>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })()}
 
               {/* Charts */}
               <div className="grid gap-6 lg:grid-cols-7">

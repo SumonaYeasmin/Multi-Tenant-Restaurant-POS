@@ -611,6 +611,19 @@ export interface SalesReport {
   netSales: number;
   totalOrders: number;
   avgOrderValue: number;
+  metrics?: {
+    revenueGrowth?: number;
+    revenuePrevPeriod?: number;
+    prevPeriodLabel?: string;
+    grossSales?: number;
+    totalDiscounts?: number;
+    completedOrders?: number;
+    activeOrders?: number;
+    ordersGrowth?: number;
+    ordersAvgPerDay?: number;
+    aovGrowth?: number;
+    prevAov?: number;
+  };
   hourlySales: {
     hour: string;
     sales: number;
