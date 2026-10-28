@@ -681,11 +681,12 @@ export async function listAuditLogs(
       // Cache / sync latest to tenantDb so offline fallback stays updated
       const db = tenantDb(tenantId);
       if (!query.entity || query.entity === "all") {
-        db.auditLogs = mapped;
+        db.auditLogs = [...mapped];
       }
 
+      const logs = [...mapped];
       return Object.assign(mapped, {
-        logs: mapped,
+        logs,
         total,
         page,
         limit,
@@ -723,9 +724,10 @@ export async function listAuditLogs(
   const total = sorted.length;
   const totalPages = Math.ceil(total / limit) || 1;
   const paged = sorted.slice((page - 1) * limit, page * limit);
+  const pagedLogs = [...paged];
 
   return Object.assign(paged, {
-    logs: paged,
+    logs: pagedLogs,
     total,
     page,
     limit,
