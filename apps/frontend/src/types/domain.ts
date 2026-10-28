@@ -611,10 +611,44 @@ export interface SalesReport {
   netSales: number;
   totalOrders: number;
   avgOrderValue: number;
-  hourlySales: { hour: string; sales: number; orders: number }[];
+  metrics?: {
+    revenueGrowth?: number;
+    revenuePrevPeriod?: number;
+    prevPeriodLabel?: string;
+    grossSales?: number;
+    totalDiscounts?: number;
+    completedOrders?: number;
+    activeOrders?: number;
+    ordersGrowth?: number;
+    ordersAvgPerDay?: number;
+    aovGrowth?: number;
+    prevAov?: number;
+  };
+  hourlySales: {
+    hour: string;
+    sales: number;
+    orders: number;
+    label?: string;
+    period?: string;
+    isCurrent?: boolean;
+    isPeak?: boolean;
+  }[];
   dailySales: { date: string; fullDate?: string; sales: number; orders: number }[];
-  topItems: { itemId: string; name: string; qty: number; revenue: number }[];
-  salesByCategory: { categoryId: string; name: string; revenue: number }[];
+  topItems: {
+    itemId: string;
+    name: string;
+    qty: number;
+    revenue: number;
+    percentage?: number;
+    avgPrice?: number;
+  }[];
+  salesByCategory: {
+    categoryId: string;
+    name: string;
+    revenue: number;
+    percentage?: number;
+    qty?: number;
+  }[];
 }
 
 export interface FinancialReport {
