@@ -62,10 +62,9 @@
 * **বর্তমান অবস্থা**: সেটিংস পেজে লোগো পরিবর্তন, প্রিভিউ কালার থিম সিলেকশন, ট্যাক্স রেট, সার্ভিস চার্জ এবং রিসিট ফুটার নোট পরিবর্তন করা হলে তা শুধুমাত্র ইন-মেমোরি `TENANTS` অবজেক্ট এবং `localStorage`-এ সেভ হয় (`stage4.updateTenantSettings`)। ব্যাকএন্ডে কোনো সেটিংস আপডেট কন্ট্রোলার নেই।
 * **প্রয়োজনীয় Backend কাজ**: `PATCH /tenants/:tenantSlug/settings` এন্ডপয়েন্ট তৈরি করা যা লোগো URL, থিম আইডি, ট্যাক্স রেট ও রিসিট কনফিগারেশন ডাটাবেজে সংরক্ষণ করবে।
 
-### ৮. ড্যাশবোর্ড ওভারভিউ মেট্রিক্স (Dashboard Aggregated Summary)
-* **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.dashboard.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.dashboard.tsx), [`operations.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/operations.service.ts#L1271-L1307)
-* **বর্তমান অবস্থা**: ড্যাশবোর্ডের সেলস চার্ট, দৈনিক সেলস, মোট অর্ডার সংখ্যা, টপ সেলিং আইটেম ইত্যাদি ফ্রন্টএন্ডে ক্লায়েন্ট-সাইডে লুপ চালিয়ে গণনা করা হয়। ব্যাকএন্ডে ড্যাশবোর্ডের কোনো অ্যাগ্রিগেশন সার্ভিস বা এন্ডপয়েন্ট নেই।
-* **প্রয়োজনীয় Backend কাজ**: `GET /tenants/:tenantSlug/dashboard/summary?branchId=...` তৈরি করা।
+### ৮. ড্যাশবোর্ড ওভারভিউ মেট্রিক্স (Dashboard Aggregated Summary) [সম্পন্ন / RESOLVED]
+* **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.dashboard.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.dashboard.tsx), [`operations.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/operations.service.ts)
+* **সমাধান সম্পন্ন**: ব্যাকএন্ডে নতুন `DashboardModule` ও `GET /tenants/:tenantSlug/dashboard/summary?branchId=...` এন্ডপয়েন্ট তৈরি করা হয়েছে যা ডেটাবেজের রিয়েলটাইম অর্ডার ও পেমেন্ট হিসেব করে `todaySales`, `todayOrders`, `avgTicket`, `activeOrders`, `kitchenQueue`, `occupiedTables`, `totalTables`, গত ৭ দিনের দৈনিক সেলস চার্ট (`salesByDay`), টপ সেলিং আইটেম (`topItems`), লো স্টক ওয়ার্নিং (`lowStock`), এবং সাম্প্রতিক অর্ডার (`recentOrders`) সরাসরি অ্যাগ্রিগেট করে পাঠায়। ফ্রন্টএন্ডে ক্লায়েন্ট-সাইড ম্যানুয়াল লুপ গণনা বন্ধ করে ব্যাকএন্ড এপিআই কল ইন্টিগ্রেট করা হয়েছে।
 
 ### ৯. ইনভেন্টরি ও অপারেশন রিপোর্টস (Inventory & Operations Reports)
 * **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.reports.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.reports.tsx), [`stage4.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/stage4.service.ts#L430-L530)

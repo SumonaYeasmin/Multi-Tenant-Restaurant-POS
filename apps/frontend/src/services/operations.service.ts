@@ -1269,6 +1269,39 @@ export interface DashboardSummary {
 }
 
 export async function getDashboard(tenantId: string, branchId: string): Promise<DashboardSummary> {
+  try {
+    const params = new URLSearchParams();
+    if (branchId) params.append("branchId", branchId);
+    const queryStr = params.toString() ? `?${params.toString()}` : "";
+    const backendData = await backendFetch<any>(`/tenants/${tenantId}/dashboard/summary${queryStr}`);
+    if (backendData && typeof backendData.todaySales === "number") {
+      return {
+        todaySales: Number(backendData.todaySales) || 0,
+        todayOrders: Number(backendData.todayOrders) || 0,
+        avgTicket: Number(backendData.avgTicket) || 0,
+        activeOrders: Number(backendData.activeOrders) || 0,
+        kitchenQueue: Number(backendData.kitchenQueue) || 0,
+        occupiedTables: Number(backendData.occupiedTables) || 0,
+        totalTables: Number(backendData.totalTables) || 0,
+        salesByDay: Array.isArray(backendData.salesByDay) ? backendData.salesByDay : [],
+        topItems: Array.isArray(backendData.topItems) ? backendData.topItems : [],
+        lowStock: Array.isArray(backendData.lowStock)
+          ? backendData.lowStock.map((i: any) => ({
+              ...i,
+              stock: i.stock ?? i.currentStock ?? 0,
+            }))
+          : [],
+        recentOrders: Array.isArray(backendData.recentOrders)
+          ? backendData.recentOrders.map(mapBackendOrderToDomain)
+          : [],
+      };
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch dashboard summary from backend, falling back to local calculation:", err);
+    }
+  }
+
   await latency(200, 400);
   const db = tenantDb(tenantId);
   const orders = db.orders.filter((o) => o.branchId === branchId && o.status !== "cancelled");

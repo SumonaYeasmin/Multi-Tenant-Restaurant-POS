@@ -24,6 +24,7 @@ import { PromotionModule } from './promotion/promotion.module';
 import { RiderModule } from './rider/rider.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { AuditLogModule } from './audit-log/audit-log.module';
     RiderModule,
     NotificationsModule,
     AuditLogModule,
+    DashboardModule,
   ],
   exports: [
     TenantRoleModule,
@@ -78,6 +80,7 @@ import { AuditLogModule } from './audit-log/audit-log.module';
     RiderModule,
     NotificationsModule,
     AuditLogModule,
+    DashboardModule,
   ],
 })
 export class ModulesModule {}
