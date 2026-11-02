@@ -66,10 +66,9 @@
 * **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.dashboard.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.dashboard.tsx), [`operations.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/operations.service.ts)
 * **সমাধান সম্পন্ন**: ব্যাকএন্ডে নতুন `DashboardModule` ও `GET /tenants/:tenantSlug/dashboard/summary?branchId=...` এন্ডপয়েন্ট তৈরি করা হয়েছে যা ডেটাবেজের রিয়েলটাইম অর্ডার ও পেমেন্ট হিসেব করে `todaySales`, `todayOrders`, `avgTicket`, `activeOrders`, `kitchenQueue`, `occupiedTables`, `totalTables`, গত ৭ দিনের দৈনিক সেলস চার্ট (`salesByDay`), টপ সেলিং আইটেম (`topItems`), লো স্টক ওয়ার্নিং (`lowStock`), এবং সাম্প্রতিক অর্ডার (`recentOrders`) সরাসরি অ্যাগ্রিগেট করে পাঠায়। ফ্রন্টএন্ডে ক্লায়েন্ট-সাইড ম্যানুয়াল লুপ গণনা বন্ধ করে ব্যাকএন্ড এপিআই কল ইন্টিগ্রেট করা হয়েছে।
 
-### ৯. ইনভেন্টরি ও অপারেশন রিপোর্টস (Inventory & Operations Reports)
-* **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.reports.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.reports.tsx), [`stage4.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/stage4.service.ts#L430-L530)
-* **বর্তমান অবস্থা**: সেলস ও ফাইন্যান্সিয়াল রিপোর্ট ব্যাকএন্ডের অর্ডার লিস্ট থেকে হিসেব করে। কিন্তু **ইনভেন্টরি ভ্যালুয়েশন রিপোর্ট** (`getInventoryReport`) এবং **অপারেশন স্ট্যাটাস রিপোর্ট** (`getOperationsReport`) ১০০% লোকাল মক।
-* **প্রয়োজনীয় Backend কাজ**: ইনভেন্টরি স্টক ভ্যালুয়েশন এবং রেস্তোরাঁ অপারেশন মেকানিক্সের ডেডিকেটেড অ্যানালিটিক্স কুয়েরি তৈরি।
+### ৯. ইনভেন্টরি ও অপারেশন রিপোর্টস (Inventory & Operations Reports) [সম্পন্ন / RESOLVED]
+* **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.reports.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.reports.tsx), [`stage4.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/stage4.service.ts)
+* **সমাধান সম্পন্ন**: ব্যাকএন্ডে ডেডিকেটেড `ReportModule` তৈরি করা হয়েছে যার মধ্যে `GET /tenants/:tenantSlug/reports/inventory` (ইনভেন্টরি স্টক ভ্যালুয়েশন, লো স্টক কাউন্ট, ওয়েস্টেজ খরচ, এবং স্টক মুভমেন্টস), `GET /tenants/:tenantSlug/reports/operations` (কিচেন ভেলোসিটি, অর্ডার স্ট্যাটাস ও টাইপ ডিস্ট্রিবিউশন, টেবিল টার্নওভার), `GET /tenants/:tenantSlug/reports/sales` এবং `GET /tenants/:tenantSlug/reports/financial` এন্ডপয়েন্ট তৈরি করা হয়েছে। ফ্রন্টএন্ডে `stage4.service.ts`-এর লোকাল মক ফাংশনগুলোকে এই ডেডিকেটেড ব্যাকএন্ড এপিআই-এর সাথে সরাসরি যুক্ত করা হয়েছে।
 
 ### ১০. থার্ড পার্টি ইন্টিগ্রেশন (Integrations / Marketplace)
 * **ফ্রন্টএন্ড ফাইল**: [`stage4.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/stage4.service.ts#L750-L780)

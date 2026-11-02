@@ -25,6 +25,7 @@ import { RiderModule } from './rider/rider.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ReportModule } from './report/report.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     NotificationsModule,
     AuditLogModule,
     DashboardModule,
+    ReportModule,
   ],
   exports: [
     TenantRoleModule,
@@ -81,6 +83,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     NotificationsModule,
     AuditLogModule,
     DashboardModule,
+    ReportModule,
   ],
 })
 export class ModulesModule {}
