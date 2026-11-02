@@ -387,4 +387,33 @@ describe("Category B Backend Integrations", () => {
       );
     });
   });
+  describe("Multi-Tenant Workspaces API", () => {
+    it("listTenantsForUser calls backend GET /auth/me/tenants and returns workspaces", async () => {
+      const mockTenants = [
+        {
+          id: "t_saffron",
+          slug: "saffron-ember",
+          name: "Saffron & Ember",
+          tagline: "Charcoal grill",
+          initials: "SE",
+          accent: "oklch(0.6 0.2 40)",
+          currency: "BDT",
+          locale: "en-BD",
+          taxRate: 0.1,
+          serviceChargeRate: 0.05,
+          receiptFooter: "Thanks",
+          role: "owner",
+        },
+      ];
+
+      vi.spyOn(apiClient, "backendFetch").mockResolvedValueOnce(mockTenants);
+
+      const res = await platformService.listTenantsForUser("usr_1");
+
+      expect(res).toHaveLength(1);
+      expect(res[0].id).toBe("t_saffron");
+      expect(res[0].name).toBe("Saffron & Ember");
+      expect(apiClient.backendFetch).toHaveBeenCalledWith("/auth/me/tenants");
+    });
+  });
 });

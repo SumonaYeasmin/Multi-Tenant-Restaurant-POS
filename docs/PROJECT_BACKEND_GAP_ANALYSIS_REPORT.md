@@ -107,9 +107,9 @@
 4. **পাসওয়ার্ড রিসেট ফ্লো (Forgot/Reset Password)**: [✅ সমাধান সম্পন্ন]
    * **কোড**: [`forgot-password.tsx`](file:///apps/frontend/src/routes/forgot-password.tsx), [`reset-password.tsx`](file:///apps/frontend/src/routes/reset-password.tsx), [`password.controller.ts`](file:///apps/backend/src/modules/auth/controllers/password.controller.ts), [`password.service.ts`](file:///apps/backend/src/modules/auth/services/password.service.ts)
    * **বাস্তবায়ন**: ব্যাকএন্ডে ক্রিপ্টোগ্রাফিক সিঙ্গেল-ইউজ JWT রিসেট টোকেন মেকানিজম যুক্ত করা হয়েছে (যা ব্যবহারকারীর বর্তমান পাসওয়ার্ড হ্যাশের সাথে বাইন্ড থাকায় পাসওয়ার্ড পরিবর্তনের সাথে সাথেই টোকেন স্বয়ংক্রিয়ভাবে অকার্যকর হয়ে যায়)। `POST /auth/forgot-password`, `GET /auth/reset-password/validate`, এবং `POST /auth/reset-password` এন্ডপয়েন্ট তৈরি করা হয়েছে এবং `EmailService` দিয়ে রেসপনসিভ এইচটিএমএল ইমেইল পাঠানো হয়। ফ্রন্টএন্ডে মক নোটিসগুলো সম্পূর্ণরূপে মুছে রিয়েল টোকেন ভ্যালিডেশন এবং পাসওয়ার্ড রিসেট ফ্লো ইন্টিগ্রেট করা হয়েছে।
-5. **মাল্টি-টেন্যান্ট ওয়ার্কস্পেস সিলেকশন (Workspace Select)**:
-   * **কোড**: [`workspace.select.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/workspace.select.tsx), [`platform.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/platform.service.ts#L115)
-   * **সমস্যা**: ব্যবহারকারী কোন কোন রেস্তোরাঁয় অ্যাক্সেস রাখে তা ব্যাকএন্ডের পরিবর্তে হার্ডকোডেড `TENANTS` অ্যারে থেকে আনা হয়। `GET /auth/me/tenants` ব্যাকএন্ডে নেই।
+5. **মাল্টি-টেন্যান্ট ওয়ার্কস্পেস সিলেকশন (Workspace Select)**: [✅ সমাধান সম্পন্ন]
+   * **কোড**: [`workspace.select.tsx`](file:///apps/frontend/src/routes/workspace.select.tsx), [`platform.service.ts`](file:///apps/frontend/src/services/platform.service.ts), [`auth.controller.ts`](file:///apps/backend/src/modules/auth/controllers/auth.controller.ts), [`auth.service.ts`](file:///apps/backend/src/modules/auth/services/auth.service.ts)
+   * **বাস্তবায়ন**: ব্যাকএন্ডে `GET /auth/me/tenants` এন্ডপয়েন্ট ও `getMyTenants()` সার্ভিস মেথড তৈরি করা হয়েছে। এটি ওনারদের জন্য সমস্ত রেস্তোরাঁ ও অন্যান্য স্টাফদের জন্য তাদের অ্যাসাইন করা এক্টিভ রেস্তোরাঁসমূহ রোল সহ ডাটাবেজ থেকে ফেচ করে। ফ্রন্টএন্ডের `platform.listTenantsForUser()` এখন সরাসরি ব্যাকএন্ড থেকে টেন্যান্ট তালিকা নিয়ে আসে, ইউজার মেম্বারশিপ আপডেট করে এবং `workspace.select.tsx` পেজে ডাইনামিক রোল ও ডেডিকেটেড ওয়ার্কস্পেস লোড করে।
 
 ---
 
