@@ -4,6 +4,7 @@ import * as opsService from "./operations.service";
 import * as platformService from "./platform.service";
 import * as peopleService from "./people.service";
 import * as moneyService from "./money.service";
+import * as catalogService from "./catalog.service";
 import * as apiClient from "./api-client";
 
 describe("Category B Backend Integrations", () => {
@@ -311,5 +312,27 @@ describe("Category B Backend Integrations", () => {
       );
     });
   });
-});
+  describe("Category Move / Reorder API", () => {
+    it("moveCategory calls backend PATCH endpoint with dir", async () => {
+      const mockUpdatedCategories = [
+        { id: "cat_2", tenantId, name: "Drinks", sort: 0 },
+        { id: "cat_1", tenantId, name: "Food", sort: 1 },
+      ];
 
+      vi.spyOn(apiClient, "backendFetch").mockResolvedValueOnce(mockUpdatedCategories);
+
+      const res = await catalogService.moveCategory(tenantId, "cat_1", 1);
+
+      expect(res).toHaveLength(2);
+      expect(res[0].id).toBe("cat_2");
+      expect(res[1].id).toBe("cat_1");
+      expect(apiClient.backendFetch).toHaveBeenCalledWith(
+        `/tenants/${tenantId}/categories/cat_1/move`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ dir: 1 }),
+        })
+      );
+    });
+  });
+});

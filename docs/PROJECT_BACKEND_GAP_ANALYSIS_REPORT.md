@@ -101,9 +101,9 @@
 2. **অর্ডার বাতিল / ভয়েড (Order Void / Cancel)**: [✅ সমাধান সম্পন্ন]
    * **কোড**: [`operations.service.ts`](file:///apps/frontend/src/services/operations.service.ts)
    * **বাস্তবায়ন**: ব্যাকএন্ডে `PATCH /tenants/:tenantSlug/orders/:orderId/cancel` এন্ডপয়েন্ট, `CancelOrderDto`, এবং `cancelOrder()` সার্ভিস মেথড তৈরি করা হয়েছে যা `ORDERS_VOID` পারমিশন ভ্যালিডেশন করে, আনপেইড বা ফুল-রিফান্ডেড অর্ডার ক্যানসেল করে, কারণ নোটসে যুক্ত করে এবং সংশ্লিষ্ট ডাইনিং টেবিল স্বয়ংক্রিয়ভাবে মুক্ত (`AVAILABLE`) করে দেয়। ফ্রন্টএন্ডের `cancelOrder()` এখন সরাসরি ব্যাকএন্ডের এই এন্ডপয়েন্টে কল পাঠায়।
-3. **ক্যাটাগরি রি-অর্ডারিং (Category Drag/Move Order)**:
-   * **কোড**: [`catalog.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/catalog.service.ts#L75-L100)
-   * **সমস্যা**: ক্যাটাগরি উপরে বা নিচে মুভ করলে (`moveCategory`) কোনো ব্যাকএন্ড কল হয় না।
+3. **ক্যাটাগরি রি-অর্ডারিং (Category Drag/Move Order)**: [✅ সমাধান সম্পন্ন]
+   * **কোড**: [`catalog.service.ts`](file:///apps/frontend/src/services/catalog.service.ts)
+   * **বাস্তবায়ন**: ব্যাকএন্ডে `PATCH /tenants/:tenantSlug/categories/:categoryId/move` (উপরে/নিচে একক স্টেপে মুভ) এবং `PATCH /tenants/:tenantSlug/categories/reorder` (অ্যারে অব আইডি দিয়ে ব্যাচ রি-অর্ডার) এন্ডপয়েন্ট তৈরি করা হয়েছে। ডাটাবেজে `Category.sort` কলাম অ্যাটমিক প্রিজমা ট্রানজ্যাকশনের মাধ্যমে নরম্যালাইজড ক্রমানুসারে আপডেট হয়। ফ্রন্টএন্ডের `catalog.moveCategory()` এখন সরাসরি ব্যাকএন্ডের মুভ এন্ডপয়েন্টে রিকোয়েস্ট পাঠায় এবং লোকাল ক্যাশ আপডেট করে।
 4. **পাসওয়ার্ড রিসেট ফ্লো (Forgot/Reset Password)**:
    * **কোড**: [`forgot-password.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/forgot-password.tsx), [`reset-password.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/reset-password.tsx)
    * **সমস্যা**: এখানে লেখা রয়েছে `MockNotice: Passwords are not stored.` এবং কোনো ইমেইল পাঠানো বা টোকেন ভ্যালিডেশনের ব্যাকএন্ড সার্ভিস নেই।
