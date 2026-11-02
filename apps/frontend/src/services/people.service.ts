@@ -21,6 +21,7 @@ import type {
   Order,
   Promotion,
   Reservation,
+  ReservationSettings,
   ReservationStatus,
   RoleId,
   StaffMember,
@@ -346,6 +347,79 @@ export async function deleteReservation(tenantId: string, id: string): Promise<{
   db.reservations.splice(idx, 1);
   commit(tenantId);
   return { success: true, message: "Reservation deleted successfully" };
+}
+
+export async function getReservationSettings(tenantId: string): Promise<ReservationSettings> {
+  try {
+    const res = await backendFetch<any>(`/tenants/${tenantId}/reservation-settings`);
+    if (res && typeof res.defaultDurationMin === "number") {
+      return {
+        id: res.id,
+        tenantId: res.tenantId || tenantId,
+        defaultDurationMin: res.defaultDurationMin,
+        bufferTimeMin: res.bufferTimeMin ?? 30,
+        earlyArrivalWindowMin: res.earlyArrivalWindowMin ?? 15,
+        noShowGracePeriodMin: res.noShowGracePeriodMin ?? 15,
+        minPartySize: res.minPartySize ?? 1,
+        maxPartySize: res.maxPartySize ?? 20,
+        maxAdvanceDays: res.maxAdvanceDays ?? 30,
+        minAdvanceHours: res.minAdvanceHours ?? 2,
+        createdAt: res.createdAt,
+        updatedAt: res.updatedAt,
+      };
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for reservation settings, falling back to local defaults");
+    } else {
+      throw err;
+    }
+  }
+
+  await latency(50, 150);
+  const saved = readJson<ReservationSettings>(storageKey("res_settings", tenantId));
+  return saved || {
+    defaultDurationMin: 90,
+    bufferTimeMin: 30,
+    earlyArrivalWindowMin: 15,
+    noShowGracePeriodMin: 15,
+    minPartySize: 1,
+    maxPartySize: 20,
+    maxAdvanceDays: 30,
+    minAdvanceHours: 2,
+  };
+}
+
+export async function updateReservationSettings(
+  tenantId: string,
+  settings: Partial<ReservationSettings>
+): Promise<ReservationSettings> {
+  try {
+    const res = await backendFetch<any>(`/tenants/${tenantId}/reservation-settings`, {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+    if (res && typeof res.defaultDurationMin === "number") {
+      writeJson(storageKey("res_settings", tenantId), res);
+      return res;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for updating reservation settings, saving locally");
+    } else {
+      throw err;
+    }
+  }
+
+  await latency(100, 250);
+  const current = await getReservationSettings(tenantId);
+  const updated: ReservationSettings = {
+    ...current,
+    ...settings,
+    updatedAt: new Date().toISOString(),
+  };
+  writeJson(storageKey("res_settings", tenantId), updated);
+  return updated;
 }
 
 // ---------- Staff ----------

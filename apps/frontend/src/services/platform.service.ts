@@ -121,6 +121,28 @@ export async function listTenantsForUser(userId: string): Promise<Tenant[]> {
 }
 
 export async function listBranches(tenantId: string, userId: string): Promise<Branch[]> {
+  try {
+    const res = await backendFetch<any[]>(`/tenants/${tenantId}/branches`);
+    if (Array.isArray(res) && res.length > 0) {
+      const branches: Branch[] = res.map((b) => ({
+        id: b.id,
+        tenantId: b.tenantId || tenantId,
+        name: b.name,
+        address: b.address || "",
+        phone: b.phone || "",
+      }));
+      const db = tenantDb(tenantId);
+      db.branches = branches;
+      return branches;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for branches, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency(60, 150);
   const user = USERS.find((u) => u.id === userId);
   const m = user?.memberships.find((x) => x.tenantId === tenantId);

@@ -1,7 +1,7 @@
 import { baseApi, run } from "@/app/base-api";
 import * as people from "@/services/people.service";
 import * as money from "@/services/money.service";
-import type { Branch, CashSession, Customer, DeliveryStatus, Expense, LoyaltySettings, Order, Promotion, Reservation, ReservationStatus, Rider, StaffMember } from "@/types/domain";
+import type { Branch, CashSession, Customer, DeliveryStatus, Expense, LoyaltySettings, Order, Promotion, Reservation, ReservationSettings, ReservationStatus, Rider, StaffMember } from "@/types/domain";
 
 type T<A> = { tenantId: string } & A;
 const ORDER = [{ type: "Order" as const, id: "LIST" }, "Dashboard" as const];
@@ -23,6 +23,8 @@ export const peopleApi = api3.injectEndpoints({
     saveReservation: b.mutation<Reservation, T<people.ReservationInput>>({ queryFn: ({ tenantId, ...i }) => run(() => people.saveReservation(tenantId, i)), invalidatesTags: ["Reservation", "Table", "Dashboard"] }),
     setReservationStatus: b.mutation<Reservation, T<{ id: string; status: ReservationStatus }>>({ queryFn: ({ tenantId, id, status }) => run(() => people.setReservationStatus(tenantId, id, status)), invalidatesTags: ["Reservation", "Table", "Dashboard"] }),
     deleteReservation: b.mutation<{ success: boolean; message: string }, T<{ id: string }>>({ queryFn: ({ tenantId, id }) => run(() => people.deleteReservation(tenantId, id)), invalidatesTags: ["Reservation", "Table", "Dashboard"] }),
+    reservationSettings: b.query<ReservationSettings, string>({ queryFn: (tenantId) => run(() => people.getReservationSettings(tenantId)), providesTags: ["Reservation"] }),
+    updateReservationSettings: b.mutation<ReservationSettings, T<Partial<ReservationSettings>>>({ queryFn: ({ tenantId, ...settings }) => run(() => people.updateReservationSettings(tenantId, settings)), invalidatesTags: ["Reservation"] }),
 
     // ---- Delivery ----
     deliveries: b.query<Order[], T<{ branchId: string }>>({ queryFn: ({ tenantId, branchId }) => run(() => money.listDeliveries(tenantId, branchId)), providesTags: ["Delivery", { type: "Order", id: "LIST" }] }),
@@ -73,6 +75,8 @@ export const {
   useSaveReservationMutation,
   useSetReservationStatusMutation,
   useDeleteReservationMutation,
+  useReservationSettingsQuery,
+  useUpdateReservationSettingsMutation,
   useDeliveriesQuery,
   useRidersQuery,
   useSaveRiderMutation,

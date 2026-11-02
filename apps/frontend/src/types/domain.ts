@@ -431,6 +431,21 @@ export interface Reservation {
   createdAt: string;
 }
 
+export interface ReservationSettings {
+  id?: string;
+  tenantId?: string;
+  defaultDurationMin: number;
+  bufferTimeMin: number;
+  earlyArrivalWindowMin: number;
+  noShowGracePeriodMin: number;
+  minPartySize: number;
+  maxPartySize: number;
+  maxAdvanceDays: number;
+  minAdvanceHours: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface CashEntry {
   id: string;
   kind: "in" | "out";

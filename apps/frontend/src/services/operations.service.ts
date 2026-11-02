@@ -1141,6 +1141,30 @@ export async function listIngredients(tenantId: string, branchId: string): Promi
 }
 
 export async function listMovements(tenantId: string, branchId: string): Promise<StockMovement[]> {
+  try {
+    const res = await backendFetch<any[]>(`/tenants/${tenantId}/stock-movements?branchId=${branchId}&limit=100`);
+    if (Array.isArray(res)) {
+      return res.map((m) => ({
+        id: m.id,
+        tenantId: m.tenantId || tenantId,
+        branchId: m.branchId || branchId,
+        ingredientId: m.ingredientId,
+        ingredientName: m.ingredientName || m.ingredient?.name || "Unknown",
+        qty: Number(m.qty ?? m.quantity ?? 0),
+        unit: m.unit || m.ingredient?.unit || "",
+        reason: (m.reason || "adjustment").toLowerCase() as any,
+        reference: m.reference || m.notes || "",
+        createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : new Date().toISOString(),
+      }));
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for stock movements, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   return tenantDb(tenantId).movements.filter((m) => m.branchId === branchId).slice(0, 100);
 }
