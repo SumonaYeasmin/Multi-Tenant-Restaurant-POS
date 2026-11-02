@@ -277,5 +277,39 @@ describe("Category B Backend Integrations", () => {
       );
     });
   });
+
+  describe("Order Void / Cancel API", () => {
+    it("cancelOrder calls backend PATCH endpoint and updates status", async () => {
+      const mockCancelledOrder = {
+        id: "ord_1002",
+        tenantId,
+        branchId,
+        orderNumber: "#1002",
+        status: "CANCELLED",
+        tableId: "tbl_1",
+        notes: "Voided: Customer cancelled food",
+        total: 800,
+        paid: 0,
+        refunded: 0,
+        payments: [],
+        refunds: [],
+        lines: [],
+      };
+
+      vi.spyOn(apiClient, "backendFetch").mockResolvedValueOnce(mockCancelledOrder);
+
+      const res = await opsService.cancelOrder(tenantId, "ord_1002", "Customer cancelled food");
+
+      expect(res.status).toBe("cancelled");
+      expect(res.notes).toContain("Voided: Customer cancelled food");
+      expect(apiClient.backendFetch).toHaveBeenCalledWith(
+        `/tenants/${tenantId}/orders/ord_1002/cancel`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ reason: "Customer cancelled food" }),
+        })
+      );
+    });
+  });
 });
 

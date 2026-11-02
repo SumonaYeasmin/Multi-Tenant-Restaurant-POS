@@ -10,6 +10,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrderLineDto } from './dto/create-order-line.dto';
 import { CreateOrderPaymentDto } from './dto/create-order-payment.dto';
 import { CreateOrderRefundDto } from './dto/create-order-refund.dto';
+import { CancelOrderDto } from './dto/cancel-order.dto';
 import { GetOrdersQueryDto } from './dto/get-orders-query.dto';
 import { UpdateOrderDeliveryDto } from './dto/update-order-delivery.dto';
 import {
@@ -1175,5 +1176,106 @@ export class OrderService {
         },
       },
     });
+  }
+
+  /**
+   * Void / Cancel an active or unpaid order
+   */
+  async cancelOrder(
+    tenantSlug: string,
+    orderId: string,
+    dto: CancelOrderDto,
+    currentUser?: AuthenticatedUser | any,
+  ) {
+    // 1. Resolve tenant
+    const tenant = await this.resolveTenant(tenantSlug);
+
+    // 2. Fetch order with table and payments
+    const order = await this.prisma.order.findFirst({
+      where: {
+        tenantId: tenant.id,
+        OR: [
+          { id: orderId },
+          { orderNumber: orderId },
+          { orderNumber: `#${orderId.replace(/^#/, '')}` },
+        ],
+      },
+      include: {
+        table: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order');
+    }
+
+    if (order.status === OrderStatus.COMPLETED) {
+      throw new ConflictException('Completed orders cannot be voided.');
+    }
+
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException('Order is already cancelled.');
+    }
+
+    const unrefundedPaid = this.round2(order.paid - order.refunded);
+    if (unrefundedPaid > 0.004) {
+      throw new ConflictException('Refund all payments before voiding.');
+    }
+
+    const reason = dto.reason?.trim() || 'Voided by staff';
+    const updatedNotes = [order.notes, `Voided: ${reason}`]
+      .filter(Boolean)
+      .join('\n');
+
+    // 3. Atomic transaction
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      // Release table if occupied by this order
+      if (order.tableId) {
+        const table = await tx.diningTable.findUnique({
+          where: { id: order.tableId },
+        });
+        if (
+          table &&
+          (table.currentOrderId === order.id ||
+            table.status === TableStatus.OCCUPIED)
+        ) {
+          await tx.diningTable.update({
+            where: { id: order.tableId },
+            data: {
+              status: TableStatus.AVAILABLE,
+              currentOrderId: null,
+            },
+          });
+        }
+      }
+
+      return await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.CANCELLED,
+          notes: updatedNotes,
+        },
+        include: {
+          lines: {
+            include: {
+              modifiers: true,
+            },
+          },
+          payments: true,
+          refunds: true,
+          table: true,
+          branch: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          customer: true,
+          rider: true,
+        },
+      });
+    });
+
+    return updatedOrder;
   }
 }

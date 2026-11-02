@@ -98,9 +98,9 @@
 1. **অর্ডার রিফান্ড (Order Refunds)**: [✅ সমাধান সম্পন্ন]
    * **কোড**: [`RefundDialog`](file:///apps/frontend/src/features/payments/refund-dialog.tsx), [`money.service.ts`](file:///apps/frontend/src/services/money.service.ts)
    * **বাস্তবায়ন**: ব্যাকএন্ডে `POST /tenants/:tenantSlug/orders/:orderId/refunds` এন্ডপয়েন্ট, `CreateOrderRefundDto`, `refundOrder()` সার্ভিস মেথড তৈরি করা হয়েছে যা অ্যাটমিক ট্রানজ্যাকশনে `OrderRefund` তৈরি করে, অর্ডারের `refunded` অ্যামাউন্ট আপডেট করে, এবং গ্রাহকের লয়াল্টি পয়েন্ট সমন্বয় করে। ফ্রন্টএন্ডের `money.refundOrder()` সরাসরি এই রিয়েল ব্যাকএন্ড এন্ডপয়েন্টে রিকোয়েস্ট পাঠায়।
-2. **অর্ডার বাতিল / ভয়েড (Order Void / Cancel)**:
-   * **কোড**: [`operations.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/operations.service.ts#L727-L745)
-   * **সমস্যা**: পিওএস থেকে কোনো রানিং বা আনপেইড অর্ডার ক্যানসেল করা হলে (`cancelOrder`) ব্যাকএন্ডে কোনো API কল হয় না। শুধু লোকাল মকে স্ট্যাটাস `cancelled` হয়। ব্যাকএন্ডে `PATCH /tenants/:slug/orders/:id/cancel` প্রয়োজন।
+2. **অর্ডার বাতিল / ভয়েড (Order Void / Cancel)**: [✅ সমাধান সম্পন্ন]
+   * **কোড**: [`operations.service.ts`](file:///apps/frontend/src/services/operations.service.ts)
+   * **বাস্তবায়ন**: ব্যাকএন্ডে `PATCH /tenants/:tenantSlug/orders/:orderId/cancel` এন্ডপয়েন্ট, `CancelOrderDto`, এবং `cancelOrder()` সার্ভিস মেথড তৈরি করা হয়েছে যা `ORDERS_VOID` পারমিশন ভ্যালিডেশন করে, আনপেইড বা ফুল-রিফান্ডেড অর্ডার ক্যানসেল করে, কারণ নোটসে যুক্ত করে এবং সংশ্লিষ্ট ডাইনিং টেবিল স্বয়ংক্রিয়ভাবে মুক্ত (`AVAILABLE`) করে দেয়। ফ্রন্টএন্ডের `cancelOrder()` এখন সরাসরি ব্যাকএন্ডের এই এন্ডপয়েন্টে কল পাঠায়।
 3. **ক্যাটাগরি রি-অর্ডারিং (Category Drag/Move Order)**:
    * **কোড**: [`catalog.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/catalog.service.ts#L75-L100)
    * **সমস্যা**: ক্যাটাগরি উপরে বা নিচে মুভ করলে (`moveCategory`) কোনো ব্যাকএন্ড কল হয় না।

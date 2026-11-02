@@ -726,12 +726,46 @@ export async function addPayment(tenantId: string, orderId: string, input: Payme
 }
 
 export async function cancelOrder(tenantId: string, orderId: string, reason: string): Promise<Order> {
+  const trimmedReason = reason?.trim() || "Voided by user";
+
+  try {
+    const res = await backendFetch<any>(`/tenants/${tenantId}/orders/${encodeURIComponent(orderId)}/cancel`, {
+      method: "PATCH",
+      body: JSON.stringify({ reason: trimmedReason }),
+    });
+
+    const orderData = res?.order || res;
+    if (orderData && orderData.id) {
+      const mapped = mapBackendOrderToDomain(orderData);
+      const db = tenantDb(tenantId);
+      const idx = db.orders.findIndex((x) => x.id === mapped.id);
+      if (idx >= 0) db.orders[idx] = mapped;
+      else db.orders.push(mapped);
+
+      if (mapped.tableId) {
+        const t = db.tables.find((x) => x.id === mapped.tableId);
+        if (t && (t.currentOrderId === mapped.id || t.status === "occupied")) {
+          t.status = "available";
+          t.currentOrderId = null;
+        }
+      }
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for cancelling order, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency();
   const order = findOrder(tenantId, orderId);
   if (order.status === "completed") throw new ApiError(409, "Completed orders cannot be voided.");
   if (round2(order.paid - order.refunded) > 0) throw new ApiError(409, "Refund all payments before voiding.");
   order.status = "cancelled";
-  order.notes = [order.notes, `Voided: ${reason}`].filter(Boolean).join("\n");
+  order.notes = [order.notes, `Voided: ${trimmedReason}`].filter(Boolean).join("\n");
   const db = tenantDb(tenantId);
   if (order.tableId) {
     const t = db.tables.find((x) => x.id === order.tableId);
