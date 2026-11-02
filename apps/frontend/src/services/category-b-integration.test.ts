@@ -3,6 +3,7 @@ import * as stockService from "./stock.service";
 import * as opsService from "./operations.service";
 import * as platformService from "./platform.service";
 import * as peopleService from "./people.service";
+import * as moneyService from "./money.service";
 import * as apiClient from "./api-client";
 
 describe("Category B Backend Integrations", () => {
@@ -217,6 +218,62 @@ describe("Category B Backend Integrations", () => {
       expect(apiClient.backendFetch).toHaveBeenCalledWith(
         `/tenants/${tenantId}/reservation-settings`,
         expect.objectContaining({ method: "PUT" })
+      );
+    });
+  });
+
+  describe("Order Refund API", () => {
+    it("refundOrder calls backend refunds endpoint and updates order state", async () => {
+      const mockRefundedOrder = {
+        id: "ord_1001",
+        tenantId,
+        branchId,
+        orderNumber: "#1001",
+        status: "COMPLETED",
+        total: 1000,
+        paid: 1000,
+        refunded: 500,
+        payments: [{ id: "p_1", method: "CARD", amount: 1000 }],
+        refunds: [
+          {
+            id: "ref_1",
+            amount: 500,
+            method: "CARD",
+            reason: "Dish returned",
+            by: "Manager John",
+            createdAt: new Date().toISOString(),
+          },
+        ],
+        lines: [],
+      };
+
+      vi.spyOn(apiClient, "backendFetch").mockResolvedValueOnce({
+        order: mockRefundedOrder,
+        refund: mockRefundedOrder.refunds[0],
+      });
+
+      const res = await moneyService.refundOrder(tenantId, {
+        orderId: "ord_1001",
+        amount: 500,
+        method: "card",
+        reason: "Dish returned",
+        by: "Manager John",
+      });
+
+      expect(res.refunded).toBe(500);
+      expect(res.refunds).toHaveLength(1);
+      expect(res.refunds[0].amount).toBe(500);
+      expect(apiClient.backendFetch).toHaveBeenCalledWith(
+        `/tenants/${tenantId}/orders/ord_1001/refunds`,
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            amount: 500,
+            method: "CARD",
+            reason: "Dish returned",
+            by: "Manager John",
+          }),
+        })
       );
     });
   });

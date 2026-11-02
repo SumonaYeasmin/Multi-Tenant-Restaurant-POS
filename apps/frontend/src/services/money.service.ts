@@ -41,16 +41,46 @@ export interface RefundInput {
 }
 
 export async function refundOrder(tenantId: string, input: RefundInput): Promise<Order> {
+  const amount = round2(input.amount);
+  if (!(amount > 0)) throw new ApiError(422, "Enter an amount greater than zero.");
+  if (!input.reason.trim()) throw new ApiError(422, "A reason is required.");
+
+  try {
+    const res = await backendFetch<any>(`/tenants/${tenantId}/orders/${encodeURIComponent(input.orderId)}/refunds`, {
+      method: "POST",
+      body: JSON.stringify({
+        amount,
+        method: input.method.toUpperCase(),
+        reason: input.reason.trim(),
+        by: input.by,
+      }),
+    });
+
+    const orderData = res?.order || res;
+    if (orderData && orderData.id) {
+      const mapped = mapBackendOrderToDomain(orderData);
+      const db = tenantDb(tenantId);
+      const idx = db.orders.findIndex((x) => x.id === mapped.id);
+      if (idx >= 0) db.orders[idx] = mapped;
+      else db.orders.push(mapped);
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for refund, falling back to local DB");
+    } else {
+      throw err;
+    }
+  }
+
   await latency(300, 600);
   const db = tenantDb(tenantId);
   const o = db.orders.find((x) => x.id === input.orderId);
   if (!o) throw new ApiError(404, "Order not found.");
   const refundable = round2(o.paid - o.refunded);
-  const amount = round2(input.amount);
   if (refundable <= 0) throw new ApiError(409, "Nothing left to refund on this order.");
-  if (!(amount > 0)) throw new ApiError(422, "Enter an amount greater than zero.");
   if (amount > refundable) throw new ApiError(422, `You can refund at most ${refundable}.`);
-  if (!input.reason.trim()) throw new ApiError(422, "A reason is required.");
   if (!o.payments.some((p) => p.method === input.method)) throw new ApiError(422, "Refund to a method the guest paid with.");
   if (input.method === "cash" && !openSession(db, o.branchId)) throw new ApiError(409, "Open the cash drawer before giving a cash refund.");
   o.refunds.push({ id: uid("ref"), amount, method: input.method, reason: input.reason.trim(), by: input.by, at: new Date().toISOString() });

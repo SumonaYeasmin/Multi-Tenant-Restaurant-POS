@@ -9,11 +9,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrderLineDto } from './dto/create-order-line.dto';
 import { CreateOrderPaymentDto } from './dto/create-order-payment.dto';
+import { CreateOrderRefundDto } from './dto/create-order-refund.dto';
 import { GetOrdersQueryDto } from './dto/get-orders-query.dto';
 import { UpdateOrderDeliveryDto } from './dto/update-order-delivery.dto';
 import {
   DeliveryStatus,
   KitchenStatus,
+  LoyaltyTransactionType,
   OrderStatus,
   OrderType,
   PaymentMethod,
@@ -886,6 +888,145 @@ export class OrderService {
 
       return {
         payment,
+        order: updatedOrder,
+      };
+    });
+
+    return result;
+  }
+
+  /**
+   * Process a refund for an order (Full or partial refund)
+   */
+  async refundOrder(
+    tenantSlug: string,
+    orderId: string,
+    dto: CreateOrderRefundDto,
+    currentUser?: AuthenticatedUser | any,
+  ) {
+    // 1. Verify tenant exists
+    const tenant = await this.resolveTenant(tenantSlug);
+
+    // 2. Fetch order with payments, refunds, and customer
+    const order = await this.prisma.order.findFirst({
+      where: {
+        tenantId: tenant.id,
+        OR: [
+          { id: orderId },
+          { orderNumber: orderId },
+          { orderNumber: `#${orderId.replace(/^#/, '')}` },
+        ],
+      },
+      include: {
+        payments: true,
+        refunds: true,
+        customer: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order');
+    }
+
+    const refundable = this.round2(order.paid - order.refunded);
+    if (refundable <= 0.004) {
+      throw new BadRequestException('Nothing left to refund on this order');
+    }
+
+    const amount = this.round2(dto.amount);
+    if (amount <= 0) {
+      throw new BadRequestException('Refund amount must be greater than zero');
+    }
+
+    if (amount > refundable) {
+      throw new BadRequestException(
+        `Refund amount exceeds refundable balance. You can refund at most ${refundable}`,
+      );
+    }
+
+    // Verify refund method matches one of the payment methods used for this order
+    const hasMatchingPayment = order.payments.some(
+      (p) => p.method === dto.method,
+    );
+    if (!hasMatchingPayment) {
+      const allowed = [...new Set(order.payments.map((p) => p.method))].join(', ');
+      throw new BadRequestException(
+        `Refund method ${dto.method} was not used to pay for this order. Allowed: ${allowed}`,
+      );
+    }
+
+    const processedBy =
+      dto.by?.trim() ||
+      currentUser?.fullName ||
+      currentUser?.name ||
+      currentUser?.email ||
+      'Staff';
+
+    // 3. Atomic transaction
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Create OrderRefund record
+      const refund = await tx.orderRefund.create({
+        data: {
+          orderId: order.id,
+          amount,
+          method: dto.method,
+          reason: dto.reason.trim(),
+          by: processedBy,
+        },
+      });
+
+      // Update Order.refunded
+      const newRefunded = this.round2(order.refunded + amount);
+      const updatedOrder = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          refunded: newRefunded,
+        },
+        include: {
+          lines: { include: { modifiers: true } },
+          payments: true,
+          refunds: true,
+          table: true,
+          customer: true,
+          rider: true,
+          branch: { select: { id: true, name: true } },
+        },
+      });
+
+      // Deduct proportional loyalty points if customer exists
+      if (order.customerId) {
+        const loyaltySettings = await tx.loyaltySettings.findUnique({
+          where: { tenantId: tenant.id },
+        });
+        const spendPerPoint = loyaltySettings?.spendAmountPerPoint || 100.0;
+        const pointsToDeduct = Math.floor(amount / spendPerPoint);
+
+        if (pointsToDeduct > 0 && order.customer) {
+          const currentPoints = order.customer.loyaltyPoints ?? 0;
+          const actualDeduct = Math.min(currentPoints, pointsToDeduct);
+          const newBalance = Math.max(0, currentPoints - actualDeduct);
+
+          await tx.customer.update({
+            where: { id: order.customerId },
+            data: { loyaltyPoints: newBalance },
+          });
+
+          await tx.loyaltyTransaction.create({
+            data: {
+              tenantId: tenant.id,
+              customerId: order.customerId,
+              orderId: order.id,
+              points: -actualDeduct,
+              type: LoyaltyTransactionType.REFUNDED,
+              reason: `Refund of ${amount} on order ${order.orderNumber}`,
+              balanceAfter: newBalance,
+            },
+          });
+        }
+      }
+
+      return {
+        refund,
         order: updatedOrder,
       };
     });

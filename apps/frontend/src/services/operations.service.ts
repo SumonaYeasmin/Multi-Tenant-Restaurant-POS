@@ -242,9 +242,10 @@ export function mapBackendOrderToDomain(raw: any): Order {
     refunds: (raw.refunds || []).map((r: any) => ({
       id: r.id,
       amount: Number(r.amount) || 0,
+      method: (r.method?.toLowerCase() as PaymentMethod) || "cash",
       reason: r.reason || "",
       at: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
-      by: r.createdBy || "",
+      by: r.by || r.createdBy || "",
     })),
     refunded: Number(raw.refunded) || 0,
     delivery: (raw.type === "DELIVERY" || raw.type === "delivery" || raw.deliveryAddress != null)

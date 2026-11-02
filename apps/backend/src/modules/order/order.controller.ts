@@ -19,6 +19,7 @@ import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrderLineDto } from './dto/create-order-line.dto';
 import { CreateOrderPaymentDto } from './dto/create-order-payment.dto';
+import { CreateOrderRefundDto } from './dto/create-order-refund.dto';
 import { GetOrdersQueryDto } from './dto/get-orders-query.dto';
 import { UpdateKitchenStatusDto } from './dto/update-kitchen-status.dto';
 import { UpdateOrderDeliveryDto } from './dto/update-order-delivery.dto';
@@ -322,6 +323,53 @@ export class OrderController {
     return ResponseHelper.created(
       result,
       `Payment of ${dto.amount} recorded successfully for order ${result.order.orderNumber}`,
+    );
+  }
+
+  @Post(':tenantSlug/orders/:orderId/refunds')
+  @Post(':tenantSlug/orders/:orderId/refund')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.REFUNDS_PROCESS)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Process a full or partial refund for an order',
+    description:
+      'Creates a new refund record for the order, validates refundable amount, updates refunded total, and creates finance audit ledger entries.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'saffron-ember',
+    description: 'Restaurant slug',
+  })
+  @ApiParam({
+    name: 'orderId',
+    example: 'ord-uuid',
+    description: 'Order ID or orderNumber',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Refund processed successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid refund amount or exceeds refundable balance',
+  })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async refundOrder(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: CreateOrderRefundDto,
+    @CurrentUser() user: any,
+  ) {
+    const result = await this.orderService.refundOrder(
+      tenantSlug,
+      orderId,
+      dto,
+      user,
+    );
+    return ResponseHelper.created(
+      result,
+      `Refund of ${dto.amount} processed successfully for order ${result.order?.orderNumber || orderId}`,
     );
   }
 
