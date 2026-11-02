@@ -72,7 +72,7 @@ export const Route = createFileRoute("/app/$tenantSlug/team/")({
     ],
   }),
   component: () => (
-    <RequirePermission perm="shifts.manage">
+    <RequirePermission perm="staff.manage">
       <TeamPage />
     </RequirePermission>
   ),

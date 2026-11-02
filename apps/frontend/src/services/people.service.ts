@@ -14,7 +14,6 @@ import {
 import { type Permission, ROLE_PERMISSIONS } from "@/config/permissions.config";
 
 import type {
-  AttendanceRecord,
   Branch,
   CustomRole,
   Customer,
@@ -24,7 +23,6 @@ import type {
   Reservation,
   ReservationStatus,
   RoleId,
-  Shift,
   StaffMember,
   StaffStatus,
   User,
@@ -505,7 +503,6 @@ export async function saveStaff(tenantId: string, input: StaffInput): Promise<St
       setStaffCustomRole(tenantId, existing.id, undefined);
       delete existing.customRoleName;
     }
-    for (const s of db.shifts) if (s.staffId === existing.id) s.staffName = existing.name;
     commit(tenantId);
     return existing;
   }
@@ -729,75 +726,6 @@ export async function acceptInvite(data: {
   };
 }
 
-
-// ---------- Shifts ----------
-export async function listShifts(tenantId: string, branchId: string): Promise<Shift[]> {
-  await latency();
-  return tenantDb(tenantId).shifts.filter((s) => s.branchId === branchId).sort((a, b) => `${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`));
-}
-
-export type ShiftInput = Pick<Shift, "branchId" | "staffId" | "date" | "start" | "end" | "notes"> & { id?: string | undefined };
-
-export async function saveShift(tenantId: string, input: ShiftInput): Promise<Shift> {
-  await latency();
-  const db = tenantDb(tenantId);
-  const staff = db.staff.find((s) => s.id === input.staffId);
-  if (!staff) throw new ApiError(422, "Choose a staff member.");
-  if (!staff.active) throw new ApiError(422, `${staff.name} is inactive.`);
-  if (staff.branchIds !== "all" && !staff.branchIds.includes(input.branchId)) throw new ApiError(422, `${staff.name} isn't assigned to this branch.`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new ApiError(422, "Choose a date.");
-  if (!(input.end > input.start)) throw new ApiError(422, "Shift must end after it starts.");
-  const clash = db.shifts.find((s) => s.id !== input.id && s.staffId === input.staffId && s.date === input.date && s.start < input.end && input.start < s.end);
-  if (clash) throw new ApiError(409, `${staff.name} already works ${clash.start}–${clash.end} that day.`);
-  if (input.id) {
-    const s = db.shifts.find((x) => x.id === input.id);
-    if (!s) throw new ApiError(404, "Shift not found.");
-    Object.assign(s, { ...input, staffName: staff.name });
-    commit(tenantId);
-    return s;
-  }
-  const { id: _id, ...rest } = input;
-  void _id;
-  const s: Shift = { id: uid("sh"), tenantId, ...rest, staffName: staff.name };
-  db.shifts.push(s);
-  commit(tenantId);
-  return s;
-}
-
-export async function deleteShift(tenantId: string, id: string): Promise<{ ok: true }> {
-  await latency();
-  const db = tenantDb(tenantId);
-  db.shifts = db.shifts.filter((s) => s.id !== id);
-  commit(tenantId);
-  return { ok: true };
-}
-
-// ---------- Attendance ----------
-export async function listAttendance(tenantId: string, branchId: string): Promise<AttendanceRecord[]> {
-  await latency();
-  return tenantDb(tenantId).attendance.filter((a) => a.branchId === branchId).sort((a, b) => b.clockIn.localeCompare(a.clockIn));
-}
-
-/** Clock the staff member linked to `userId` in or out at the given branch. */
-export async function toggleClock(tenantId: string, input: { userId: string; branchId: string }): Promise<AttendanceRecord> {
-  await latency();
-  const db = tenantDb(tenantId);
-  const staff = db.staff.find((s) => s.userId === input.userId);
-  if (!staff || !staff.active) throw new ApiError(403, "You don't have an active staff profile here.");
-  const open = db.attendance.find((a) => a.staffId === staff.id && a.clockOut === null);
-  const now = new Date().toISOString();
-  if (open) {
-    open.clockOut = now;
-    commit(tenantId);
-    return open;
-  }
-  const rec: AttendanceRecord = { id: uid("att"), tenantId, branchId: input.branchId, staffId: staff.id, staffName: staff.name, clockIn: now, clockOut: null };
-  db.attendance.push(rec);
-  commit(tenantId);
-  return rec;
-}
-
-export const hoursWorked = (a: AttendanceRecord, now = Date.now()) => round2(((a.clockOut ? Date.parse(a.clockOut) : now) - Date.parse(a.clockIn)) / 3600000);
 
 // ---------- Branches ----------
 export async function listAllBranches(tenantId: string): Promise<Branch[]> {

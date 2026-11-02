@@ -10,7 +10,9 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrderLineDto } from './dto/create-order-line.dto';
 import { CreateOrderPaymentDto } from './dto/create-order-payment.dto';
 import { GetOrdersQueryDto } from './dto/get-orders-query.dto';
+import { UpdateOrderDeliveryDto } from './dto/update-order-delivery.dto';
 import {
+  DeliveryStatus,
   KitchenStatus,
   OrderStatus,
   OrderType,
@@ -280,6 +282,7 @@ export class OrderService {
           customerName: dto.customerName?.trim() || '',
           customerPhone: dto.customerPhone?.trim() || '',
           deliveryAddress: dto.deliveryAddress?.trim() || null,
+          deliveryStatus: dto.type === OrderType.DELIVERY ? DeliveryStatus.PENDING : null,
           notes: dto.notes?.trim() || '',
           createdBy: currentUser?.id || dto.createdBy?.trim() || 'Staff',
           status: OrderStatus.IN_KITCHEN,
@@ -448,6 +451,13 @@ export class OrderService {
             name: true,
           },
         },
+        rider: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
       },
     });
 
@@ -491,6 +501,13 @@ export class OrderService {
           select: {
             id: true,
             name: true,
+          },
+        },
+        rider: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
           },
         },
       },
@@ -874,5 +891,148 @@ export class OrderService {
     });
 
     return result;
+  }
+
+  /**
+   * Update order delivery dispatch status and assign rider (Delivery Dispatch)
+   */
+  async updateDeliveryStatus(
+    tenantSlug: string,
+    orderId: string,
+    dto: UpdateOrderDeliveryDto,
+  ) {
+    const tenant = await this.resolveTenant(tenantSlug);
+
+    const order = await this.prisma.order.findFirst({
+      where: {
+        tenantId: tenant.id,
+        OR: [
+          { id: orderId },
+          { orderNumber: orderId },
+          { orderNumber: `#${orderId.replace(/^#/, '')}` },
+        ],
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order');
+    }
+
+    if (order.type !== OrderType.DELIVERY && !order.deliveryAddress) {
+      throw new BadRequestException('Order is not a delivery order');
+    }
+
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException(
+        'Cannot update delivery status of a cancelled order',
+      );
+    }
+
+    const targetStatus = dto.status;
+    const now = new Date();
+    const updateData: Prisma.OrderUpdateInput = {
+      deliveryStatus: targetStatus,
+    };
+
+    if (targetStatus === DeliveryStatus.PENDING) {
+      updateData.deliveryStatus = DeliveryStatus.PENDING;
+      updateData.rider = { disconnect: true };
+      updateData.riderName = null;
+      updateData.dispatchedAt = null;
+    } else if (targetStatus === DeliveryStatus.ASSIGNED) {
+      if (!dto.riderId) {
+        throw new BadRequestException('Choose a rider for delivery assignment.');
+      }
+
+      const rider = await this.prisma.rider.findFirst({
+        where: {
+          id: dto.riderId,
+          tenantId: tenant.id,
+          isDeleted: false,
+        },
+      });
+
+      if (!rider) {
+        throw new NotFoundException('Rider');
+      }
+
+      updateData.rider = { connect: { id: rider.id } };
+      updateData.riderName = rider.name;
+    } else if (targetStatus === DeliveryStatus.OUT) {
+      if (
+        order.kitchenStatus !== KitchenStatus.READY &&
+        order.kitchenStatus !== KitchenStatus.BUMPED
+      ) {
+        throw new ConflictException(
+          'Wait until the kitchen marks the order ready.',
+        );
+      }
+
+      updateData.dispatchedAt = now;
+      if (order.kitchenStatus === KitchenStatus.READY) {
+        updateData.kitchenStatus = KitchenStatus.BUMPED;
+      }
+
+      if (dto.riderId) {
+        const rider = await this.prisma.rider.findFirst({
+          where: {
+            id: dto.riderId,
+            tenantId: tenant.id,
+            isDeleted: false,
+          },
+        });
+        if (rider) {
+          updateData.rider = { connect: { id: rider.id } };
+          updateData.riderName = rider.name;
+        }
+      }
+    } else if (targetStatus === DeliveryStatus.DELIVERED) {
+      updateData.deliveredAt = now;
+
+      if (
+        order.status === OrderStatus.READY ||
+        order.status === OrderStatus.IN_KITCHEN
+      ) {
+        updateData.status = OrderStatus.SERVED;
+      }
+
+      const effectiveStatus = updateData.status || order.status;
+      if (
+        effectiveStatus === OrderStatus.SERVED &&
+        order.paid >= order.total &&
+        order.total > 0
+      ) {
+        updateData.status = OrderStatus.COMPLETED;
+        updateData.completedAt = now;
+      }
+    }
+
+    return this.prisma.order.update({
+      where: { id: order.id },
+      data: updateData,
+      include: {
+        lines: {
+          include: {
+            modifiers: true,
+          },
+        },
+        payments: true,
+        refunds: true,
+        table: true,
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        rider: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+      },
+    });
   }
 }

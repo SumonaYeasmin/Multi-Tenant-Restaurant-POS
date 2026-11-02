@@ -2,6 +2,8 @@ import { ApiError, commit, latency, tenantDb, uid } from "@/mocks/db";
 import type { TenantDb } from "@/mocks/seed";
 import { round2 } from "@/lib/pricing";
 import type { CashSession, DeliveryStatus, Expense, Order, PaymentMethod, Rider } from "@/types/domain";
+import { backendFetch } from "./api-client";
+import { mapBackendOrderToDomain } from "./operations.service";
 
 // Payments ledger, refunds, cash drawer sessions, expenses and delivery dispatch.
 // Future REST: /tenants/:tenantId/payments, /orders/:id/refunds, /cash-sessions, /expenses, /deliveries
@@ -193,28 +195,191 @@ export async function deleteExpense(tenantId: string, id: string): Promise<{ ok:
 
 // ---------- Delivery ----------
 export async function listDeliveries(tenantId: string, branchId: string): Promise<Order[]> {
+  try {
+    const params = new URLSearchParams();
+    if (branchId) params.append("branchId", branchId);
+    params.append("type", "DELIVERY");
+
+    const backendOrders = await backendFetch<any[]>(`/tenants/${tenantId}/orders?${params.toString()}`);
+    if (Array.isArray(backendOrders)) {
+      const mapped = backendOrders
+        .map(mapBackendOrderToDomain)
+        .filter((o) => o.status !== "cancelled");
+      const db = tenantDb(tenantId);
+      for (const order of mapped) {
+        const idx = db.orders.findIndex((x) => x.id === order.id);
+        if (idx >= 0) db.orders[idx] = order;
+        else db.orders.push(order);
+      }
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch deliveries from backend, using local store:", err);
+    }
+  }
+
   await latency();
-  return tenantDb(tenantId).orders.filter((o) => o.branchId === branchId && o.type === "delivery" && o.status !== "cancelled").sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return tenantDb(tenantId)
+    .orders.filter((o) => o.branchId === branchId && o.type === "delivery" && o.status !== "cancelled")
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function listRiders(tenantId: string, branchId: string): Promise<Rider[]> {
+  try {
+    const params = new URLSearchParams();
+    if (branchId) params.append("branchId", branchId);
+    params.append("activeOnly", "true");
+
+    const backendRiders = await backendFetch<any[]>(`/tenants/${tenantId}/riders?${params.toString()}`);
+    if (Array.isArray(backendRiders)) {
+      const mapped: Rider[] = backendRiders.map((r) => ({
+        id: r.id,
+        tenantId: r.tenantId,
+        branchId: r.branchId,
+        name: r.name,
+        phone: r.phone || "",
+      }));
+      const db = tenantDb(tenantId);
+      db.riders = mapped;
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      console.warn("Could not fetch riders from backend, using local store:", err);
+    }
+  }
+
   await latency(60, 150);
   return tenantDb(tenantId).riders.filter((r) => r.branchId === branchId);
 }
 
-export async function saveRider(tenantId: string, input: { branchId: string; name: string; phone: string }): Promise<Rider> {
+export async function saveRider(
+  tenantId: string,
+  input: { id?: string; branchId: string; name: string; phone: string }
+): Promise<Rider> {
+  const trimmedName = input.name.trim();
+  const trimmedPhone = input.phone.trim();
+  if (!trimmedName) throw new ApiError(422, "Rider name is required.");
+
+  try {
+    const body = {
+      branchId: input.branchId,
+      name: trimmedName,
+      phone: trimmedPhone,
+    };
+
+    let backendRider: any;
+    if (input.id) {
+      backendRider = await backendFetch<any>(`/tenants/${tenantId}/riders/${input.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } else {
+      backendRider = await backendFetch<any>(`/tenants/${tenantId}/riders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
+
+    if (backendRider && backendRider.id) {
+      const mapped: Rider = {
+        id: backendRider.id,
+        tenantId: backendRider.tenantId,
+        branchId: backendRider.branchId,
+        name: backendRider.name,
+        phone: backendRider.phone || "",
+      };
+      const db = tenantDb(tenantId);
+      const idx = db.riders.findIndex((r) => r.id === mapped.id);
+      if (idx >= 0) db.riders[idx] = mapped;
+      else db.riders.push(mapped);
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      throw err;
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
-  if (!input.name.trim()) throw new ApiError(422, "Rider name is required.");
-  const r: Rider = { id: uid("rider"), tenantId, branchId: input.branchId, name: input.name.trim(), phone: input.phone.trim() };
-  db.riders.push(r);
+  const r: Rider = {
+    id: input.id || uid("rider"),
+    tenantId,
+    branchId: input.branchId,
+    name: trimmedName,
+    phone: trimmedPhone,
+  };
+  const idx = db.riders.findIndex((x) => x.id === r.id);
+  if (idx >= 0) db.riders[idx] = r;
+  else db.riders.push(r);
   commit(tenantId);
   return r;
 }
 
-const DELIVERY_NEXT: Record<DeliveryStatus, DeliveryStatus | null> = { pending: "assigned", assigned: "out", out: "delivered", delivered: null };
+export async function deleteRider(tenantId: string, id: string): Promise<{ success: boolean; message: string }> {
+  try {
+    await backendFetch(`/tenants/${tenantId}/riders/${id}`, {
+      method: "DELETE",
+    });
+    const db = tenantDb(tenantId);
+    db.riders = db.riders.filter((r) => r.id !== id);
+    commit(tenantId);
+    return { success: true, message: "Rider deleted successfully" };
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      throw err;
+    }
+  }
 
-export async function updateDelivery(tenantId: string, input: { orderId: string; status: DeliveryStatus; riderId?: string | undefined }): Promise<Order> {
+  const db = tenantDb(tenantId);
+  db.riders = db.riders.filter((r) => r.id !== id);
+  commit(tenantId);
+  return { success: true, message: "Rider deleted successfully" };
+}
+
+const DELIVERY_NEXT: Record<DeliveryStatus, DeliveryStatus | null> = {
+  pending: "assigned",
+  assigned: "out",
+  out: "delivered",
+  delivered: null,
+};
+
+export async function updateDelivery(
+  tenantId: string,
+  input: { orderId: string; status: DeliveryStatus; riderId?: string | undefined }
+): Promise<Order> {
+  try {
+    const backendRes = await backendFetch<any>(`/tenants/${tenantId}/orders/${input.orderId}/delivery`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: input.status,
+        riderId: input.riderId,
+      }),
+    });
+
+    if (backendRes && backendRes.id) {
+      const mapped = mapBackendOrderToDomain(backendRes);
+      const db = tenantDb(tenantId);
+      const idx = db.orders.findIndex((o) => o.id === mapped.id);
+      if (idx >= 0) db.orders[idx] = mapped;
+      else db.orders.push(mapped);
+      commit(tenantId);
+      return mapped;
+    }
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 503)) {
+      throw err;
+    }
+  }
+
   await latency();
   const db = tenantDb(tenantId);
   const o = db.orders.find((x) => x.id === input.orderId);

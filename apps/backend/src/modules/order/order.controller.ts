@@ -21,6 +21,7 @@ import { CreateOrderLineDto } from './dto/create-order-line.dto';
 import { CreateOrderPaymentDto } from './dto/create-order-payment.dto';
 import { GetOrdersQueryDto } from './dto/get-orders-query.dto';
 import { UpdateKitchenStatusDto } from './dto/update-kitchen-status.dto';
+import { UpdateOrderDeliveryDto } from './dto/update-order-delivery.dto';
 import { ResponseHelper } from '../../common/helpers/response.helper';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -321,6 +322,51 @@ export class OrderController {
     return ResponseHelper.created(
       result,
       `Payment of ${dto.amount} recorded successfully for order ${result.order.orderNumber}`,
+    );
+  }
+
+  @Patch(':tenantSlug/orders/:orderId/delivery')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.DELIVERY_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update delivery status and dispatch order',
+    description:
+      'Dispatches delivery order through delivery lifecycle: PENDING -> ASSIGNED -> OUT -> DELIVERED, assigns rider, validates kitchen readiness, and marks order served/completed upon delivery.',
+  })
+  @ApiParam({
+    name: 'tenantSlug',
+    example: 'sultans-dine',
+    description: 'Restaurant slug or ID',
+  })
+  @ApiParam({
+    name: 'orderId',
+    example: 'uuid',
+    description: 'Order ID or Order Number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Delivery status updated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Order cancelled, invalid status, or missing rider',
+  })
+  @ApiResponse({ status: 404, description: 'Order or rider not found' })
+  @ApiResponse({ status: 409, description: 'Food not ready in kitchen' })
+  async updateDelivery(
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: UpdateOrderDeliveryDto,
+  ) {
+    const order = await this.orderService.updateDeliveryStatus(
+      tenantSlug,
+      orderId,
+      dto,
+    );
+    return ResponseHelper.success(
+      order,
+      `Order ${order.orderNumber} delivery status updated to ${order.deliveryStatus}`,
     );
   }
 }

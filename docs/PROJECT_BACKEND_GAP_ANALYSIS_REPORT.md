@@ -39,23 +39,19 @@
   * খরচের তালিকা ও ডিলিট করা (`listExpenses`, `deleteExpense`)।
 * **প্রয়োজনীয় Backend কাজ**: `Expense` প্রিজমা মডেল এবং `ExpenseController` (`GET/POST/DELETE /tenants/:slug/expenses`) তৈরি।
 
-### ৩. ডেলিভারি ডিসপ্যাচ ও রাইডার ম্যানেজমেন্ট (Delivery & Riders Dispatch)
+### ৩. ডেলিভারি ডিসপ্যাচ ও রাইডার ম্যানেজমেন্ট (Delivery & Riders Dispatch) - [COMPLETED / সম্পন্ন]
 * **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.delivery.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.delivery.tsx), [`money.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/money.service.ts#L195-L235)
-* **বর্তমান অবস্থা**: রাইডার তালিকা ও ডেলিভারি ট্র্যাকিং সম্পূর্ণ মক (`tenantDb(tenantId).riders`)। ব্যাকএন্ডের `Order` মডেলে কেবল `riderId` ও `riderName` ফিল্ড আছে, কিন্তু রাইডার ম্যানেজমেন্টের কোনো অস্তিত্ব নেই।
-* **যেসব ফাংশনালিটি ফ্রন্টএন্ডে সীমাবদ্ধ**:
+* **বর্তমান অবস্থা**: রাইডার মডেল, সম্পূর্ণ CRUD API (`/tenants/:slug/riders`) এবং অর্ডারে রাইডার ডিসপ্যাচ ও স্ট্যাটাস ট্র্যাকিং এন্ডপয়েন্ট (`PATCH /tenants/:slug/orders/:id/delivery`) ব্যাকএন্ডে বাস্তবায়িত ও ডাটাবেজে যুক্ত। ফ্রন্টএন্ডেও রিয়েল API ইন্টিগ্রেশন এবং রাইডার ম্যানেজমেন্ট ইন্টারফেস যুক্ত সম্পন্ন।
+* **যেসব ফাংশনালিটি ফ্রন্টএন্ডে ছিল**:
   * নতুন রাইডার যুক্ত করা (`saveRider`).
   * অর্ডারে রাইডার অ্যাসাইন করা এবং ডেলিভারি স্ট্যাটাস ট্র্যাকিং (`updateDelivery` - pending, assigned, out, delivered)।
-* **প্রয়োজনীয় Backend কাজ**: `Rider` মডেল, রাইডারদের CRUD API, এবং অর্ডারে রাইডার ডিসপ্যাচ করার স্পেসিফিক এন্ডপয়েন্ট (`PATCH /orders/:id/delivery`)।
+* **সম্পন্ন Backend কাজ**: `Rider` মডেল, রাইডারদের CRUD API, এবং অর্ডারে রাইডার ডিসপ্যাচ ও ডেলিভারি স্ট্যাটাস আপডেট এন্ডপয়েন্ট (`PATCH /orders/:id/delivery`)।
 
-### ৪. স্টাফ শিডিউলিং ও শিফট (Staff Shifts)
-* **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.team.shifts.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.team.shifts.tsx), [`people.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/people.service.ts#L618-L670)
-* **বর্তমান অবস্থা**: রাউটটিতে রিডাইরেক্ট দেওয়া হয়েছে (`redirect to /team`)। সার্ভিসে `listShifts`, `saveShift`, `deleteShift` কোড রয়েছে যা সম্পূর্ণ লোকাল মক। ব্যাকএন্ডে কোনো শিফট মডেল নেই।
-* **প্রয়োজনীয় Backend কাজ**: `StaffShift` মডেল এবং রোস্টার শিডিউলিং API।
+### ৪. স্টাফ শিডিউলিং ও শিফট (Staff Shifts) - [REMOVED / ডিলিট করা হয়েছে]
+* **স্ট্যাটাস**: ব্যবহারকারীর নির্দেশনায় স্টাফ শিডিউলিং ও শিফট ফিচারটি এবং সংশ্লিষ্ট ফাইল, মক ও সার্ভিস কোড প্রজেক্ট থেকে সম্পূর্ণ ডিলিট করা হয়েছে।
 
-### ৫. স্টাফ অ্যাটেনডেন্স ও ক্লক-ইন/আউট (Staff Attendance & Time Clock)
-* **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.team.attendance.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.team.attendance.tsx), [`people.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/people.service.ts#L671-L710)
-* **বর্তমান অবস্থা**: রাউটটি রিডাইরেক্ট করা। সার্ভিসে `listAttendance`, `toggleClock` শুধুমাত্র মক।
-* **প্রয়োজনীয় Backend কাজ**: `StaffAttendance` মডেল এবং ক্লক-ইন/ক্লক-আউট API।
+### ৫. স্টাফ অ্যাটেনডেন্স ও ক্লক-ইন/আউট (Staff Attendance & Time Clock) - [REMOVED / ডিলিট করা হয়েছে]
+* **স্ট্যাটাস**: ব্যবহারকারীর নির্দেশনায় স্টাফ অ্যাটেনডেন্স ও টাইম ক্লক ফিচারটি এবং সংশ্লিষ্ট ফাইল, মক ও সার্ভিস কোড প্রজেক্ট থেকে সম্পূর্ণ ডিলিট করা হয়েছে।
 
 ### ৬. কাস্টম রোল তৈরি (Custom Roles & Dynamic Permissions)
 * **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.team.roles.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.team.roles.tsx#L50-L60), [`people.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/people.service.ts#L1085-L1140)
@@ -148,5 +144,5 @@
 | **Medium** (P1) | **Tenant Settings API** | রেস্তোরাঁর ট্যাক্স, সার্ভিস চার্জ, কারেন্সি, লোগো ও রিসিট ফুটার ডাটাবেজে সংরক্ষণের API তৈরি। |
 | **Medium** (P1) | **Dashboard Aggregation API** | ক্লায়েন্ট-সাইড ক্যালকুলেশন বাদ দিয়ে ব্যাকএন্ড থেকে দ্রুত সারাংশ কুয়েরি দেওয়া। |
 | **Medium** (P1) | **Expenses Management** | পেটি ক্যাশ ও খরচ এন্ট্রি মডেল এবং কন্ট্রোলার তৈরি। |
-| **Low** (P2) | **Delivery & Riders Module** | রাইডারদের জন্য ডাটাবেজ মডেল এবং ডেলিভারি ট্র্যাকিং API। |
-| **Low** (P2) | **Shifts & Attendance** | স্টাফদের রোস্টার ও সময় গণনা ফিচার ব্যাকএন্ডে আনা। |
+| ~~Low (P2)~~ | **Delivery & Riders Module** | ✅ **সম্পন্ন** - Rider মডেল, CRUD API, এবং ডেলিভারি ট্র্যাকিং/ডিসপ্যাচ এন্ডপয়েন্ট। |
+| ~~Low (P2)~~ | ~~**Shifts & Attendance**~~ | ❌ **ডিলিট করা হয়েছে** - ব্যবহারকারীর নির্দেশনায় স্টাফ শিফট ও অ্যাটেনডেন্স ফিচার সম্পূর্ণ মুছে ফেলা হয়েছে। |

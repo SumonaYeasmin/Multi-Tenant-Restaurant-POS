@@ -504,28 +504,6 @@ export interface StaffMember {
   emailSent?: boolean | undefined;
 }
 
-export interface Shift {
-  id: string;
-  tenantId: string;
-  branchId: string;
-  staffId: string;
-  staffName: string;
-  date: string; // yyyy-mm-dd
-  start: string; // HH:mm
-  end: string; // HH:mm
-  notes: string;
-}
-
-export interface AttendanceRecord {
-  id: string;
-  tenantId: string;
-  branchId: string;
-  staffId: string;
-  staffName: string;
-  clockIn: string;
-  clockOut: string | null;
-}
-
 export interface Promotion {
   id: string;
   tenantId: string;

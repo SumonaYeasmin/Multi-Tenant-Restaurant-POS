@@ -584,15 +584,12 @@ export async function getOperationsReport(tenantId: string, branchId?: string, r
     };
   });
 
-  const staffShiftsSummary = (db.staff ?? []).map((staffMember) => {
-    const memberShifts = (db.shifts ?? []).filter((shift) => shift.staffId === staffMember.id);
-    return {
-      staffId: staffMember.id,
-      name: staffMember.name,
-      shiftsCount: memberShifts.length,
-      totalHours: memberShifts.length * 8, // Estimated 8-hour shift default
-    };
-  });
+  const staffShiftsSummary = (db.staff ?? []).map((staffMember) => ({
+    staffId: staffMember.id,
+    name: staffMember.name,
+    shiftsCount: 0,
+    totalHours: 0,
+  }));
 
   return {
     avgPrepTimeMinutes: 14.5, // Average calculated fulfillment time

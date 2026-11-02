@@ -247,9 +247,9 @@ export function mapBackendOrderToDomain(raw: any): Order {
       by: r.createdBy || "",
     })),
     refunded: Number(raw.refunded) || 0,
-    delivery: raw.deliveryAddress
+    delivery: (raw.type === "DELIVERY" || raw.type === "delivery" || raw.deliveryAddress != null)
       ? {
-          address: raw.deliveryAddress,
+          address: raw.deliveryAddress || "",
           riderId: raw.riderId || null,
           riderName: raw.riderName || null,
           status: (raw.deliveryStatus?.toLowerCase() as any) || "pending",

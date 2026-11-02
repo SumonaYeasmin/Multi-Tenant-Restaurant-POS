@@ -37,6 +37,7 @@ model Tenant {
   loyaltyTiers        LoyaltyTier[]
   loyaltyTransactions LoyaltyTransaction[]
   promotions          Promotion[]
+  riders              Rider[]
   notifications       Notification[]
   auditLogs           AuditLog[]
 
@@ -113,6 +114,7 @@ model Branch {
   tables            DiningTable[]
   orders            Order[]
   reservations      Reservation[]
+  riders            Rider[]
   notifications     Notification[]
   auditLogs         AuditLog[]
 
