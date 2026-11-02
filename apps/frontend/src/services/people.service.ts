@@ -364,6 +364,7 @@ function toFrontendStaff(s: any): StaffMember {
     email: s.email ?? "",
     phone: s.phone ?? "",
     role: (s.role?.toLowerCase() ?? "waiter") as RoleId,
+    customRoleName: s.customRoleName || s.customRole?.name || undefined,
     branchIds: Array.isArray(s.branchIds)
       ? s.branchIds.includes("all")
         ? "all"
@@ -446,6 +447,7 @@ export async function saveStaff(tenantId: string, input: StaffInput): Promise<St
       active: input.active,
       status: input.status ? input.status.toUpperCase() : undefined,
       sendInvite: isDraft ? false : (input.sendInvite ?? true),
+      customRoleName: input.customRoleName?.trim() || undefined,
     };
 
     let backendRes: any;
@@ -1065,17 +1067,114 @@ export async function updateRolePermissionsApi(
 }
 
 // ---------- Tenant Custom Roles Management ----------
-export function getCustomRoles(tenantSlug: string): CustomRole[] {
+export function getCustomRolesSync(tenantSlug: string): CustomRole[] {
   const roles = readJson<CustomRole[]>(storageKey("custom-roles", tenantSlug));
   return Array.isArray(roles) ? roles : [];
 }
 
-export function saveCustomRole(
+export async function getCustomRoles(tenantSlug: string): Promise<CustomRole[]> {
+  try {
+    const roles = await backendFetch<any[]>("/tenants/" + tenantSlug + "/custom-roles");
+    if (Array.isArray(roles)) {
+      const formatted: CustomRole[] = roles.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description || undefined,
+        color: r.color || "purple",
+        baseRole: (r.baseRole?.toLowerCase() || "cashier") as RoleId,
+        permissions: Array.isArray(r.permissions) ? r.permissions : [],
+        isCustom: true,
+        createdAt: r.createdAt || new Date().toISOString(),
+      }));
+      writeJson(storageKey("custom-roles", tenantSlug), formatted);
+      return formatted;
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable, falling back to local custom roles cache");
+    } else {
+      console.warn("Could not fetch custom roles from backend, falling back to cache", err);
+    }
+  }
+  return getCustomRolesSync(tenantSlug);
+}
+
+export async function saveCustomRole(
   tenantSlug: string,
   roleInput: Omit<CustomRole, "id" | "isCustom" | "createdAt"> & { id?: string | undefined }
-): CustomRole {
-  const roles = getCustomRoles(tenantSlug);
+): Promise<CustomRole> {
+  const roles = getCustomRolesSync(tenantSlug);
   const now = new Date().toISOString();
+
+  try {
+    if (roleInput.id) {
+      const backendRes = await backendFetch<any>("/tenants/" + tenantSlug + "/custom-roles/" + roleInput.id, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: roleInput.name,
+          description: roleInput.description,
+          color: roleInput.color,
+          baseRole: roleInput.baseRole,
+          permissions: roleInput.permissions,
+        }),
+      });
+
+      if (backendRes && backendRes.id) {
+        const updated: CustomRole = {
+          id: backendRes.id,
+          isCustom: true,
+          createdAt: backendRes.createdAt || now,
+          name: backendRes.name,
+          baseRole: (backendRes.baseRole?.toLowerCase() || roleInput.baseRole) as RoleId,
+          permissions: backendRes.permissions || roleInput.permissions,
+          description: backendRes.description,
+          color: backendRes.color,
+        };
+        const idx = roles.findIndex((r) => r.id === roleInput.id);
+        if (idx >= 0) roles[idx] = updated;
+        else roles.push(updated);
+        writeJson(storageKey("custom-roles", tenantSlug), roles);
+        return updated;
+      }
+    } else {
+      const backendRes = await backendFetch<any>("/tenants/" + tenantSlug + "/custom-roles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: roleInput.name,
+          description: roleInput.description,
+          color: roleInput.color,
+          baseRole: roleInput.baseRole,
+          permissions: roleInput.permissions,
+        }),
+      });
+
+      if (backendRes && backendRes.id) {
+        const newRole: CustomRole = {
+          id: backendRes.id,
+          isCustom: true,
+          createdAt: backendRes.createdAt || now,
+          name: backendRes.name,
+          baseRole: (backendRes.baseRole?.toLowerCase() || roleInput.baseRole) as RoleId,
+          permissions: backendRes.permissions || roleInput.permissions,
+          description: backendRes.description,
+          color: backendRes.color,
+        };
+        roles.push(newRole);
+        writeJson(storageKey("custom-roles", tenantSlug), roles);
+        return newRole;
+      }
+    }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable, falling back to local custom role save");
+    } else {
+      throw err;
+    }
+  }
+
+  // Fallback to local storage if backend not reachable
   if (roleInput.id) {
     const idx = roles.findIndex((r) => r.id === roleInput.id);
     const existing = idx >= 0 ? roles[idx] : undefined;
@@ -1095,8 +1194,9 @@ export function saveCustomRole(
       return updated;
     }
   }
+
   const newRole: CustomRole = {
-    id: `crole_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    id: "crole_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
     name: roleInput.name.trim(),
     description: roleInput.description?.trim(),
     color: roleInput.color || "purple",
@@ -1110,12 +1210,26 @@ export function saveCustomRole(
   return newRole;
 }
 
-export function updateCustomRolePermissions(
+export async function updateCustomRolePermissions(
   tenantSlug: string,
   roleId: string,
   permissions: Permission[]
-): void {
-  const roles = getCustomRoles(tenantSlug);
+): Promise<void> {
+  try {
+    await backendFetch("/tenants/" + tenantSlug + "/custom-roles/" + roleId + "/permissions", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ permissions }),
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable, updated custom role permissions locally");
+    } else {
+      console.warn("Failed to update custom role permissions on backend, updating locally", err);
+    }
+  }
+
+  const roles = getCustomRolesSync(tenantSlug);
   const idx = roles.findIndex((r) => r.id === roleId);
   const target = idx >= 0 ? roles[idx] : undefined;
   if (target) {
@@ -1124,8 +1238,20 @@ export function updateCustomRolePermissions(
   }
 }
 
-export function deleteCustomRole(tenantSlug: string, roleId: string): void {
-  const roles = getCustomRoles(tenantSlug);
+export async function deleteCustomRole(tenantSlug: string, roleId: string): Promise<void> {
+  try {
+    await backendFetch("/tenants/" + tenantSlug + "/custom-roles/" + roleId, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable, deleting custom role locally");
+    } else {
+      console.warn("Failed to delete custom role on backend, deleting locally", err);
+    }
+  }
+
+  const roles = getCustomRolesSync(tenantSlug);
   const filtered = roles.filter((r) => r.id !== roleId);
   writeJson(storageKey("custom-roles", tenantSlug), filtered);
 }

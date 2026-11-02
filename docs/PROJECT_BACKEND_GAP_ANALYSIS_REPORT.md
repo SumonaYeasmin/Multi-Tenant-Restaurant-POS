@@ -53,10 +53,9 @@
 ### ৫. স্টাফ অ্যাটেনডেন্স ও ক্লক-ইন/আউট (Staff Attendance & Time Clock) - [REMOVED / ডিলিট করা হয়েছে]
 * **স্ট্যাটাস**: ব্যবহারকারীর নির্দেশনায় স্টাফ অ্যাটেনডেন্স ও টাইম ক্লক ফিচারটি এবং সংশ্লিষ্ট ফাইল, মক ও সার্ভিস কোড প্রজেক্ট থেকে সম্পূর্ণ ডিলিট করা হয়েছে।
 
-### ৬. কাস্টম রোল তৈরি (Custom Roles & Dynamic Permissions)
-* **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.team.roles.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.team.roles.tsx#L50-L60), [`people.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/people.service.ts#L1085-L1140)
-* **বর্তমান অবস্থা**: ফিক্সড সিস্টেম রোলগুলোর (`manager`, `cashier`, `waiter`, `kitchen`) পারমিশন আপডেট ব্যাকএন্ডের সাথে যুক্ত। কিন্তু ইউজার যখন নতুন কোনো কাস্টম রোল তৈরি করে (`saveCustomRole`), তখন তা ব্রাউজারের `localStorage` (`tenant_custom_roles_<tenantId>`) এ সেভ হয়!
-* **প্রয়োজনীয় Backend কাজ**: ডাইনামিক `Role` ও `RolePermission` টেবিল আর্কিটেকচার (বর্তমানে ব্যাকএন্ডে কেবল ফিক্সড `Role` enum রয়েছে)।
+### ৬. কাস্টম রোল তৈরি (Custom Roles & Dynamic Permissions) [সম্পন্ন / RESOLVED]
+* **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.team.roles.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.team.roles.tsx), [`app.$tenantSlug.team.index.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.team.index.tsx), [`people.service.ts`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/services/people.service.ts)
+* **সমাধান সম্পন্ন**: ব্যাকএন্ডে PostgreSQL `CustomRole` মডেল ও `StaffMember` রিলেশন যুক্ত করা হয়েছে। সম্পূর্ণ CRUD API এন্ডপয়েন্ট (`GET`, `POST`, `PUT`, `DELETE` on `/tenants/:tenantSlug/custom-roles`) এবং `PermissionsGuard`-এ কাস্টম রোলের পারমিশন অটোমেটিক মার্জ করার ব্যবস্থা যুক্ত করা হয়েছে। ফ্রন্টএন্ডেও লোকাল স্টোরেজ নির্ভরতা দূর করে সম্পূর্ণ ব্যাকএন্ড সিঙ্ক নিশ্চিত করা হয়েছে।
 
 ### ৭. রেস্তোরাঁ ব্র্যান্ডিং, অ্যাম্বিয়েন্স, থিম ও ট্যাক্স সেটিংস (Tenant Settings)
 * **ফ্রন্টএন্ড ফাইল**: [`app.$tenantSlug.settings.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/routes/app.$tenantSlug.settings.tsx), [`brand-ambience-tab.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/features/settings/brand-ambience-tab.tsx), [`taxes-charges-tab.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/features/settings/taxes-charges-tab.tsx), [`receipt-security-tab.tsx`](file:///d:/Orvio/multi-tenant-restaurant-pos/apps/frontend/src/features/settings/receipt-security-tab.tsx)
