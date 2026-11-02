@@ -335,4 +335,56 @@ describe("Category B Backend Integrations", () => {
       );
     });
   });
+  describe("Password Reset Flow API", () => {
+    it("requestPasswordReset calls backend POST /auth/forgot-password", async () => {
+      vi.spyOn(apiClient, "backendFetch").mockResolvedValueOnce({
+        message: "Reset link sent",
+        emailSent: true,
+        token: "tok-123",
+      });
+
+      const res = await platformService.requestPasswordReset("chef@restaurant.com");
+
+      expect(res.ok).toBe(true);
+      expect(res.token).toBe("tok-123");
+      expect(apiClient.backendFetch).toHaveBeenCalledWith(
+        "/auth/forgot-password",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ email: "chef@restaurant.com" }),
+        })
+      );
+    });
+
+    it("validateResetToken calls backend GET /auth/reset-password/validate", async () => {
+      vi.spyOn(apiClient, "backendFetch").mockResolvedValueOnce({
+        valid: true,
+        email: "chef@restaurant.com",
+      });
+
+      const res = await platformService.validateResetToken("tok-123");
+
+      expect(res.valid).toBe(true);
+      expect(apiClient.backendFetch).toHaveBeenCalledWith(
+        "/auth/reset-password/validate?token=tok-123"
+      );
+    });
+
+    it("resetPassword calls backend POST /auth/reset-password with token and new password", async () => {
+      vi.spyOn(apiClient, "backendFetch").mockResolvedValueOnce({
+        message: "Password updated successfully",
+      });
+
+      const res = await platformService.resetPassword("tok-123", "NewSecurePassword123!");
+
+      expect(res.message).toBe("Password updated successfully");
+      expect(apiClient.backendFetch).toHaveBeenCalledWith(
+        "/auth/reset-password",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ token: "tok-123", newPassword: "NewSecurePassword123!" }),
+        })
+      );
+    });
+  });
 });

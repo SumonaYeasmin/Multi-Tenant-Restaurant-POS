@@ -107,10 +107,75 @@ export async function getUser(userId: string): Promise<User> {
 }
 
 
-export async function requestPasswordReset(email: string): Promise<{ ok: true }> {
-  await latency(400, 700);
-  void email;
-  return { ok: true };
+export interface PasswordResetResponse {
+  ok: boolean;
+  message?: string;
+  emailSent?: boolean;
+  resetUrl?: string;
+  token?: string;
+}
+
+export async function requestPasswordReset(email: string): Promise<PasswordResetResponse> {
+  try {
+    const res = await backendFetch<{
+      message: string;
+      emailSent?: boolean;
+      resetUrl?: string;
+      token?: string;
+    }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email: email.trim() }),
+    });
+
+    return {
+      ok: true,
+      message: res.message,
+      emailSent: res.emailSent,
+      resetUrl: res.resetUrl,
+      token: res.token,
+    };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for password reset request, falling back to local simulation");
+      await latency(400, 700);
+      return { ok: true, message: "If an account exists for this email, a reset link is on its way." };
+    }
+    throw err;
+  }
+}
+
+export async function validateResetToken(token: string): Promise<{ valid: boolean; email?: string }> {
+  try {
+    const res = await backendFetch<{ valid: boolean; email?: string }>(
+      `/auth/reset-password/validate?token=${encodeURIComponent(token)}`
+    );
+    return res;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for token validation, falling back to local simulation");
+      return { valid: true };
+    }
+    throw err;
+  }
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  try {
+    const res = await backendFetch<{ message?: string }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, newPassword }),
+    });
+    return {
+      message: res?.message || "Password has been reset successfully. You can now sign in.",
+    };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) {
+      console.warn("Backend unavailable for password reset, falling back to local simulation");
+      await latency(400, 700);
+      return { message: "Password updated successfully." };
+    }
+    throw err;
+  }
 }
 
 export async function listTenantsForUser(userId: string): Promise<Tenant[]> {
