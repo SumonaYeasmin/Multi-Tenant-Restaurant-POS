@@ -577,11 +577,6 @@ function Roles() {
         description="Manage restaurant roles, create custom positions, and configure permission access matrices."
         actions={
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm" className="gap-1.5 shadow-2xs">
-              <Link to="/app/$tenantSlug/team" params={{ tenantSlug: tenant.slug }}>
-                <Users className="size-4 text-primary" /> Staff directory
-              </Link>
-            </Button>
             {activeTab === "roles" && canEdit && (
               <Button
                 onClick={() => setIsCreatingRole(true)}
