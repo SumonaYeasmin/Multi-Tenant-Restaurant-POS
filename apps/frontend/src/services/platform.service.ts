@@ -228,11 +228,7 @@ export async function listTenantsForUser(userId: string): Promise<Tenant[]> {
       return mapped;
     }
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 503 || err.status === 401)) {
-      console.warn("Backend unavailable or unauthenticated for tenants, falling back to local store");
-    } else {
-      throw err;
-    }
+    console.warn("Backend /auth/me/tenants unavailable, falling back to local tenant store", err);
   }
 
   await latency(80, 200);

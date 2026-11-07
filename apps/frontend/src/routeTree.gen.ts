@@ -15,7 +15,11 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as InviteRouteImport } from './routes/invite'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as RolesRouteImport } from './routes/roles'
+import { Route as StaffRouteImport } from './routes/staff'
+import { Route as TeamRouteImport } from './routes/team'
 import { Route as AppTenantSlugRouteImport } from './routes/app.$tenantSlug'
+import { Route as TeamRolesRouteImport } from './routes/team.roles'
 import { Route as WorkspaceInactiveRouteImport } from './routes/workspace.inactive'
 import { Route as WorkspaceSelectRouteImport } from './routes/workspace.select'
 import { Route as AppTenantSlugIndexRouteImport } from './routes/app.$tenantSlug.index'
@@ -86,10 +90,30 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RolesRoute = RolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StaffRoute = StaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamRoute = TeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppTenantSlugRoute = AppTenantSlugRouteImport.update({
   id: '/app/$tenantSlug',
   path: '/app/$tenantSlug',
   getParentRoute: () => rootRouteImport,
+} as any)
+const TeamRolesRoute = TeamRolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => TeamRoute,
 } as any)
 const WorkspaceInactiveRoute = WorkspaceInactiveRouteImport.update({
   id: '/workspace/inactive',
@@ -308,7 +332,11 @@ export interface FileRoutesByFullPath {
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/roles': typeof RolesRoute
+  '/staff': typeof StaffRoute
+  '/team': typeof TeamRouteWithChildren
   '/app/$tenantSlug': typeof AppTenantSlugRouteWithChildren
+  '/team/roles': typeof TeamRolesRoute
   '/workspace/inactive': typeof WorkspaceInactiveRoute
   '/workspace/select': typeof WorkspaceSelectRoute
   '/app/$tenantSlug/audit-logs': typeof AppTenantSlugAuditLogsRoute
@@ -356,6 +384,10 @@ export interface FileRoutesByTo {
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/roles': typeof RolesRoute
+  '/staff': typeof StaffRoute
+  '/team': typeof TeamRouteWithChildren
+  '/team/roles': typeof TeamRolesRoute
   '/workspace/inactive': typeof WorkspaceInactiveRoute
   '/workspace/select': typeof WorkspaceSelectRoute
   '/app/$tenantSlug/audit-logs': typeof AppTenantSlugAuditLogsRoute
@@ -400,7 +432,11 @@ export interface FileRoutesById {
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/roles': typeof RolesRoute
+  '/staff': typeof StaffRoute
+  '/team': typeof TeamRouteWithChildren
   '/app/$tenantSlug': typeof AppTenantSlugRouteWithChildren
+  '/team/roles': typeof TeamRolesRoute
   '/workspace/inactive': typeof WorkspaceInactiveRoute
   '/workspace/select': typeof WorkspaceSelectRoute
   '/app/$tenantSlug/audit-logs': typeof AppTenantSlugAuditLogsRoute
@@ -450,7 +486,11 @@ export interface FileRouteTypes {
     | '/invite'
     | '/login'
     | '/reset-password'
+    | '/roles'
+    | '/staff'
+    | '/team'
     | '/app/$tenantSlug'
+    | '/team/roles'
     | '/workspace/inactive'
     | '/workspace/select'
     | '/app/$tenantSlug/audit-logs'
@@ -498,6 +538,10 @@ export interface FileRouteTypes {
     | '/invite'
     | '/login'
     | '/reset-password'
+    | '/roles'
+    | '/staff'
+    | '/team'
+    | '/team/roles'
     | '/workspace/inactive'
     | '/workspace/select'
     | '/app/$tenantSlug/audit-logs'
@@ -541,7 +585,11 @@ export interface FileRouteTypes {
     | '/invite'
     | '/login'
     | '/reset-password'
+    | '/roles'
+    | '/staff'
+    | '/team'
     | '/app/$tenantSlug'
+    | '/team/roles'
     | '/workspace/inactive'
     | '/workspace/select'
     | '/app/$tenantSlug/audit-logs'
@@ -590,6 +638,9 @@ export interface RootRouteChildren {
   InviteRoute: typeof InviteRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  RolesRoute: typeof RolesRoute
+  StaffRoute: typeof StaffRoute
+  TeamRoute: typeof TeamRouteWithChildren
   AppTenantSlugRoute: typeof AppTenantSlugRouteWithChildren
   WorkspaceInactiveRoute: typeof WorkspaceInactiveRoute
   WorkspaceSelectRoute: typeof WorkspaceSelectRoute
@@ -639,12 +690,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/roles': {
+      id: '/roles'
+      path: '/roles'
+      fullPath: '/roles'
+      preLoaderRoute: typeof RolesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/staff': {
+      id: '/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof StaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team': {
+      id: '/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/$tenantSlug': {
       id: '/app/$tenantSlug'
       path: '/app/$tenantSlug'
       fullPath: '/app/$tenantSlug'
       preLoaderRoute: typeof AppTenantSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/team/roles': {
+      id: '/team/roles'
+      path: '/roles'
+      fullPath: '/team/roles'
+      preLoaderRoute: typeof TeamRolesRouteImport
+      parentRoute: typeof TeamRoute
     }
     '/workspace/inactive': {
       id: '/workspace/inactive'
@@ -922,6 +1001,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface TeamRouteChildren {
+  TeamRolesRoute: typeof TeamRolesRoute
+}
+
+const TeamRouteChildren: TeamRouteChildren = {
+  TeamRolesRoute: TeamRolesRoute,
+}
+
+const TeamRouteWithChildren = TeamRoute._addFileChildren(TeamRouteChildren)
+
 interface AppTenantSlugFinanceRouteChildren {
   AppTenantSlugFinanceCashRoute: typeof AppTenantSlugFinanceCashRoute
   AppTenantSlugFinanceExpensesRoute: typeof AppTenantSlugFinanceExpensesRoute
@@ -1063,6 +1152,9 @@ const rootRouteChildren: RootRouteChildren = {
   InviteRoute: InviteRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  RolesRoute: RolesRoute,
+  StaffRoute: StaffRoute,
+  TeamRoute: TeamRouteWithChildren,
   AppTenantSlugRoute: AppTenantSlugRouteWithChildren,
   WorkspaceInactiveRoute: WorkspaceInactiveRoute,
   WorkspaceSelectRoute: WorkspaceSelectRoute,

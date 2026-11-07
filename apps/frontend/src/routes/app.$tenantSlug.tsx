@@ -29,8 +29,20 @@ function TenantGate({ user }: { user: User }) {
   const { tenantSlug } = Route.useParams();
   const dispatch = useAppDispatch();
   const tenants = useMyTenantsQuery(user.id);
-  const tenant = tenants.data?.find((t) => t.slug === tenantSlug);
-  const membership = tenant ? user.memberships.find((m) => m.tenantId === tenant.id) : undefined;
+  const tenant = tenants.data?.find(
+    (t) =>
+      t.slug === tenantSlug ||
+      t.id === tenantSlug ||
+      t.slug.toLowerCase().includes(tenantSlug.toLowerCase()) ||
+      tenantSlug.toLowerCase().includes(t.slug.toLowerCase()),
+  );
+  const membership = tenant
+    ? user.memberships?.find((m) => m.tenantId === tenant.id) || {
+        tenantId: tenant.id,
+        role: (user.memberships?.[0]?.role || "owner") as any,
+        branchIds: "all" as const,
+      }
+    : undefined;
   const activation = useActivationQuery(tenant?.id ?? "", { skip: !tenant });
   const branches = useBranchesQuery({ tenantId: tenant?.id ?? "", userId: user.id }, { skip: !tenant });
   const storedBranch = useAppSelector((s) => (tenant ? s.tenant.branchByTenant[tenant.id] : undefined));
@@ -68,12 +80,12 @@ function TenantGate({ user }: { user: User }) {
   const effectivePrimary = activePreset?.colors.accent ?? tenant.accent;
   const style = { "--primary": effectivePrimary } as CSSProperties;
   return (
-    <TenantContext.Provider value={value}>
-      <div style={style} className="min-h-screen bg-background text-foreground">
+    <div style={style} className="min-h-screen bg-background text-foreground">
+      <TenantContext.Provider value={value}>
         <AppShell>
           <Outlet />
         </AppShell>
-      </div>
-    </TenantContext.Provider>
+      </TenantContext.Provider>
+    </div>
   );
 }

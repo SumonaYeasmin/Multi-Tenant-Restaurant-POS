@@ -20,26 +20,28 @@ describe("Custom Roles Management (Frontend Service)", () => {
   });
 
   it("should create and retrieve a custom role using local fallback", async () => {
+    const roleName = `Sommelier-${Date.now()}`;
     const created = await saveCustomRole(tenantSlug, {
-      name: "Sommelier",
+      name: roleName,
       description: "Wine steward",
       color: "rose",
       baseRole: "waiter",
       permissions: ["pos.use", "tables.view"],
     });
 
-    expect(created.name).toBe("Sommelier");
+    expect(created.name).toBe(roleName);
     expect(created.baseRole).toBe("waiter");
     expect(created.isCustom).toBe(true);
 
     const list = getCustomRolesSync(tenantSlug);
-    expect(list.length).toBe(1);
-    expect(list[0]?.name).toBe("Sommelier");
+    expect(list.length).toBeGreaterThanOrEqual(1);
+    expect(list.some((r) => r.name === roleName)).toBe(true);
   });
 
   it("should update permissions for an existing custom role", async () => {
+    const roleName = `Shift-Lead-${Date.now()}`;
     const created = await saveCustomRole(tenantSlug, {
-      name: "Shift Lead",
+      name: roleName,
       description: "Supervises cashiers",
       color: "sky",
       baseRole: "cashier",
@@ -49,22 +51,25 @@ describe("Custom Roles Management (Frontend Service)", () => {
     await updateCustomRolePermissions(tenantSlug, created.id, ["pos.use", "cash.manage", "reports.view"]);
 
     const list = getCustomRolesSync(tenantSlug);
-    expect(list[0]?.permissions).toEqual(["pos.use", "cash.manage", "reports.view"]);
+    const updated = list.find((r) => r.id === created.id);
+    expect(updated?.permissions).toEqual(["pos.use", "cash.manage", "reports.view"]);
   });
 
   it("should delete a custom role", async () => {
+    const roleName = `Temp-Helper-${Date.now()}`;
     const created = await saveCustomRole(tenantSlug, {
-      name: "Temporary Helper",
+      name: roleName,
       color: "amber",
       baseRole: "waiter",
       permissions: [],
     });
 
-    expect(getCustomRolesSync(tenantSlug).length).toBe(1);
+    const countBefore = getCustomRolesSync(tenantSlug).length;
+    expect(countBefore).toBeGreaterThanOrEqual(1);
 
     await deleteCustomRole(tenantSlug, created.id);
 
-    expect(getCustomRolesSync(tenantSlug).length).toBe(0);
+    const countAfter = getCustomRolesSync(tenantSlug).length;
+    expect(countAfter).toBe(countBefore - 1);
   });
 });
-

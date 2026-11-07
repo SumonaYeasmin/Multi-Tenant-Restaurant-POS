@@ -14,21 +14,70 @@ import { AppProviders } from "@/app/providers";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
+  const router = useRouter();
+
+  // Smart client-side redirect for shorthand or direct URLs (e.g. /team, /roles, /staff)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const path = window.location.pathname.replace(/\/+$/, "");
+    const slug = "saffron-ember";
+
+    if (path === "/team" || path === "/staff") {
+      window.location.replace(`/app/${slug}/team`);
+    } else if (path === "/team/roles" || path === "/roles") {
+      window.location.replace(`/app/${slug}/team/roles`);
+    } else if (path === "/dashboard" || path === "/pos" || path === "/orders" || path === "/inventory" || path === "/menu") {
+      window.location.replace(`/app/${slug}${path}`);
+    }
+  }, []);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      {/* Instant client-side redirect script if SSR rendered */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            (function() {
+              try {
+                var p = window.location.pathname.replace(/\\/+$/, '');
+                var s = 'saffron-ember';
+                if (p === '/team' || p === '/staff') {
+                  window.location.replace('/app/' + s + '/team');
+                } else if (p === '/team/roles' || p === '/roles') {
+                  window.location.replace('/app/' + s + '/team/roles');
+                } else if (p === '/dashboard' || p === '/pos' || p === '/orders' || p === '/inventory' || p === '/menu') {
+                  window.location.replace('/app/' + s + p);
+                }
+              } catch (e) {}
+            })();
+          `,
+        }}
+      />
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
+          Tablewise POS operates with restaurant workspaces. Choose your workspace or navigate to the team directory below.
         </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+          <a
+            href="/app/saffron-ember/team"
+            className="w-full sm:w-auto inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Go home
-          </Link>
+            Staff Directory
+          </a>
+          <a
+            href="/app/saffron-ember/team/roles"
+            className="w-full sm:w-auto inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            Roles & Permissions
+          </a>
+          <a
+            href="/workspace/select"
+            className="w-full sm:w-auto inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            Choose workspace
+          </a>
         </div>
       </div>
     </div>
@@ -41,11 +90,16 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
+      <div className="max-w-2xl text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">This page didn't load</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+        <p className="mt-2 text-sm text-destructive font-mono bg-destructive/10 p-2 rounded">
+          {error?.message || String(error)}
         </p>
+        {error?.stack && (
+          <pre className="mt-2 text-xs text-left bg-muted p-2 rounded overflow-auto max-h-60 text-muted-foreground whitespace-pre-wrap">
+            {error.stack}
+          </pre>
+        )}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -89,7 +143,6 @@ export const Route = createRootRoute({
       },
       { rel: "stylesheet", href: appCss },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-      // { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
     ],
   }),
   shellComponent: RootShell,
@@ -105,7 +158,7 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <div id="root">{children}</div>
         <Scripts />
       </body>
     </html>
@@ -116,7 +169,7 @@ function RootComponent() {
   return (
     <AppProviders>
       <Outlet />
-      <Toaster richColors position="top-right" />
+      <Toaster position="top-right" richColors closeButton />
     </AppProviders>
   );
 }

@@ -1,18 +1,21 @@
-import { createFileRoute, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import {
   Building2,
   Check,
-  Info,
+  Filter,
   Loader2,
   Mail,
   Pencil,
   Plus,
+  Search,
   Shield,
-  ShieldCheck,
   Sparkles,
   Trash2,
+  UserCheck,
+  UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { RequirePermission } from "@/features/tenant/require-permission";
@@ -25,9 +28,9 @@ import {
   useStaffQuery,
 } from "@/features/people/api";
 import { withToast } from "@/features/tenant/use-mutation-toast";
-import { ROLE_LABELS } from "@/config/permissions.config";
+import { ROLE_LABELS, ROLE_PERMISSIONS } from "@/config/permissions.config";
 import { Confirm, DataTable, td } from "@/components/common/confirm";
-import { EmptyState, ErrorState, PageHeader } from "@/components/common/states";
+import { EmptyState, ErrorState } from "@/components/common/states";
 import { num } from "@/components/common/field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,13 +55,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import {
-  deleteCustomRole,
   getCustomRoles,
   getCustomRolesSync,
   saveCustomRole,
@@ -68,62 +68,34 @@ import type { CustomRole, RoleId, StaffMember } from "@/types/domain";
 export const Route = createFileRoute("/app/$tenantSlug/team/")({
   head: () => ({
     meta: [
-      { title: "Team & Roles — Tablewise POS" },
-      { name: "description", content: "Manage restaurant roles, designations, and staff directory." },
+      { title: "Staff Directory — Tablewise POS" },
+      { name: "description", content: "Manage restaurant staff members, branch assignments, and invitations." },
     ],
   }),
   component: () => (
     <RequirePermission perm="staff.manage">
-      <TeamPage />
+      <StaffDirectoryPage />
     </RequirePermission>
   ),
 });
 
-const STANDARD_ROLE_INFO: { id: RoleId; name: string; description: string; badge: string }[] = [
-  {
-    id: "owner",
-    name: "Owner",
-    description: "Unrestricted superadmin access across all branches, financials, staff, and system settings.",
-    badge: "bg-primary/10 text-primary border-primary/20",
-  },
-  {
-    id: "manager",
-    name: "Manager",
-    description: "Branch operations leader managing POS, kitchen, menu, inventory, discounts, and reporting.",
-    badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-  },
-  {
-    id: "cashier",
-    name: "Cashier",
-    description: "Front-desk counter staff handling POS terminal, orders, payments, discounts, and cash drawer.",
-    badge: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-  },
-  {
-    id: "waiter",
-    name: "Waiter",
-    description: "Floor service staff managing table occupancy, taking dine-in orders, and booking reservations.",
-    badge: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
-  },
-  {
-    id: "kitchen",
-    name: "Kitchen",
-    description: "Back-of-house kitchen display station for line cooks tracking live order tickets and food preparation.",
-    badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-  },
-];
+const ROLE_BADGE_COLORS: Record<RoleId, string> = {
+  owner: "bg-primary/10 text-primary border-primary/20",
+  manager: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+  cashier: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+  waiter: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+  kitchen: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+};
 
-const COLOR_PRESETS = [
-  { id: "purple", label: "Purple", badge: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20", dot: "bg-purple-500" },
-  { id: "indigo", label: "Indigo", badge: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20", dot: "bg-indigo-500" },
-  { id: "sky", label: "Sky Blue", badge: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20", dot: "bg-sky-500" },
-  { id: "teal", label: "Teal", badge: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20", dot: "bg-teal-500" },
-  { id: "amber", label: "Amber", badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20", dot: "bg-amber-500" },
-  { id: "rose", label: "Rose", badge: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20", dot: "bg-rose-500" },
-];
+const ROLE_SUMMARY_DESCRIPTIONS: Record<RoleId, string> = {
+  owner: "Full unrestricted root access across all POS modules, finances, branches, and configurations.",
+  manager: "Operations lead: POS terminal, kitchen display, menu & inventory adjustments, discounts, and reports.",
+  cashier: "Front-desk counter handling POS checkout, dining orders, payments, refunds, discounts, and cash drawer.",
+  waiter: "Floor service staff managing table occupancy, taking dine-in orders, and booking table reservations.",
+  kitchen: "Back-of-house kitchen display station for line cooks tracking live order tickets and food preparation.",
+};
 
-function TeamPage() {
-  const location = useLocation();
-  const tabParam = (location.search as Record<string, unknown> | undefined)?.["tab"];
+function StaffDirectoryPage() {
   const { tenant, branches: contextBranches, can } = useTenant();
   const money = useMoney();
   const list = useStaffQuery(tenant.id);
@@ -136,16 +108,14 @@ function TeamPage() {
         : [];
 
   const [deleteStaff] = useDeleteStaffMutation();
-  const [activeTab, setActiveTab] = useState<"roles" | "staff">(
-    tabParam === "staff" ? "staff" : "roles"
-  );
-
-  // Staff dialog
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [editingStaff, setEditingStaff] = useState<StaffMember | "new" | null>(null);
 
-  // Custom roles state & dialog
-  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
-  const [editingRole, setEditingRole] = useState<CustomRole | "new" | null>(null);
+  // Filters
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
     setCustomRoles(getCustomRolesSync(tenant.slug));
@@ -155,396 +125,453 @@ function TeamPage() {
   const bName = (id: string) => branches.find((b) => b.id === id)?.name ?? id;
   const canEdit = can("staff.manage");
 
-  const totalRoles = STANDARD_ROLE_INFO.length + customRoles.length;
-  const totalStaff = list.data?.length ?? 0;
+  // Metrics
+  const staffList = list.data || [];
+  const totalStaff = staffList.length;
+  const activeStaffCount = staffList.filter((s) => s.active && s.status !== "invited" && s.status !== "draft").length;
+  const pendingInvitesCount = staffList.filter((s) => s.status === "invited").length;
+  const draftCount = staffList.filter((s) => s.status === "draft").length;
 
-  const handleDeleteRole = async (role: CustomRole) => {
-    try {
-      await deleteCustomRole(tenant.slug, role.id);
-      const updated = customRoles.filter((r) => r.id !== role.id);
-      setCustomRoles(updated);
-      toast.success(`Role "${role.name}" deleted.`);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to delete role.");
-    }
+  // Filtered rows
+  const filteredStaff = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return staffList.filter((s) => {
+      // Search matches
+      const matchesSearch =
+        !q ||
+        s.name.toLowerCase().includes(q) ||
+        (s.email && s.email.toLowerCase().includes(q)) ||
+        (s.phone && s.phone.toLowerCase().includes(q));
+
+      // Role filter
+      let matchesRole = true;
+      if (roleFilter !== "all") {
+        if (roleFilter.startsWith("custom:")) {
+          const cName = roleFilter.replace("custom:", "");
+          matchesRole = s.customRoleName === cName;
+        } else {
+          matchesRole = !s.customRoleName && s.role === roleFilter;
+        }
+      }
+
+      // Branch filter
+      let matchesBranch = true;
+      if (branchFilter !== "all") {
+        matchesBranch = s.branchIds === "all" || (Array.isArray(s.branchIds) && s.branchIds.includes(branchFilter));
+      }
+
+      // Status filter
+      let matchesStatus = true;
+      if (statusFilter !== "all") {
+        if (statusFilter === "active") {
+          matchesStatus = s.active && s.status !== "invited" && s.status !== "draft";
+        } else if (statusFilter === "invited") {
+          matchesStatus = s.status === "invited";
+        } else if (statusFilter === "draft") {
+          matchesStatus = s.status === "draft";
+        } else if (statusFilter === "inactive") {
+          matchesStatus = !s.active;
+        }
+      }
+
+      return matchesSearch && matchesRole && matchesBranch && matchesStatus;
+    });
+  }, [staffList, search, roleFilter, branchFilter, statusFilter]);
+
+  const hasActiveFilters = search || roleFilter !== "all" || branchFilter !== "all" || statusFilter !== "all";
+
+  const resetFilters = () => {
+    setSearch("");
+    setRoleFilter("all");
+    setBranchFilter("all");
+    setStatusFilter("all");
   };
 
   return (
     <div className="space-y-6">
-      {/* Tab bar header */}
-      <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "roles" | "staff")}>
-        <div className="flex items-center justify-between border-b pb-3">
-          <TabsList className="h-10 p-1 bg-muted/60">
-            <TabsTrigger
-              value="roles"
-              className="gap-2 px-4 py-1.5 font-medium text-sm data-[state=active]:shadow-xs"
-            >
-              <Shield className="size-4 text-primary" />
-              Roles
-              <Badge variant="secondary" className="ml-1 text-[11px] h-5 px-1.5 font-normal">
-                {totalRoles}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger
-              value="staff"
-              className="gap-2 px-4 py-1.5 font-medium text-sm data-[state=active]:shadow-xs"
-            >
-              <Users className="size-4 text-primary" />
-              Staff
-              {list.data && (
-                <Badge variant="secondary" className="ml-1 text-[11px] h-5 px-1.5 font-normal">
-                  {totalStaff}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+      {/* 4 Overview Stat Cards */}
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+        <div className="rounded-xl border bg-card p-4 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Total Staff</span>
+            <Users className="size-4 text-muted-foreground" />
+          </div>
+          <div className="mt-2 text-2xl font-bold tracking-tight">{totalStaff}</div>
+          <p className="mt-1 text-[11px] text-muted-foreground">Registered team profiles</p>
         </div>
 
-        {/* ===================== TAB 1: ROLES ===================== */}
-        <TabsContent value="roles" className="mt-4 space-y-5">
-          <PageHeader
-            title="Roles"
-            description="Manage restaurant staff roles. Assign these roles to staff members in your team."
-            actions={
-              canEdit && (
-                <Button
-                  onClick={() => setEditingRole("new")}
-                  className="gap-1.5 font-medium shadow-xs"
-                >
-                  <Plus className="size-4" /> Create role
-                </Button>
-              )
-            }
-          />
+        <div className="rounded-xl border bg-card p-4 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Active Staff</span>
+            <UserCheck className="size-4 text-emerald-600" />
+          </div>
+          <div className="mt-2 text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+            {activeStaffCount}
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">Currently on-duty / working</p>
+        </div>
 
-          <DataTable head={["Role", "Description", "Assigned Staff", ""]}>
-            {/* Standard Roles */}
-            {STANDARD_ROLE_INFO.map((r) => {
-              const staffCount = (list.data || []).filter(
-                (s) => !s.customRoleName && s.role === r.id
-              ).length;
-              return (
-                <tr key={r.id}>
-                  <td className={`${td} font-medium`}>
-                    <div className="flex items-center gap-2">
-                      <Shield className="size-4 text-primary shrink-0" />
-                      <span className="font-semibold">{r.name}</span>
-                    </div>
-                  </td>
-                  <td className={`${td} text-xs text-muted-foreground max-w-md leading-relaxed`}>
-                    {r.description}
-                  </td>
-                  <td className={td}>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("staff")}
-                      className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-                      title="View assigned staff members"
-                    >
-                      <Users className="size-3.5" />
-                      {staffCount} {staffCount === 1 ? "member" : "members"}
-                    </button>
-                  </td>
-                  <td className={`${td} text-right text-xs text-muted-foreground whitespace-nowrap`}>
-                    <Badge variant="secondary" className="text-[11px] font-normal">
-                      Standard
-                    </Badge>
-                  </td>
-                </tr>
-              );
-            })}
+        <div className="rounded-xl border bg-card p-4 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Pending Invites</span>
+            <Mail className="size-4 text-amber-500" />
+          </div>
+          <div className="mt-2 text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400">
+            {pendingInvitesCount}
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">Awaiting password setup</p>
+        </div>
 
-            {/* Custom Roles */}
-            {customRoles.map((cr) => {
-              const staffCount = (list.data || []).filter((s) => s.customRoleName === cr.name).length;
+        <div className="rounded-xl border bg-card p-4 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Drafts</span>
+            <UserPlus className="size-4 text-blue-500" />
+          </div>
+          <div className="mt-2 text-2xl font-bold tracking-tight text-blue-600 dark:text-blue-400">
+            {draftCount}
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">Unfinished onboardings</p>
+        </div>
+      </div>
 
-              return (
-                <tr key={cr.id} className="bg-purple-500/[0.02]">
-                  <td className={`${td} font-medium`}>
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="size-4 text-purple-600 dark:text-purple-400 shrink-0" />
-                      <span className="font-semibold text-purple-950 dark:text-purple-200">{cr.name}</span>
-                    </div>
-                  </td>
-                  <td className={`${td} text-xs text-muted-foreground max-w-md leading-relaxed`}>
-                    {cr.description || "—"}
-                  </td>
-                  <td className={td}>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("staff")}
-                      className="flex items-center gap-1.5 text-xs font-medium text-purple-700 dark:text-purple-300 hover:underline"
-                      title="View assigned staff members"
-                    >
-                      <Users className="size-3.5" />
-                      {staffCount} {staffCount === 1 ? "member" : "members"}
-                    </button>
-                  </td>
-                  <td className={`${td} text-right space-x-1 whitespace-nowrap`}>
-                    {canEdit && (
-                      <>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          title={`Edit ${cr.name}`}
-                          onClick={() => setEditingRole(cr)}
-                        >
-                          <Pencil className="size-4 text-muted-foreground hover:text-foreground" />
-                        </Button>
-                        <Confirm
-                          title={`Delete "${cr.name}" role?`}
-                          body={`Are you sure you want to delete the custom role "${cr.name}"?`}
-                          confirmLabel="Delete role"
-                          onConfirm={() => handleDeleteRole(cr)}
-                        >
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            title={`Delete ${cr.name}`}
-                            className="text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </Confirm>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </DataTable>
-        </TabsContent>
+      {/* Toolbar & Filter Bar */}
+      <div className="flex flex-col gap-3 rounded-xl border bg-card p-3.5 shadow-2xs">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* Search */}
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search staff by name, email, phone..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
 
-        {/* ===================== TAB 2: STAFF ===================== */}
-        <TabsContent value="staff" className="mt-4 space-y-4">
-          <PageHeader
-            title="Staff"
-            description={
-              canEdit
-                ? "Add staff as drafts or send email invitations. Staff receive a link to set their own password."
-                : "Only the owner can change staff and roles."
-            }
-            actions={
-              canEdit && (
-                <Button onClick={() => setEditingStaff("new")} className="gap-1.5 shadow-xs">
-                  <Plus className="size-4" /> Add staff
-                </Button>
-              )
-            }
-          />
-
-          {list.isLoading && <Skeleton className="h-48" />}
-          {list.isError && <ErrorState message="Couldn't load staff." onRetry={list.refetch} />}
-          {list.data && list.data.length === 0 && <EmptyState title="No staff yet" />}
-          {list.data && list.data.length > 0 && (
-            <DataTable head={["Name", "Role", "Branches", "Hourly rate", "Status", ""]}>
-              {list.data.map((s) => (
-                <tr key={s.id}>
-                  <td className={`${td} font-medium`}>
-                    {s.name}
-                    {s.userId && <Badge variant="info" className="ml-2">Sign-in</Badge>}
-                    <p className="text-xs text-muted-foreground">{s.email || s.phone || "—"}</p>
-                  </td>
-                  <td className={td}>
-                    {s.customRoleName ? (
-                      <Badge variant="outline" className="text-xs font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30">
-                        {s.customRoleName}
-                      </Badge>
-                    ) : (
-                      <span>{ROLE_LABELS[s.role] || s.role}</span>
-                    )}
-                  </td>
-                  <td className={td}>{s.branchIds === "all" ? "All branches" : s.branchIds.map(bName).join(", ")}</td>
-                  <td className={td}>{s.hourlyRate ? money(s.hourlyRate) : "—"}</td>
-                  <td className={td}>
-                    {s.status === "invited" ? (
-                      <Badge variant="warning">Invited</Badge>
-                    ) : s.status === "draft" ? (
-                      <Badge variant="muted">Draft</Badge>
-                    ) : s.active ? (
-                      <Badge variant="success">Active</Badge>
-                    ) : (
-                      <Badge variant="muted">Inactive</Badge>
-                    )}
-                  </td>
-                  <td className={`${td} text-right space-x-1 whitespace-nowrap`}>
-                    {canEdit && (
-                      <>
-                        <Button size="icon" variant="ghost" aria-label={`Edit ${s.name}`} onClick={() => setEditingStaff(s)}>
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Confirm
-                          title={`Remove ${s.name}?`}
-                          body="This will soft delete the staff member from the active directory."
-                          onConfirm={() => withToast(deleteStaff({ tenantId: tenant.id, id: s.id }), "Staff member removed")}
-                        >
-                          <Button size="icon" variant="ghost" aria-label={`Delete ${s.name}`} className="text-destructive hover:bg-destructive/10">
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </Confirm>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </DataTable>
+          {/* Action Button */}
+          {canEdit && (
+            <Button
+              onClick={() => setEditingStaff("new")}
+              size="sm"
+              className="gap-1.5 font-medium shadow-xs shrink-0"
+            >
+              <Plus className="size-4" /> Add staff member
+            </Button>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
 
-      {/* Staff Dialog */}
+        {/* Multi-Filters Row */}
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t text-xs">
+          <div className="flex items-center gap-1.5 text-muted-foreground mr-1">
+            <Filter className="size-3.5" />
+            <span>Filters:</span>
+          </div>
+
+          {/* Role Filter */}
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="h-8 text-xs w-[140px]">
+              <SelectValue placeholder="All roles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All roles</SelectItem>
+              <SelectGroup>
+                <SelectLabel className="text-[10px] uppercase font-semibold text-muted-foreground">Standard</SelectLabel>
+                {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+              {customRoles.length > 0 && (
+                <SelectGroup>
+                  <SelectSeparator />
+                  <SelectLabel className="text-[10px] uppercase font-semibold text-purple-600 dark:text-purple-400">Custom Roles</SelectLabel>
+                  {customRoles.map((cr) => (
+                    <SelectItem key={cr.id} value={`custom:${cr.name}`}>
+                      {cr.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+            </SelectContent>
+          </Select>
+
+          {/* Branch Filter */}
+          <Select value={branchFilter} onValueChange={setBranchFilter}>
+            <SelectTrigger className="h-8 text-xs w-[140px]">
+              <SelectValue placeholder="All branches" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All branches</SelectItem>
+              {branches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-8 text-xs w-[120px]">
+              <SelectValue placeholder="All status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="invited">Invited</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Clear Filters */}
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetFilters}
+              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+            >
+              <X className="size-3" /> Reset
+            </Button>
+          )}
+
+          <div className="ml-auto text-xs text-muted-foreground">
+            Showing <strong className="text-foreground">{filteredStaff.length}</strong> of {totalStaff} members
+          </div>
+        </div>
+      </div>
+
+      {/* Staff Table */}
+      {list.isLoading && (
+        <div className="space-y-3">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-xl" />
+          ))}
+        </div>
+      )}
+
+      {list.isError && (
+        <ErrorState
+          title="Couldn't load staff members"
+          message="There was an issue connecting to the staff directory."
+          onRetry={() => list.refetch()}
+        />
+      )}
+
+      {list.data && filteredStaff.length === 0 && (
+        <EmptyState
+          title={hasActiveFilters ? "No matching staff members" : "No staff members yet"}
+          description={
+            hasActiveFilters
+              ? "Try resetting your search query or filter selection."
+              : "Invite your restaurant team members, assign their branch duties, and configure roles."
+          }
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={resetFilters}>
+                Clear filters
+              </Button>
+            ) : canEdit ? (
+              <Button size="sm" onClick={() => setEditingStaff("new")}>
+                <Plus className="size-4 mr-1.5" /> Add staff member
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
+
+      {list.data && filteredStaff.length > 0 && (
+        <div className="overflow-hidden rounded-xl border bg-card shadow-2xs">
+          <DataTable
+            headers={[
+              "Staff member",
+              "Role & Permissions",
+              "Branch access",
+              "Hourly rate",
+              "Status",
+              canEdit ? "Actions" : "",
+            ].filter(Boolean)}
+            rows={filteredStaff.map((s) => {
+              const customMatch = s.customRoleName
+                ? customRoles.find((cr) => cr.name.toLowerCase() === s.customRoleName?.toLowerCase())
+                : null;
+
+              return [
+                // Staff member info with avatar initials
+                <div key="member" className="flex items-center gap-3 py-1">
+                  <div className="size-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-xs border border-primary/20 shrink-0">
+                    {s.initials || s.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-medium text-foreground">{s.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {s.email || (s.phone ? s.phone : "No email")}
+                    </div>
+                  </div>
+                </div>,
+
+                // Role badge & custom role indicator
+                <div key="role" className="py-1">
+                  {s.customRoleName ? (
+                    <Badge
+                      variant="outline"
+                      className="gap-1 bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 font-medium"
+                      title={`Custom Role based on ${ROLE_LABELS[s.role] || s.role}`}
+                    >
+                      <Sparkles className="size-3 text-purple-500" />
+                      {s.customRoleName}
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className={cn("font-medium", ROLE_BADGE_COLORS[s.role] || ROLE_BADGE_COLORS.waiter)}
+                    >
+                      {ROLE_LABELS[s.role] || s.role}
+                    </Badge>
+                  )}
+                </div>,
+
+                // Branch access
+                <div key="branches" className="py-1 text-xs">
+                  {s.branchIds === "all" ? (
+                    <Badge variant="secondary" className="font-normal text-[11px]">
+                      All branches ({branches.length})
+                    </Badge>
+                  ) : Array.isArray(s.branchIds) && s.branchIds.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {s.branchIds.slice(0, 2).map((bid) => (
+                        <Badge key={bid} variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-normal">
+                          {bName(bid)}
+                        </Badge>
+                      ))}
+                      {s.branchIds.length > 2 && (
+                        <span className="text-[10px] text-muted-foreground self-center">
+                          +{s.branchIds.length - 2} more
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </div>,
+
+                // Hourly rate
+                <div key="rate" className="py-1 text-xs tabular font-medium">
+                  {s.hourlyRate && s.hourlyRate > 0 ? (
+                    `${money(s.hourlyRate)}/hr`
+                  ) : (
+                    <span className="text-muted-foreground font-normal">—</span>
+                  )}
+                </div>,
+
+                // Status
+                <div key="status" className="py-1">
+                  {s.status === "invited" ? (
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[11px]">
+                      Invited
+                    </Badge>
+                  ) : s.status === "draft" ? (
+                    <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-[11px]">
+                      Draft
+                    </Badge>
+                  ) : s.active ? (
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px]">
+                      Active
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground text-[11px]">
+                      Inactive
+                    </Badge>
+                  )}
+                </div>,
+
+                // Actions
+                canEdit && (
+                  <div key="actions" className="flex items-center justify-end gap-1.5 py-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => setEditingStaff(s)}
+                      title={`Edit ${s.name}`}
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Confirm
+                      title={`Remove ${s.name}?`}
+                      body="This staff member will lose access to all restaurant branches and terminals. This action cannot be undone."
+                      confirmLabel="Remove staff"
+                      onConfirm={async () => {
+                        await withToast(deleteStaff({ tenantId: tenant.id, id: s.id }), "Staff member removed");
+                      }}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground hover:text-destructive"
+                        title={`Remove ${s.name}`}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </Confirm>
+                  </div>
+                ),
+              ].filter(Boolean) as React.ReactNode[];
+            })}
+          />
+        </div>
+      )}
+
+      {/* Staff Creation & Edit Dialog */}
       {editingStaff && (
         <StaffDialog
           s={editingStaff === "new" ? null : editingStaff}
           onClose={() => setEditingStaff(null)}
-          onOpenRolesTab={() => {
-            setEditingStaff(null);
-            setActiveTab("roles");
-          }}
-        />
-      )}
-
-      {/* Role Dialog (Create & Update) */}
-      {editingRole && (
-        <RoleDialog
-          role={editingRole}
-          onClose={() => setEditingRole(null)}
-          onSaved={(savedRole) => {
-            setCustomRoles((prev) => {
-              const idx = prev.findIndex((r) => r.id === savedRole.id);
-              if (idx >= 0) {
-                const next = [...prev];
-                next[idx] = savedRole;
-                return next;
-              }
-              return [...prev, savedRole];
-            });
-            list.refetch();
-          }}
+          customRoles={customRoles}
+          onCustomRoleCreated={(newRole) => setCustomRoles((prev) => [...prev, newRole])}
         />
       )}
     </div>
   );
 }
 
-// ---------- Role Dialog (Create & Edit) ----------
-function RoleDialog({
-  role,
-  onClose,
-  onSaved,
-}: {
-  role: CustomRole | "new";
-  onClose: () => void;
-  onSaved: (role: CustomRole) => void;
-}) {
-  const { tenant } = useTenant();
-  const isNew = role === "new";
-
-  const [name, setName] = useState(isNew ? "" : role.name);
-  const [description, setDescription] = useState(isNew ? "" : (role.description || ""));
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) {
-      toast.error("Please enter a role name.");
-      return;
-    }
-
-    try {
-      const saved = await saveCustomRole(tenant.slug, {
-        ...(isNew ? {} : { id: role.id }),
-        name: trimmed,
-        description: description.trim(),
-        baseRole: isNew ? "waiter" : role.baseRole,
-        color: "purple",
-        permissions: isNew ? [] : role.permissions,
-      });
-
-      toast.success(isNew ? `Role "${saved.name}" created!` : `Role "${saved.name}" updated!`);
-      onSaved(saved);
-      onClose();
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to save role.");
-    }
-  };
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[440px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Shield className="size-5 text-primary" />
-            {isNew ? "Create role" : `Edit "${role.name}" role`}
-          </DialogTitle>
-          <DialogDescription>
-            {isNew
-              ? "Add a new staff role (e.g. Bartender, Shift Supervisor, Head Chef, Hostess)."
-              : "Update this role's name or description."}
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSave} className="space-y-4 pt-2">
-          {/* Role Name */}
-          <div className="space-y-1.5">
-            <Label htmlFor="custom-role-name">
-              Role Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="custom-role-name"
-              placeholder="e.g. Bartender, Shift Supervisor, Hostess"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={40}
-              required
-              autoFocus
-            />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-1.5">
-            <Label htmlFor="custom-role-desc">Description (optional)</Label>
-            <Textarea
-              id="custom-role-desc"
-              placeholder="Briefly describe the responsibilities of this role..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              maxLength={200}
-            />
-          </div>
-
-          <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit">
-              {isNew ? "Create role" : "Save changes"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ---------- Staff Dialog ----------
+// ---------- Staff Dialog with Inline Role Creator & Permissions Preview ----------
 function StaffDialog({
   s,
   onClose,
-  onOpenRolesTab,
+  customRoles,
+  onCustomRoleCreated,
 }: {
   s: StaffMember | null;
   onClose: () => void;
-  onOpenRolesTab: () => void;
+  customRoles: CustomRole[];
+  onCustomRoleCreated?: (role: CustomRole) => void;
 }) {
   const { tenant, branches: contextBranches } = useTenant();
   const branchesQuery = useAllBranchesQuery(tenant.id);
   const [save, { isLoading }] = useSaveStaffMutation();
-  const [customRoles, setCustomRoles] = useState<CustomRole[]>(() => getCustomRolesSync(tenant.slug));
+  const [localCustomRoles, setLocalCustomRoles] = useState<CustomRole[]>(customRoles);
+
+  // Inline role creator state
+  const [isCreatingRoleInline, setIsCreatingRoleInline] = useState(false);
+  const [inlineRoleForm, setInlineRoleForm] = useState<{
+    name: string;
+    description: string;
+    baseRole: RoleId | "empty";
+    color: string;
+  }>({
+    name: "",
+    description: "",
+    baseRole: "cashier",
+    color: "purple",
+  });
+  const [isSavingInlineRole, setIsSavingInlineRole] = useState(false);
+
   useEffect(() => {
-    getCustomRoles(tenant.slug).then(setCustomRoles).catch(console.error);
-  }, [tenant.slug]);
+    setLocalCustomRoles(customRoles);
+  }, [customRoles]);
 
   const availableBranches =
     branchesQuery.data && branchesQuery.data.length > 0
@@ -597,6 +624,48 @@ function StaffDialog({
       if (picked.length === 0 && availableBranches[0]?.id) {
         setPicked([availableBranches[0].id]);
       }
+    }
+  };
+
+  // Handle inline custom role creation without leaving the dialog
+  const handleCreateInlineRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = inlineRoleForm.name.trim();
+    if (!name) {
+      toast.error("Please enter a role name.");
+      return;
+    }
+    const exists = localCustomRoles.some((r) => r.name.toLowerCase() === name.toLowerCase());
+    if (exists || Object.values(ROLE_LABELS).some((lbl) => lbl.toLowerCase() === name.toLowerCase())) {
+      toast.error(`A role named "${name}" already exists.`);
+      return;
+    }
+
+    const templateBase: RoleId = inlineRoleForm.baseRole === "empty" ? "waiter" : inlineRoleForm.baseRole;
+    setIsSavingInlineRole(true);
+    try {
+      const created = await saveCustomRole(tenant.slug, {
+        name,
+        description: inlineRoleForm.description.trim(),
+        color: inlineRoleForm.color,
+        baseRole: templateBase,
+        permissions: [...(ROLE_PERMISSIONS[templateBase] || [])],
+      });
+      setLocalCustomRoles((prev) => [...prev, created]);
+      if (onCustomRoleCreated) onCustomRoleCreated(created);
+
+      setV((prev) => ({
+        ...prev,
+        customRoleName: created.name,
+        role: created.baseRole,
+      }));
+      setIsCreatingRoleInline(false);
+      setInlineRoleForm({ name: "", description: "", baseRole: "cashier", color: "purple" });
+      toast.success(`Role "${created.name}" created and assigned to this staff member!`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create custom role.");
+    } finally {
+      setIsSavingInlineRole(false);
     }
   };
 
@@ -719,66 +788,206 @@ function StaffDialog({
             </div>
           </div>
 
-          {/* Role selector */}
-          <div className="space-y-1.5">
+          {/* Role selector with Inline Creation & Capabilities Preview */}
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="staff-role" className="text-sm font-medium">
                 Staff Role <span className="text-destructive">*</span>
               </Label>
-              <button
-                type="button"
-                onClick={onOpenRolesTab}
-                className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium"
-              >
-                <Plus className="size-3" /> Manage / Create roles
-              </button>
-            </div>
-            <Select
-              value={v.customRoleName ? `custom:${v.customRoleName}` : `standard:${v.role}`}
-              onValueChange={(val) => {
-                if (val.startsWith("custom:")) {
-                  const cName = val.replace("custom:", "");
-                  const found = customRoles.find((cr) => cr.name === cName);
-                  setV({
-                    ...v,
-                    customRoleName: cName,
-                    role: found ? found.baseRole : "waiter",
-                  });
-                } else {
-                  const stdRole = val.replace("standard:", "") as RoleId;
-                  setV({
-                    ...v,
-                    customRoleName: "",
-                    role: stdRole,
-                  });
-                }
-              }}
-            >
-              <SelectTrigger id="staff-role" className="h-10 w-full">
-                <SelectValue placeholder="Select staff role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel className="text-xs uppercase font-semibold text-muted-foreground">Standard Roles</SelectLabel>
-                  {Object.entries(ROLE_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={`standard:${key}`}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-                {customRoles.length > 0 && (
-                  <SelectGroup>
-                    <SelectSeparator />
-                    <SelectLabel className="text-xs uppercase font-semibold text-purple-600 dark:text-purple-400">Custom Roles</SelectLabel>
-                    {customRoles.map((cr) => (
-                      <SelectItem key={cr.id} value={`custom:${cr.name}`}>
-                        {cr.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
+              <div className="flex items-center gap-2">
+                {!isCreatingRoleInline && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingRoleInline(true)}
+                    className="text-xs text-primary hover:underline flex items-center gap-1 font-medium"
+                  >
+                    <Plus className="size-3" /> Create new role
+                  </button>
                 )}
-              </SelectContent>
-            </Select>
+                <span className="text-muted-foreground/30">·</span>
+                <Link
+                  to="/app/$tenantSlug/team/roles"
+                  params={{ tenantSlug: tenant.slug }}
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                >
+                  <Shield className="size-3" /> View matrix
+                </Link>
+              </div>
+            </div>
+
+            {/* Inline Quick Role Creator */}
+            {isCreatingRoleInline ? (
+              <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-3.5 space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold text-xs text-purple-700 dark:text-purple-300">
+                    <Sparkles className="size-3.5 text-purple-500" />
+                    Create & Assign New Custom Role
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingRoleInline(false)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    ✕ Cancel
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="inline-role-name" className="text-xs font-medium">
+                    Role Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="inline-role-name"
+                    placeholder="e.g. Senior Barista, Floor Captain, Head Chef"
+                    value={inlineRoleForm.name}
+                    onChange={(e) => setInlineRoleForm({ ...inlineRoleForm, name: e.target.value })}
+                    className="h-8 text-xs bg-background"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">Base Template</Label>
+                    <Select
+                      value={inlineRoleForm.baseRole}
+                      onValueChange={(val) => setInlineRoleForm({ ...inlineRoleForm, baseRole: val as RoleId })}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cashier">Cashier (checkout & cash)</SelectItem>
+                        <SelectItem value="waiter">Waiter (tables & orders)</SelectItem>
+                        <SelectItem value="kitchen">Kitchen (kitchen display)</SelectItem>
+                        <SelectItem value="manager">Manager (full operations)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">Color Badge</Label>
+                    <Select
+                      value={inlineRoleForm.color}
+                      onValueChange={(val) => setInlineRoleForm({ ...inlineRoleForm, color: val })}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="purple">Purple</SelectItem>
+                        <SelectItem value="indigo">Indigo</SelectItem>
+                        <SelectItem value="sky">Sky Blue</SelectItem>
+                        <SelectItem value="teal">Teal</SelectItem>
+                        <SelectItem value="amber">Amber</SelectItem>
+                        <SelectItem value="rose">Rose</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-purple-500/20">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setIsCreatingRoleInline(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 text-xs gap-1 bg-purple-600 hover:bg-purple-700 text-white font-medium"
+                    disabled={isSavingInlineRole || !inlineRoleForm.name.trim()}
+                    onClick={handleCreateInlineRole}
+                  >
+                    {isSavingInlineRole && <Loader2 className="size-3 animate-spin mr-1" />}
+                    Create & Assign Role
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <Select
+                  value={v.customRoleName ? `custom:${v.customRoleName}` : `standard:${v.role}`}
+                  onValueChange={(val) => {
+                    if (val === "action:create_new_role") {
+                      setIsCreatingRoleInline(true);
+                      return;
+                    }
+                    if (val.startsWith("custom:")) {
+                      const cName = val.replace("custom:", "");
+                      const found = localCustomRoles.find((cr) => cr.name === cName);
+                      setV({
+                        ...v,
+                        customRoleName: cName,
+                        role: found ? found.baseRole : "waiter",
+                      });
+                    } else {
+                      const stdRole = val.replace("standard:", "") as RoleId;
+                      setV({
+                        ...v,
+                        customRoleName: "",
+                        role: stdRole,
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger id="staff-role" className="h-10 w-full">
+                    <SelectValue placeholder="Select staff role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel className="text-xs uppercase font-semibold text-muted-foreground">Standard Roles</SelectLabel>
+                      {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                        <SelectItem key={key} value={`standard:${key}`}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    {localCustomRoles.length > 0 && (
+                      <SelectGroup>
+                        <SelectSeparator />
+                        <SelectLabel className="text-xs uppercase font-semibold text-purple-600 dark:text-purple-400">Custom Roles</SelectLabel>
+                        {localCustomRoles.map((cr) => (
+                          <SelectItem key={cr.id} value={`custom:${cr.name}`}>
+                            {cr.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
+                    <SelectSeparator />
+                    <SelectItem value="action:create_new_role" className="text-purple-600 dark:text-purple-400 font-medium">
+                      + Create new custom role...
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Role Capabilities Scope Preview Pill */}
+                <div className="rounded-lg border bg-muted/30 p-2.5 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground flex items-center gap-1.5">
+                      <Shield className="size-3.5 text-primary" />
+                      Scope: {v.customRoleName || ROLE_LABELS[v.role]}
+                    </span>
+                    <Link
+                      to="/app/$tenantSlug/team/roles"
+                      params={{ tenantSlug: tenant.slug }}
+                      className="text-[11px] text-primary hover:underline"
+                    >
+                      Configure matrix ↗
+                    </Link>
+                  </div>
+                  <p className="text-muted-foreground text-[11px] leading-relaxed">
+                    {v.customRoleName
+                      ? `Custom role based on ${ROLE_LABELS[v.role]}. Specific terminal permissions can be adjusted in the Roles & Permissions matrix.`
+                      : ROLE_SUMMARY_DESCRIPTIONS[v.role] || "Standard operational permissions."}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Branch Access Section */}
